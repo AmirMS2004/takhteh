@@ -1,0 +1,55 @@
+{
+  "database": "SQLite",
+  "file": "data/app.db",
+  "pragmas": ["foreign_keys = ON"],
+  "tables": {
+    "users": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "username": "TEXT NOT NULL UNIQUE",
+        "password_hash": "TEXT NOT NULL"
+      }
+    },
+    "boards": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "user_id": "INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE",
+        "title": "TEXT NOT NULL"
+      },
+      "notes": "UNIQUE on user_id enforces one board per user in the MVP; drop it to allow several."
+    },
+    "columns": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "board_id": "INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE",
+        "title": "TEXT NOT NULL",
+        "position": "INTEGER NOT NULL"
+      },
+      "notes": "Five rows per board, created with the board. Only title changes."
+    },
+    "cards": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "column_id": "INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE",
+        "title": "TEXT NOT NULL",
+        "details": "TEXT NOT NULL DEFAULT ''",
+        "position": "INTEGER NOT NULL"
+      },
+      "indexes": ["CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"],
+      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete."
+    }
+  },
+  "api_board_shape": {
+    "description": "GET /api/board and the AI prompt use the frontend BoardState shape. Database ids are exposed as prefixed strings so column and card ids never collide.",
+    "example": {
+      "columns": [
+        { "id": "col-1", "title": "ایده‌ها", "cardIds": ["card-1", "card-2"] },
+        { "id": "col-2", "title": "برای انجام", "cardIds": [] }
+      ],
+      "cards": {
+        "card-1": { "id": "card-1", "title": "پژوهش رقبا", "details": "..." },
+        "card-2": { "id": "card-2", "title": "حالت تاریک", "details": "..." }
+      }
+    }
+  }
+}

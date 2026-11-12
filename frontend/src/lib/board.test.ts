@@ -1,151 +1,111 @@
 import { describe, expect, it } from "vitest";
 import {
-  addColumn,
   addCard,
-  countCards,
   deleteCard,
+  findColumn,
   initialBoard,
   moveCard,
   renameColumn,
-  type Board,
-  type Card,
+  updateCard,
+  type BoardState,
 } from "./board";
 
-const card: Card = {
-  id: "new-card",
-  title: "عنوان تازه",
-  details: "جزئیات تازه",
+const board: BoardState = {
+  columns: [
+    { id: "a", title: "A", cardIds: ["1", "2", "3"] },
+    { id: "b", title: "B", cardIds: ["4"] },
+    { id: "c", title: "C", cardIds: [] },
+  ],
+  cards: {
+    "1": { id: "1", title: "one", details: "" },
+    "2": { id: "2", title: "two", details: "" },
+    "3": { id: "3", title: "three", details: "" },
+    "4": { id: "4", title: "four", details: "" },
+  },
 };
 
-function createBoard(): Board {
-  return [
-    { id: "first", name: "اول", cards: [{ id: "a", title: "الف", details: "" }] },
-    {
-      id: "second",
-      name: "دوم",
-      cards: [{ id: "b", title: "ب", details: "" }],
-    },
-    { id: "third", name: "سوم", cards: [] },
-    { id: "fourth", name: "چهارم", cards: [] },
-    { id: "fifth", name: "پنجم", cards: [] },
-  ];
-}
+const ids = (b: BoardState) => b.columns.map((c) => c.cardIds);
 
-describe("initial board", () => {
-  it("starts with exactly five named columns and sample cards", () => {
-    expect(initialBoard).toHaveLength(5);
-    expect(initialBoard.every((column) => column.cards.length > 0)).toBe(true);
-    expect(countCards(initialBoard)).toBe(9);
+describe("initialBoard", () => {
+  it("has exactly five columns and every card id resolves to a card", () => {
+    expect(initialBoard.columns).toHaveLength(5);
+    for (const col of initialBoard.columns) {
+      expect(col.cardIds.length).toBeGreaterThan(0);
+      for (const id of col.cardIds) expect(initialBoard.cards[id]).toBeDefined();
+    }
   });
 });
 
-describe("column updates", () => {
-  it("adds a named column without changing existing columns", () => {
-    const board = createBoard();
-    const updated = addColumn(board, {
-      id: "sixth",
-      name: "  انتشار  ",
-      cards: [],
-    });
-
-    expect(updated).toHaveLength(6);
-    expect(updated[5]).toEqual({
-      id: "sixth",
-      name: "انتشار",
-      cards: [],
-    });
-    expect(board).toHaveLength(5);
-  });
-
-  it("does not add a column with a blank name", () => {
-    const board = createBoard();
-
-    expect(addColumn(board, { id: "sixth", name: " ", cards: [] })).toBe(board);
-  });
-
-  it("renames a column without changing the others", () => {
-    const board = createBoard();
-    const renamed = renameColumn(board, "second", "  در حال انجام  ");
-
-    expect(renamed[1].name).toBe("در حال انجام");
-    expect(renamed.map((column) => column.name)).toEqual([
-      "اول",
-      "در حال انجام",
-      "سوم",
-      "چهارم",
-      "پنجم",
-    ]);
-  });
-
-  it("ignores a blank name or an unknown column", () => {
-    const board = createBoard();
-
-    expect(renameColumn(board, "first", "  ")).toBe(board);
-    expect(renameColumn(board, "missing", "نام تازه")).toEqual(board);
+describe("renameColumn", () => {
+  it("renames only the target column without mutating input", () => {
+    const next = renameColumn(board, "b", "New");
+    expect(next.columns.map((c) => c.title)).toEqual(["A", "New", "C"]);
+    expect(board.columns[1].title).toBe("B");
   });
 });
 
-describe("card updates", () => {
-  it("adds a card to the requested column", () => {
-    const board = createBoard();
-    const updated = addCard(board, "third", card);
+describe("addCard", () => {
+  it("appends the card to the target column", () => {
+    const next = addCard(board, "c", { id: "5", title: "five", details: "d" });
+    expect(next.columns[2].cardIds).toEqual(["5"]);
+    expect(next.cards["5"]).toEqual({ id: "5", title: "five", details: "d" });
+    expect(board.cards["5"]).toBeUndefined();
+  });
+});
 
-    expect(updated[2].cards).toEqual([card]);
-    expect(updated[0].cards).toHaveLength(1);
-    expect(countCards(updated)).toBe(3);
+describe("updateCard", () => {
+  it("changes only the given fields without mutating input", () => {
+    const next = updateCard(board, "2", { title: "TWO" });
+    expect(next.cards["2"]).toEqual({ id: "2", title: "TWO", details: "" });
+    expect(next.columns).toBe(board.columns);
+    expect(board.cards["2"].title).toBe("two");
   });
 
-  it("does not add a card to an unknown column", () => {
-    const board = createBoard();
+  it("returns the same board for an unknown card", () => {
+    expect(updateCard(board, "missing", { title: "x" })).toBe(board);
+  });
+});
 
-    expect(addCard(board, "missing", card)).toEqual(board);
+describe("deleteCard", () => {
+  it("removes the card from its column and the card map", () => {
+    const next = deleteCard(board, "2");
+    expect(ids(next)).toEqual([["1", "3"], ["4"], []]);
+    expect(next.cards["2"]).toBeUndefined();
+    expect(board.cards["2"]).toBeDefined();
+  });
+});
+
+describe("findColumn", () => {
+  it("finds by column id or by contained card id", () => {
+    expect(findColumn(board, "b")?.id).toBe("b");
+    expect(findColumn(board, "3")?.id).toBe("a");
+    expect(findColumn(board, "missing")).toBeUndefined();
+  });
+});
+
+describe("moveCard", () => {
+  it("reorders downward within a column", () => {
+    expect(ids(moveCard(board, "1", "a", 2))[0]).toEqual(["2", "3", "1"]);
   });
 
-  it("deletes a card and leaves other cards intact", () => {
-    const board = createBoard();
-    const updated = deleteCard(board, "a");
-
-    expect(updated[0].cards).toEqual([]);
-    expect(updated[1].cards).toEqual(board[1].cards);
-    expect(countCards(updated)).toBe(1);
+  it("reorders upward within a column", () => {
+    expect(ids(moveCard(board, "3", "a", 0))[0]).toEqual(["3", "1", "2"]);
   });
 
-  it("does not change the board for an unknown card", () => {
-    const board = createBoard();
-
-    expect(deleteCard(board, "missing")).toBe(board);
+  it("moves between columns at a given index", () => {
+    expect(ids(moveCard(board, "2", "b", 0))).toEqual([["1", "3"], ["2", "4"], []]);
   });
 
-  it("moves a card between columns and inserts it before the target card", () => {
-    const board = createBoard();
-    const updated = moveCard(board, "a", "second", "b");
-
-    expect(updated[0].cards).toEqual([]);
-    expect(updated[1].cards.map((item) => item.id)).toEqual(["a", "b"]);
-    expect(countCards(updated)).toBe(2);
+  it("moves into an empty column", () => {
+    expect(ids(moveCard(board, "4", "c", 0))).toEqual([["1", "2", "3"], [], ["4"]]);
   });
 
-  it("moves a card to an empty column", () => {
-    const updated = moveCard(createBoard(), "b", "third");
-
-    expect(updated[1].cards).toEqual([]);
-    expect(updated[2].cards.map((item) => item.id)).toEqual(["b"]);
+  it("returns the same board for an unknown column", () => {
+    expect(moveCard(board, "1", "zzz", 0)).toBe(board);
   });
 
-  it("reorders cards within their column", () => {
-    const board = createBoard();
-    board[0].cards.push({ id: "c", title: "ج", details: "" });
-
-    const updated = moveCard(board, "c", "first", "a");
-
-    expect(updated[0].cards.map((item) => item.id)).toEqual(["c", "a"]);
-    expect(board[0].cards.map((item) => item.id)).toEqual(["a", "c"]);
-  });
-
-  it("ignores unknown card or destination ids", () => {
-    const board = createBoard();
-
-    expect(moveCard(board, "missing", "second")).toBe(board);
-    expect(moveCard(board, "a", "missing")).toBe(board);
+  it("does not mutate the input", () => {
+    moveCard(board, "1", "b", 1);
+    expect(ids(board)).toEqual([["1", "2", "3"], ["4"], []]);
   });
 });

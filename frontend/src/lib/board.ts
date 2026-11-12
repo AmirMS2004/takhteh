@@ -1,172 +1,82 @@
-export interface Card {
-  id: string;
-  title: string;
-  details: string;
+export type Card = { id: string; title: string; details: string };
+export type Column = { id: string; title: string; cardIds: string[] };
+export type BoardState = { columns: Column[]; cards: Record<string, Card> };
+
+export function renameColumn(board: BoardState, columnId: string, title: string): BoardState {
+  return {
+    ...board,
+    columns: board.columns.map((c) => (c.id === columnId ? { ...c, title } : c)),
+  };
 }
 
-export interface Column {
-  id: string;
-  name: string;
-  cards: Card[];
+export function addCard(board: BoardState, columnId: string, card: Card): BoardState {
+  return {
+    cards: { ...board.cards, [card.id]: card },
+    columns: board.columns.map((c) =>
+      c.id === columnId ? { ...c, cardIds: [...c.cardIds, card.id] } : c,
+    ),
+  };
 }
 
-export type Board = Column[];
-
-export const initialBoard: Board = [
-  {
-    id: "ideas",
-    name: "ایده‌ها",
-    cards: [
-      {
-        id: "brand-story",
-        title: "روایت تازه برای برند",
-        details: "یک داستان کوتاه که دلیل شکل‌گیری محصول را روشن کند.",
-      },
-      {
-        id: "onboarding",
-        title: "ایده‌های ورود کاربران",
-        details: "تجربهٔ اولین برخورد را ساده‌تر و دلنشین‌تر کنیم.",
-      },
-    ],
-  },
-  {
-    id: "planned",
-    name: "برنامه‌ریزی",
-    cards: [
-      {
-        id: "mobile-research",
-        title: "بررسی تجربهٔ موبایل",
-        details: "بازخوردهای کاربران را در یک فهرست کوتاه جمع‌بندی کنیم.",
-      },
-      {
-        id: "design-system",
-        title: "مرتب‌سازی اجزای طراحی",
-        details: "رنگ‌ها و فاصله‌ها را برای نسخهٔ بعدی یکدست کنیم.",
-      },
-    ],
-  },
-  {
-    id: "in-progress",
-    name: "در حال انجام",
-    cards: [
-      {
-        id: "product-copy",
-        title: "بازنویسی متن صفحهٔ اصلی",
-        details: "متن معرفی را کوتاه‌تر و روشن‌تر بازنویسی کنیم.",
-      },
-      {
-        id: "prototype",
-        title: "ساخت نمونهٔ اولیه",
-        details: "مسیر اصلی کاربر را در یک نمونهٔ قابل کلیک نشان دهیم.",
-      },
-    ],
-  },
-  {
-    id: "review",
-    name: "بازبینی",
-    cards: [
-      {
-        id: "signup-flow",
-        title: "بازبینی مسیر ثبت‌نام",
-        details: "مراحل غیرضروری را پیدا و حذف کنیم.",
-      },
-    ],
-  },
-  {
-    id: "done",
-    name: "انجام‌شده",
-    cards: [
-      {
-        id: "visual-language",
-        title: "تعریف زبان بصری",
-        details: "رنگ‌ها و سبک کلی رابط کاربری مشخص شد.",
-      },
-      {
-        id: "team-workshop",
-        title: "جلسهٔ هم‌فکری تیم",
-        details: "نیازهای اصلی محصول را با هم مرور کردیم.",
-      },
-    ],
-  },
-];
-
-export function renameColumn(board: Board, columnId: string, name: string): Board {
-  const trimmedName = name.trim();
-  if (!trimmedName) return board;
-
-  return board.map((column) =>
-    column.id === columnId ? { ...column, name: trimmedName } : column,
-  );
-}
-
-export function addColumn(board: Board, column: Column): Board {
-  const name = column.name.trim();
-  if (!name) return board;
-
-  return [...board, { ...column, name }];
-}
-
-export function addCard(board: Board, columnId: string, card: Card): Board {
-  return board.map((column) =>
-    column.id === columnId
-      ? { ...column, cards: [...column.cards, card] }
-      : column,
-  );
-}
-
-export function deleteCard(board: Board, cardId: string): Board {
-  if (!board.some((column) => column.cards.some((card) => card.id === cardId))) {
-    return board;
-  }
-
-  return board.map((column) => ({
-    ...column,
-    cards: column.cards.filter((card) => card.id !== cardId),
-  }));
-}
-
-export function moveCard(
-  board: Board,
+export function updateCard(
+  board: BoardState,
   cardId: string,
-  destinationColumnId: string,
-  beforeCardId?: string,
-): Board {
-  const sourceColumn = board.find((column) =>
-    column.cards.some((card) => card.id === cardId),
-  );
-  const destinationColumn = board.find(
-    (column) => column.id === destinationColumnId,
-  );
+  changes: Partial<Omit<Card, "id">>,
+): BoardState {
+  const card = board.cards[cardId];
+  if (!card) return board;
+  return { ...board, cards: { ...board.cards, [cardId]: { ...card, ...changes } } };
+}
 
-  if (!sourceColumn || !destinationColumn) return board;
-  if (beforeCardId === cardId) return board;
+export function deleteCard(board: BoardState, cardId: string): BoardState {
+  const cards = { ...board.cards };
+  delete cards[cardId];
+  return {
+    cards,
+    columns: board.columns.map((c) => ({ ...c, cardIds: c.cardIds.filter((id) => id !== cardId) })),
+  };
+}
 
-  const movedCard = sourceColumn.cards.find((card) => card.id === cardId);
-  if (!movedCard) return board;
+/** Finds the column that has the given id or contains the card with the given id. */
+export function findColumn(board: BoardState, id: string): Column | undefined {
+  return board.columns.find((c) => c.id === id || c.cardIds.includes(id));
+}
 
-  const nextBoard = board.map((column) => ({
-    ...column,
-    cards: column.cards.filter((card) => card.id !== cardId),
+/** Removes the card from its column and inserts it into the target column at the given index. */
+export function moveCard(
+  board: BoardState,
+  cardId: string,
+  toColumnId: string,
+  toIndex: number,
+): BoardState {
+  const columns = board.columns.map((c) => ({
+    ...c,
+    cardIds: c.cardIds.filter((id) => id !== cardId),
   }));
-  const destination = nextBoard.find(
-    (column) => column.id === destinationColumnId,
-  );
-
-  if (!destination) return board;
-
-  const insertionIndex = beforeCardId
-    ? destination.cards.findIndex((card) => card.id === beforeCardId)
-    : destination.cards.length;
-
-  destination.cards.splice(
-    insertionIndex < 0 ? destination.cards.length : insertionIndex,
-    0,
-    movedCard,
-  );
-
-  return nextBoard;
+  const target = columns.find((c) => c.id === toColumnId);
+  if (!target) return board;
+  target.cardIds.splice(toIndex, 0, cardId);
+  return { ...board, columns };
 }
 
-export function countCards(board: Board): number {
-  return board.reduce((total, column) => total + column.cards.length, 0);
-}
+export const initialBoard: BoardState = {
+  columns: [
+    { id: "backlog", title: "ایده‌ها", cardIds: ["c1", "c2", "c3"] },
+    { id: "todo", title: "برای انجام", cardIds: ["c4", "c5"] },
+    { id: "doing", title: "در حال انجام", cardIds: ["c6", "c7"] },
+    { id: "review", title: "بازبینی", cardIds: ["c8"] },
+    { id: "done", title: "انجام‌شده", cardIds: ["c9", "c10"] },
+  ],
+  cards: {
+    c1: { id: "c1", title: "پژوهش رقبا", details: "بررسی سه محصول رقیب و جمع‌بندی نقاط قوت و ضعف." },
+    c2: { id: "c2", title: "حالت تاریک", details: "ارزیابی نیاز کاربران به نسخه تیره رابط کاربری." },
+    c3: { id: "c3", title: "اعلان‌های ایمیلی", details: "طرح اولیه برای یادآوری کارهای عقب‌افتاده." },
+    c4: { id: "c4", title: "طراحی صفحه ورود", details: "وایرفریم و نسخه نهایی در فیگما." },
+    c5: { id: "c5", title: "تعریف شاخص‌ها", details: "مشخص کردن KPIهای فصل آینده با تیم محصول." },
+    c6: { id: "c6", title: "پیاده‌سازی API کاربران", details: "سرویس‌های ثبت‌نام و ویرایش پروفایل." },
+    c7: { id: "c7", title: "بهبود سرعت بارگذاری", details: "کاهش حجم بسته‌ها و بهینه‌سازی تصاویر." },
+    c8: { id: "c8", title: "بازنویسی متن‌های راهنما", details: "یکدست کردن لحن و اصطلاحات در کل محصول." },
+    c9: { id: "c9", title: "راه‌اندازی مخزن", details: "ساختار پروژه، قواعد کدنویسی و CI." },
+    c10: { id: "c10", title: "جلسه شروع پروژه", details: "هم‌راستایی اهداف و زمان‌بندی با ذی‌نفعان." },
+  },
+};

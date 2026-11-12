@@ -1,0 +1,45 @@
+import os
+import secrets
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+
+from app import auth, board, db
+from app.board_service import NotFound
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    db.init_db()
+    yield
+
+
+app = FastAPI(title="PM Kanban", lifespan=lifespan)
+# Signed, HttpOnly cookie. Without SESSION_SECRET a random key is used, so sessions end on restart.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SESSION_SECRET") or secrets.token_hex(32),
+    same_site="lax",
+)
+app.include_router(auth.router)
+app.include_router(board.router)
+
+
+@app.exception_handler(NotFound)
+def not_found(_: Request, exc: NotFound) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": f"Not found: {exc}"})
+
+
+@app.get("/api/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+# Registered last so /api routes take precedence. The Next.js export is copied here in Docker.
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True, check_dir=False), name="static")

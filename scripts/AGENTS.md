@@ -1,1 +1,4 @@
-This folder will contain start and stop scripts for Mac, PC and Linux
+# اسکریپت‌ها
+
+- `start.sh` / `start.ps1` — ساخت ایمیج `pm-kanban`، حذف کانتینر قبلی و اجرای کانتینر روی پورت 8000. اگر `.env` وجود داشته باشد با `--env-file` ارسال می‌شود. پوشه `data/` ریشه پروژه به `/app/data` متصل می‌شود.
+- `stop.sh` / `stop.ps1` — حذف کانتینر `pm-kanban`.

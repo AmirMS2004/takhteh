@@ -173,3 +173,9 @@ cython_debug/
 .pypirc
 
 .DS_Store
+
+# App data
+data/
+
+# Next.js export copied in Docker
+backend/static/
