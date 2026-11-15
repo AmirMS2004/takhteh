@@ -21,7 +21,7 @@ export type CardChanges = Omit<Card, "id">;
 const iconButton =
   "rounded-md p-1 text-gray-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 const field =
-  "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
+  "w-full rounded-lg border border-line px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 function CardMeta({ card }: { card: Card }) {
   const priority = PRIORITIES.find((p) => p.value === card.priority);
@@ -33,7 +33,7 @@ function CardMeta({ card }: { card: Card }) {
       {card.due_date && (
         <span
           title={overdue ? "سررسید گذشته" : "سررسید"}
-          className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${overdue ? "bg-red-600 text-white" : "bg-sky-50 text-primary"}`}
+          className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${overdue ? "bg-danger text-white" : "bg-primary-50 text-primary"}`}
         >
           <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <rect x="3" y="4.5" width="14" height="12" rx="2" />
@@ -77,7 +77,7 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
   const ask = useContext(AskAssistant);
   return (
     <div
-      className={`group relative rounded-xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
+      className={`group relative rounded-xl border border-line bg-white p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
         overlay ? "rotate-2 cursor-grabbing shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)] ring-2 ring-primary/40" : "cursor-grab"
       }`}
     >
@@ -93,7 +93,7 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
               title="تقسیم به کارت‌های کوچک‌تر با دستیار"
               onClick={() => ask(splitRequest(card.title))}
               onPointerDown={(e) => e.stopPropagation()}
-              className={`${iconButton} hover:bg-amber-50 hover:text-navy`}
+              className={`${iconButton} hover:bg-accent-50 hover:text-navy`}
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M4 10h5m0 0l7-5M9 10l7 5M14 5h2v2M14 15h2v-2" strokeLinecap="round" strokeLinejoin="round" />
@@ -106,7 +106,7 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
               aria-label={`ویرایش ${card.title}`}
               onClick={onEdit}
               onPointerDown={(e) => e.stopPropagation()}
-              className={`${iconButton} hover:bg-sky-50 hover:text-primary`}
+              className={`${iconButton} hover:bg-primary-50 hover:text-primary`}
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" strokeLinejoin="round" />
@@ -119,7 +119,7 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
               aria-label={`حذف ${card.title}`}
               onClick={() => window.confirm(`کارت «${card.title}» حذف شود؟`) && onDelete(card.id)}
               onPointerDown={(e) => e.stopPropagation()}
-              className={`${iconButton} hover:bg-red-50 hover:text-red-600`}
+              className={`${iconButton} hover:bg-danger-50 hover:text-danger`}
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
@@ -261,7 +261,7 @@ export function CardEditForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg px-3 py-2 text-sm text-gray-text transition hover:bg-slate-100"
+          className="rounded-lg px-3 py-2 text-sm text-gray-text transition hover:bg-mist"
         >
           انصراف
         </button>

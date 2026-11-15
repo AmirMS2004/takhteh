@@ -80,7 +80,7 @@ function AddCardForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-white hover:text-primary"
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-navy/20 py-2.5 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-white hover:text-primary"
       >
         <span className="text-lg leading-none">+</span>
         افزودن کارت
@@ -126,11 +126,10 @@ export function ColumnView({
       ref={setNodeRef}
       data-testid={`column-${column.id}`}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`group/column flex w-64 shrink-0 flex-col rounded-2xl border bg-slate-100/70 backdrop-blur transition-colors ${
-        isOver ? "border-primary/40 bg-sky-50/80" : "border-slate-200/70"
+      className={`group/column flex w-64 shrink-0 flex-col rounded-2xl border bg-mist/70 backdrop-blur transition-colors ${
+        isOver ? "border-primary/40 bg-primary-50/80" : "border-line"
       } ${isDragging ? "opacity-40" : ""}`}
     >
-      <div className="h-1 rounded-t-2xl bg-accent" />
       <header className="flex items-center justify-between gap-1 px-3 pt-3 pb-2">
         <button
           type="button"
@@ -161,7 +160,7 @@ export function ColumnView({
               : `ستون «${column.title}» حذف شود؟`;
             if (window.confirm(question)) onDeleteColumn();
           }}
-          className="shrink-0 rounded-md p-1 text-gray-text opacity-0 transition group-hover/column:opacity-100 group-focus-within/column:opacity-100 hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+          className="shrink-0 rounded-md p-1 text-gray-text opacity-0 transition group-hover/column:opacity-100 group-focus-within/column:opacity-100 hover:bg-danger-50 hover:text-danger focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M4 6h12M8 6V4h4v2M6 6l.8 10h6.4L14 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -169,7 +168,7 @@ export function ColumnView({
         </button>
         <span
           data-testid="card-count"
-          className="min-w-7 rounded-full bg-primary/10 px-2 py-0.5 text-center text-xs font-semibold text-primary"
+          className="min-w-7 rounded-full bg-white px-2 py-0.5 text-center text-xs font-semibold text-navy/70 ring-1 ring-line"
         >
           {cards.length.toLocaleString("fa-IR")}
         </span>
@@ -177,7 +176,7 @@ export function ColumnView({
       <SortableContext items={column.cardIds} strategy={verticalListSortingStrategy}>
         <ul className="flex min-h-24 flex-1 flex-col gap-2.5 px-3 pb-3">
           {cards.length === 0 && (
-            <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-gray-text">
+            <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-navy/20 px-3 py-6 text-center text-xs text-gray-text">
               {filtering ? "کارتی با این فیلتر نیست." : "کارتی نیست؛ کارت را اینجا رها کنید."}
             </li>
           )}
@@ -205,8 +204,7 @@ export function ColumnView({
 /** What follows the pointer while a column is dragged. */
 export function ColumnPreview({ title, count }: { title: string; count: number }) {
   return (
-    <div className="w-64 rotate-2 rounded-2xl border border-primary/40 bg-slate-100 shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)]">
-      <div className="h-1 rounded-t-2xl bg-accent" />
+    <div className="w-64 rotate-2 rounded-2xl border border-primary/40 bg-mist shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)]">
       <div className="flex items-center justify-between px-5 py-4">
         <span className="font-bold text-navy">{title}</span>
         <span className="text-xs text-primary">{count.toLocaleString("fa-IR")} کارت</span>
@@ -229,7 +227,7 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-12 w-64 shrink-0 rounded-2xl border border-dashed border-slate-300 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-white hover:text-primary"
+        className="h-12 w-64 shrink-0 rounded-2xl border border-dashed border-navy/20 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-white hover:text-primary"
       >
         + ستون تازه
       </button>
@@ -244,7 +242,7 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
         close();
       }}
       onKeyDown={(e) => e.key === "Escape" && close()}
-      className="w-64 shrink-0 space-y-2 self-start rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+      className="w-64 shrink-0 space-y-2 self-start rounded-2xl border border-line bg-white p-3 shadow-sm"
     >
       <input
         autoFocus
@@ -253,7 +251,7 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
         maxLength={200}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+        className="w-full rounded-lg border border-line px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
       />
       <div className="flex gap-2">
         <button
@@ -263,7 +261,7 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
         >
           افزودن ستون
         </button>
-        <button type="button" onClick={close} className="rounded-lg px-3 py-2 text-sm text-gray-text transition hover:bg-slate-100">
+        <button type="button" onClick={close} className="rounded-lg px-3 py-2 text-sm text-gray-text transition hover:bg-mist">
           انصراف
         </button>
       </div>

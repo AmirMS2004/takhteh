@@ -17,7 +17,7 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
   const saveName = () => name.trim() !== label.name && onUpdate(label.id, { name: name.trim() });
 
   return (
-    <li className="space-y-2 rounded-xl border border-slate-200 p-3">
+    <li className="space-y-2 rounded-xl border border-line p-3">
       <div className="flex items-center gap-2">
         <input
           aria-label={`نام ${labelTitle(label)}`}
@@ -39,7 +39,7 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
           type="button"
           aria-label={`حذف ${labelTitle(label)}`}
           onClick={() => window.confirm(`${labelTitle(label)} از تخته و همه کارت‌ها حذف شود؟`) && onDelete(label.id)}
-          className="rounded-md p-1.5 text-gray-text hover:bg-red-50 hover:text-red-600"
+          className="rounded-md p-1.5 text-gray-text hover:bg-danger-50 hover:text-danger"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
@@ -91,7 +91,7 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
           <button
             type="button"
             onClick={() => onCreate("green")}
-            className="flex-1 rounded-lg border border-dashed border-slate-300 py-2 text-sm font-medium text-primary hover:border-primary hover:bg-sky-50"
+            className="flex-1 rounded-lg border border-dashed border-navy/20 py-2 text-sm font-medium text-primary hover:border-primary hover:bg-primary-50"
           >
             + برچسب تازه
           </button>

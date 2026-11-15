@@ -51,7 +51,7 @@ function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Pr
           <button type="submit" disabled={pending || !title.trim()} className={`${purpleButton} flex-1`}>
             ساخت تخته
           </button>
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-text hover:bg-slate-100">
+          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-text hover:bg-mist">
             انصراف
           </button>
         </div>
@@ -148,7 +148,7 @@ function BoardSettingsDialog({
         <h3 className="text-sm font-semibold text-navy">اعضا</h3>
         <ul className="space-y-1.5">
           {board.members.map((m) => (
-            <li key={m.username} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+            <li key={m.username} className="flex items-center gap-2 rounded-lg bg-mist px-3 py-2 text-sm">
               <Avatar avatar={m.avatar} username={m.username} />
               <span dir="ltr" className="text-navy">
                 {m.username}
@@ -159,7 +159,7 @@ function BoardSettingsDialog({
                   type="button"
                   aria-label={`حذف ${m.username} از تخته`}
                   onClick={() => removeMember(m.username)}
-                  className="mr-auto rounded-md px-2 py-0.5 text-xs text-gray-text hover:bg-red-50 hover:text-red-600"
+                  className="mr-auto rounded-md px-2 py-0.5 text-xs text-gray-text hover:bg-danger-50 hover:text-danger"
                 >
                   حذف
                 </button>
@@ -186,16 +186,21 @@ function BoardSettingsDialog({
       </section>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
 
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-        <button type="button" onClick={leaveOrDelete} className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+      <div className="flex items-center justify-between gap-2 border-t border-line/70 pt-3">
+        <button type="button" onClick={leaveOrDelete} className="rounded-lg px-3 py-2 text-sm font-medium text-danger hover:bg-danger-50">
           {owner ? "حذف تخته" : "خروج از تخته"}
         </button>
-        <button type="button" autoFocus onClick={onClose} className={purpleButton}>
+        <button
+          type="button"
+          autoFocus
+          onClick={onClose}
+          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+        >
           بستن
         </button>
       </div>
@@ -239,7 +244,7 @@ function Workspace({
           aria-label="انتخاب تخته"
           value={boardId}
           onChange={(e) => onSelect(e.target.value)}
-          className="max-w-64 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-navy outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+          className="max-w-64 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-semibold text-navy outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
         >
           {boards.map((b) => (
             <option key={b.id} value={b.id}>
@@ -251,7 +256,7 @@ function Workspace({
           type="button"
           onClick={() => setSettingsOpen(true)}
           disabled={!store.board}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <circle cx="7.5" cy="7" r="2.5" />
@@ -265,10 +270,13 @@ function Workspace({
         <button
           type="button"
           onClick={onNew}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-sky-50"
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
         >
           + تخته تازه
         </button>
+        <p className="mr-auto hidden text-xs text-gray-text xl:block">
+          کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید.
+        </p>
       </div>
 
       <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row lg:items-start">
@@ -352,7 +360,7 @@ export function BoardsArea({
           onBoardsChanged={(removed) => load(removed ? null : current)}
         />
       ) : (
-        <div className="mx-6 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center sm:mx-10">
+        <div className="mx-6 rounded-2xl border border-dashed border-navy/20 px-6 py-12 text-center sm:mx-10">
           <p className="text-sm text-gray-text">هنوز تخته‌ای ندارید.</p>
           <button type="button" onClick={() => setNewOpen(true)} className={`${purpleButton} mt-4`}>
             ساخت اولین تخته

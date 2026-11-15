@@ -63,7 +63,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
   return (
     <section
       aria-labelledby="profile-title"
-      className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="space-y-5 rounded-2xl border border-line bg-white p-6 shadow-sm"
     >
       <div className="flex items-center gap-4">
         <Avatar avatar={avatar} username={form.username || profile.username} size={64} />
@@ -88,8 +88,8 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
                 aria-label={i === 0 ? "بدون عکس (حرف اول نام کاربری)" : `عکس ${fa(i)}`}
                 aria-pressed={avatar === i}
                 onClick={() => setAvatar(i)}
-                className={`rounded-full p-0.5 transition ${
-                  avatar === i ? "ring-3 ring-accent" : "ring-1 ring-slate-200 hover:ring-primary"
+                className={`rounded-[34%] p-0.5 transition ${
+                  avatar === i ? "ring-3 ring-accent" : "ring-1 ring-line hover:ring-primary"
                 }`}
               >
                 <Avatar avatar={i} username={form.username || profile.username} size={40} />
@@ -129,7 +129,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
         {message && (
           <p
             role={message.ok ? "status" : "alert"}
-            className={`rounded-lg px-3 py-2 text-sm ${message.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}
+            className={`rounded-lg px-3 py-2 text-sm ${message.ok ? "bg-primary-50 text-primary-700" : "bg-danger-50 text-danger"}`}
           >
             {message.text}
           </p>
@@ -146,7 +146,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
           <button
             type="button"
             onClick={() => setPasswordOpen(true)}
-            className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-primary transition hover:border-primary hover:bg-sky-50"
+            className="rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary-50"
           >
             تغییر رمز
           </button>
@@ -166,7 +166,7 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
   return (
     <section
       aria-labelledby="boards-title"
-      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="space-y-4 rounded-2xl border border-line bg-white p-6 shadow-sm"
     >
       <div className="flex items-center gap-2">
         <span className="h-5 w-1 rounded-full bg-accent" />
@@ -182,7 +182,7 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
       ) : (
         <ul className="space-y-2">
           {boards.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-slate-50 px-4 py-3">
+            <li key={b.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-mist px-4 py-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold text-navy">{b.title}</span>
@@ -207,7 +207,7 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
                 type="button"
                 aria-label={`باز کردن ${b.title}`}
                 onClick={() => onOpenBoard(b.id)}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-sky-50"
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
               >
                 باز کردن
               </button>
@@ -230,9 +230,18 @@ export function Dashboard({
   onOpenBoard: (id: string) => void;
 }) {
   return (
-    <div className="grid gap-6 px-6 pb-10 sm:px-10 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
-      <ProfileForm profile={profile} onProfile={onProfile} />
-      <BoardList onOpenBoard={onOpenBoard} />
+    <div className="space-y-6 px-6 pb-10 sm:px-10">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="h-6 w-1 rounded-full bg-accent" />
+          <h1 className="text-2xl font-extrabold text-navy">داشبورد من</h1>
+        </div>
+        <p className="mt-1 pr-3 text-sm text-gray-text">پروفایل، عکس و رمز خود را تغییر دهید و تخته‌هایتان را ببینید.</p>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
+        <ProfileForm profile={profile} onProfile={onProfile} />
+        <BoardList onOpenBoard={onOpenBoard} />
+      </div>
     </div>
   );
 }

@@ -1,11 +1,40 @@
 @import "tailwindcss";
 
+/*
+ * The تخته brand palette (docs/BRAND.md). Only these colors are used in the UI: the five brand colors,
+ * their tints and shades, navy-tinted neutrals, one functional red for destructive actions, and the
+ * three extra label hues tuned to sit with the brand colors.
+ */
 @theme {
-  --color-accent: #ecad0a;
-  --color-primary: #209dd7;
-  --color-secondary: #753991;
+  /* Brand */
   --color-navy: #032147;
+  --color-navy-700: #163a66;
+  --color-navy-50: #eef1f6;
+  --color-accent: #ecad0a;
+  --color-accent-700: #8a6400;
+  --color-accent-50: #fdf5df;
+  --color-primary: #209dd7;
+  --color-primary-700: #136f99;
+  --color-primary-50: #e8f5fc;
+  --color-secondary: #753991;
+  --color-secondary-700: #5b2a71;
+  --color-secondary-50: #f4edf7;
   --color-gray-text: #888888;
+
+  /* Neutrals, tinted with navy */
+  --color-canvas: #f6f8fb;
+  --color-mist: #f0f3f8;
+  --color-line: #dfe5ee;
+
+  /* Function */
+  --color-danger: #c4413a;
+  --color-danger-50: #fcefee;
+
+  /* Label hues besides accent, primary and secondary */
+  --color-label-green: #2f9a72;
+  --color-label-orange: #e07b39;
+  --color-label-red: #d04a4a;
+
   --font-sans: "Vazirmatn Variable", system-ui, sans-serif;
 }
 
@@ -13,7 +42,16 @@ body {
   font-family: var(--font-sans);
   color: var(--color-navy);
   background:
-    radial-gradient(1200px 500px at 100% -10%, rgb(32 157 215 / 0.10), transparent 60%),
-    radial-gradient(900px 500px at 0% 0%, rgb(117 57 145 / 0.08), transparent 60%),
-    #f7f9fc;
+    radial-gradient(1200px 500px at 100% -10%, rgb(32 157 215 / 0.08), transparent 60%),
+    radial-gradient(900px 500px at 0% 0%, rgb(236 173 10 / 0.07), transparent 60%),
+    var(--color-canvas);
+}
+
+::selection {
+  background: rgb(236 173 10 / 0.35);
+  color: var(--color-navy);
+}
+
+:focus-visible {
+  outline-color: var(--color-primary);
 }

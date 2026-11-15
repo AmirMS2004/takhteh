@@ -5,7 +5,7 @@ import { PRIORITIES, colorOf, labelTitle } from "@/lib/cardDetails";
 import { emptyFilter, isActive, type DueFilter, type Filter } from "@/lib/filter";
 
 const control =
-  "rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
+  "rounded-lg border border-line bg-white px-2.5 py-1.5 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 type Props = {
   filter: Filter;
@@ -100,7 +100,7 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
           <button
             type="button"
             onClick={() => onChange(emptyFilter)}
-            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary hover:bg-sky-50"
+            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary hover:bg-primary-50"
           >
             پاک کردن فیلترها
           </button>

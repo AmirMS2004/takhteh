@@ -16,7 +16,10 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         aria-label={title}
         className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_18px_40px_-16px_rgba(3,33,71,0.45)]"
       >
-        <h2 className="text-lg font-bold text-navy">{title}</h2>
+        <div className="flex items-center gap-2">
+          <span className="h-5 w-1 rounded-full bg-accent" />
+          <h2 className="text-lg font-bold text-navy">{title}</h2>
+        </div>
         {children}
       </div>
     </div>

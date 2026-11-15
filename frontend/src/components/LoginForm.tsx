@@ -5,7 +5,7 @@ import { BRAND, LogoMark } from "./Logo";
 import { ApiError, login, signup } from "@/lib/api";
 
 export const input =
-  "w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
+  "w-full rounded-lg border border-line px-3 py-2.5 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 /** Same rules as the backend, checked first so the user gets a specific message. */
 export function signupProblem(username: string, password: string, repeat: string) {
@@ -59,7 +59,7 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-[0_18px_40px_-24px_rgba(3,33,71,0.35)]"
+        className="w-full max-w-sm space-y-4 rounded-2xl border border-line bg-white p-8 shadow-[0_18px_40px_-24px_rgba(3,33,71,0.35)]"
       >
         <div className="flex items-center gap-3 pb-2">
           <LogoMark size={48} />
@@ -68,7 +68,7 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
             <p className="mt-1.5 text-xs text-gray-text">{BRAND.tagline}</p>
           </div>
         </div>
-        <div className="border-t border-slate-100 pt-4">
+        <div className="border-t border-line/70 pt-4">
           <h1 className="text-xl font-extrabold text-navy">{isSignup ? "ساخت حساب تازه" : "ورود به تخته"}</h1>
           <p className="mt-1 text-sm text-gray-text">
             {isSignup ? "یک تخته خالی برای پروژه‌تان ساخته می‌شود." : "برای دیدن تخته، وارد حساب خود شوید."}
@@ -113,7 +113,7 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
           </label>
         )}
         {error && (
-          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">
             {error}
           </p>
         )}

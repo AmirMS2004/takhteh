@@ -44,12 +44,15 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
         aria-labelledby="change-password-title"
         className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-[0_18px_40px_-16px_rgba(3,33,71,0.45)]"
       >
-        <h2 id="change-password-title" className="text-lg font-bold text-navy">
-          تغییر رمز عبور
-        </h2>
+        <div className="flex items-center gap-2">
+          <span className="h-5 w-1 rounded-full bg-accent" />
+          <h2 id="change-password-title" className="text-lg font-bold text-navy">
+            تغییر رمز عبور
+          </h2>
+        </div>
         {done ? (
           <>
-            <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+            <p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700">
               رمز عبور تغییر کرد.
             </p>
             <button
@@ -85,7 +88,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
               </label>
             ))}
             {error && (
-              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">
                 {error}
               </p>
             )}
@@ -97,7 +100,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
               >
                 {pending ? "لطفاً صبر کنید…" : "ذخیره رمز تازه"}
               </button>
-              <button type="button" onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm text-gray-text hover:bg-slate-100">
+              <button type="button" onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm text-gray-text hover:bg-mist">
                 انصراف
               </button>
             </div>

@@ -1,61 +1,14 @@
 /** Preset profile pictures, drawn inline. Index 0 is "no picture": the username's first letter. */
+// Backgrounds and clothes come only from the brand palette (docs/BRAND.md); skin and hair are natural tones.
 const PRESETS = [
-  {
-    bg: "#209dd7",
-    skin: "#f2c9a0",
-    hair: "#3b2a20",
-    shirt: "#032147",
-    style: "short",
-  },
-  {
-    bg: "#753991",
-    skin: "#e8b48a",
-    hair: "#1f1a17",
-    shirt: "#ecad0a",
-    style: "long",
-  },
-  {
-    bg: "#ecad0a",
-    skin: "#c68b5e",
-    hair: "#2b1d14",
-    shirt: "#209dd7",
-    style: "curly",
-  },
-  {
-    bg: "#032147",
-    skin: "#f5d6b8",
-    hair: "#b5652b",
-    shirt: "#753991",
-    style: "bun",
-  },
-  {
-    bg: "#2f9e6e",
-    skin: "#8d5a3b",
-    hair: "#111111",
-    shirt: "#f5f5f5",
-    style: "short",
-  },
-  {
-    bg: "#e5674b",
-    skin: "#f2c9a0",
-    hair: "#d9a441",
-    shirt: "#032147",
-    style: "long",
-  },
-  {
-    bg: "#5b6ee1",
-    skin: "#e0a87c",
-    hair: "#5a3a22",
-    shirt: "#ecad0a",
-    style: "bun",
-  },
-  {
-    bg: "#888888",
-    skin: "#f5d6b8",
-    hair: "#e8e8e8",
-    shirt: "#209dd7",
-    style: "curly",
-  },
+  { bg: "#209dd7", skin: "#f2c9a0", hair: "#3b2a20", shirt: "#032147", style: "short" },
+  { bg: "#753991", skin: "#e8b48a", hair: "#1f1a17", shirt: "#ecad0a", style: "long" },
+  { bg: "#ecad0a", skin: "#c68b5e", hair: "#2b1d14", shirt: "#032147", style: "curly" },
+  { bg: "#032147", skin: "#f5d6b8", hair: "#b5652b", shirt: "#209dd7", style: "bun" },
+  { bg: "#e8f5fc", skin: "#8d5a3b", hair: "#111111", shirt: "#209dd7", style: "short" },
+  { bg: "#f4edf7", skin: "#f2c9a0", hair: "#d9a441", shirt: "#753991", style: "long" },
+  { bg: "#fdf5df", skin: "#e0a87c", hair: "#5a3a22", shirt: "#ecad0a", style: "bun" },
+  { bg: "#eef1f6", skin: "#f5d6b8", hair: "#888888", shirt: "#032147", style: "curly" },
 ] as const;
 
 export const AVATAR_COUNT = PRESETS.length;
@@ -87,13 +40,13 @@ export function Avatar({ avatar = 0, username, size = 24 }: { avatar?: number; u
       <span
         aria-hidden
         style={{ width: size, height: size, fontSize: size * 0.45 }}
-        className="grid shrink-0 place-items-center rounded-full bg-navy font-bold text-white uppercase"
+        className="grid shrink-0 place-items-center rounded-[30%] bg-navy font-bold text-white uppercase"
       >
         {username[0]}
       </span>
     );
   return (
-    <svg aria-hidden viewBox="0 0 40 40" width={size} height={size} className="shrink-0 rounded-full">
+    <svg aria-hidden viewBox="0 0 40 40" width={size} height={size} className="shrink-0 rounded-[30%]">
       <rect width="40" height="40" fill={p.bg} />
       <path d="M6 40c1-8 7-12 14-12s13 4 14 12z" fill={p.shirt} />
       <rect x="17.5" y="22" width="5" height="6" fill={p.skin} />

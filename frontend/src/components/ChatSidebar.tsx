@@ -152,9 +152,9 @@ export function ChatSidebar({
   return (
     <aside
       aria-label="دستیار هوش مصنوعی"
-      className="flex h-[32rem] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgba(3,33,71,0.35)] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-80 lg:shrink-0"
+      className="flex h-[32rem] w-full flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_18px_40px_-28px_rgba(3,33,71,0.35)] lg:sticky lg:top-20 lg:h-[calc(100vh-10rem)] lg:w-80 lg:shrink-0"
     >
-      <header className="border-b border-slate-100 px-4 py-3">
+      <header className="border-b border-line/70 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="h-5 w-1 rounded-full bg-accent" />
           <h2 className="font-bold text-navy">دستیار هوش مصنوعی</h2>
@@ -167,7 +167,7 @@ export function ChatSidebar({
                 await clearHistory(boardId);
                 setMessages([]);
               }}
-              className="mr-auto rounded-md px-2 py-1 text-xs font-medium text-primary transition hover:bg-sky-50 disabled:opacity-50"
+              className="mr-auto rounded-md px-2 py-1 text-xs font-medium text-primary transition hover:bg-primary-50 disabled:opacity-50"
             >
               گفت‌وگوی تازه
             </button>
@@ -185,7 +185,7 @@ export function ChatSidebar({
                 key={s}
                 type="button"
                 onClick={() => send(s)}
-                className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm text-primary transition hover:border-primary hover:bg-sky-50"
+                className="block w-full rounded-xl border border-line px-3 py-2 text-right text-sm text-primary transition hover:border-primary hover:bg-primary-50"
               >
                 {s}
               </button>
@@ -200,12 +200,12 @@ export function ChatSidebar({
                 m.role === "user"
                   ? "rounded-br-md bg-primary text-white"
                   : m.error
-                    ? "rounded-bl-md bg-red-50 text-red-700"
-                    : "rounded-bl-md bg-slate-100 text-navy"
+                    ? "rounded-bl-md bg-danger-50 text-danger"
+                    : "rounded-bl-md bg-mist text-navy"
               }`}
             >
               {m.content}
-              {m.note && <p className="mt-1.5 text-xs text-red-700">{m.note}</p>}
+              {m.note && <p className="mt-1.5 text-xs text-danger">{m.note}</p>}
               {m.proposal && (
                 <ProposalBox
                   proposal={m.proposal}
@@ -224,13 +224,13 @@ export function ChatSidebar({
               <div
                 aria-live="polite"
                 data-role="assistant"
-                className="max-w-[85%] rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-navy"
+                className="max-w-[85%] rounded-2xl rounded-bl-md bg-mist px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-navy"
               >
                 {streaming}
                 <span className="mr-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-primary/60 align-middle" aria-hidden />
               </div>
             ) : (
-              <div role="status" className="rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-2.5 text-sm text-gray-text">
+              <div role="status" className="rounded-2xl rounded-bl-md bg-mist px-3.5 py-2.5 text-sm text-gray-text">
                 در حال پاسخ…
               </div>
             )}
@@ -238,12 +238,12 @@ export function ChatSidebar({
         )}
       </div>
 
-      <div className="flex gap-2 border-t border-slate-100 px-3 pt-2.5">
+      <div className="flex gap-2 border-t border-line/70 px-3 pt-2.5">
         <button
           type="button"
           disabled={pending}
           onClick={() => send(WEEKLY_REPORT)}
-          className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-navy transition hover:bg-amber-50 disabled:opacity-50"
+          className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-navy transition hover:bg-accent-50 disabled:opacity-50"
         >
           گزارش هفتگی
         </button>
@@ -269,7 +269,7 @@ export function ChatSidebar({
               send(input);
             }
           }}
-          className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:bg-slate-50"
+          className="flex-1 resize-none rounded-xl border border-line px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:bg-mist"
         />
         <button
           type="submit"
@@ -308,7 +308,7 @@ function ProposalBox({
         ))}
       </ul>
       {problem && (
-        <p role="alert" className="text-xs text-red-700">
+        <p role="alert" className="text-xs text-danger">
           {problem}
         </p>
       )}
@@ -326,21 +326,21 @@ function ProposalBox({
             type="button"
             disabled={status === "busy"}
             onClick={onReject}
-            className="rounded-lg px-3 py-1.5 text-xs text-gray-text transition hover:bg-slate-100 disabled:opacity-50"
+            className="rounded-lg px-3 py-1.5 text-xs text-gray-text transition hover:bg-mist disabled:opacity-50"
           >
             رد کردن
           </button>
         </div>
       ) : (
         <div className="flex items-center gap-2 text-xs">
-          <span role="status" className={status === "rejected" ? "text-gray-text" : "font-medium text-green-700"}>
+          <span role="status" className={status === "rejected" ? "text-gray-text" : "font-medium text-primary-700"}>
             {status === "busy" ? "در حال برگرداندن…" : STATUS_TEXT[status]}
           </span>
           {status === "applied" && canUndo && (
             <button
               type="button"
               onClick={onUndo}
-              className="rounded-md px-2 py-1 font-medium text-primary transition hover:bg-sky-50"
+              className="rounded-md px-2 py-1 font-medium text-primary transition hover:bg-primary-50"
             >
               برگرداندن
             </button>

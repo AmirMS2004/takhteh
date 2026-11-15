@@ -62,7 +62,7 @@ export function Board({ store }: { store: BoardStore }) {
   );
 
   if (failed && !board) {
-    return <p className="px-6 text-sm text-red-700 sm:px-10">بارگذاری تخته ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
+    return <p className="px-6 text-sm text-danger sm:px-10">بارگذاری تخته ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
   }
   if (!board) {
     return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;
@@ -169,7 +169,7 @@ export function Board({ store }: { store: BoardStore }) {
       onDragCancel={onDragCancel}
     >
       {notice && (
-        <div role="alert" className="mx-6 mb-4 flex items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-700 sm:mx-10">
+        <div role="alert" className="mx-6 mb-4 flex items-center justify-between gap-3 rounded-xl bg-danger-50 px-4 py-2.5 text-sm text-danger sm:mx-10">
           {notice}
           <button type="button" onClick={dismissNotice} className="font-medium hover:underline">
             بستن
@@ -188,7 +188,7 @@ export function Board({ store }: { store: BoardStore }) {
         <button
           type="button"
           onClick={() => setLabelsOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M3 10.5V4a1 1 0 011-1h6.5L17 9.5 10.5 16 3 10.5z" strokeLinejoin="round" />
