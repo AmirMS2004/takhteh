@@ -32,6 +32,18 @@ Only use label ids from the board's "labels"; you cannot create, rename or delet
 Set every field an operation does not use to null. Only use ids that exist on the board. Columns cannot be \
 created, renamed or deleted, and cards cannot be deleted; if asked, say so.
 
+To break a card into smaller tasks, propose create_card operations: usually 3 to 7 cards with short, \
+concrete titles that together cover the original, in the original card's column unless the user says \
+otherwise, keeping its assignee, due date and labels when they still fit. The original card stays; say so.
+
+For a summary or weekly report, use the "facts" below, which the app computed (a week is the last 7 days \
+and the board's last column counts as done): what was done this week, what is new, what is in progress, \
+what is overdue or due soon, the open work per member, and one or two suggestions on what to focus on. \
+Return no operations for a report. Write it entirely in the user's language; do not copy the English \
+keys of the facts.
+
+Write the reply as plain text without Markdown symbols such as ** or #; use short lines, and "- " for lists.
+
 Only return operations when the user asks for a change; otherwise return an empty list. Operations are \
 applied in order. They are not applied right away: the user sees them as a proposal and applies or rejects \
 it, so the board below may not include changes you proposed earlier. Always write a short "reply" for the \
@@ -39,7 +51,7 @@ user, in the user's language (usually Persian), answering their question or desc
 propose; never say a change is done, because it is not applied until the user confirms it (for example \
 "I suggest creating ..." rather than "I created ...").
 
-Today is {today}. Current board:
+Today is {today}.
 """
 
 NULLABLE_STRING = {"type": ["string", "null"]}
@@ -229,17 +241,57 @@ def partial_reply(raw: str) -> str:
 ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
 
 
+def board_facts(conn: sqlite3.Connection, board_id: int, today: datetime.date) -> dict:
+    """Numbers and lists for summaries, so the model does not have to count or compare dates."""
+    columns = conn.execute(
+        "SELECT id, title FROM columns WHERE board_id = ? ORDER BY position", (board_id,)
+    ).fetchall()
+    cards = conn.execute(
+        "SELECT k.title, k.column_id, k.due_date, k.created_at, k.moved_at, u.username AS assignee"
+        " FROM cards k JOIN columns c ON c.id = k.column_id LEFT JOIN users u ON u.id = k.assignee_id"
+        " WHERE c.board_id = ? ORDER BY c.position, k.position",
+        (board_id,),
+    ).fetchall()
+    week_ago = (today - datetime.timedelta(days=7)).isoformat()
+    soon = (today + datetime.timedelta(days=7)).isoformat()
+    done = columns[-1]["id"] if columns else None
+    open_cards = [c for c in cards if c["column_id"] != done]
+    workload: dict[str, int] = {}
+    for c in open_cards:
+        workload[c["assignee"] or "(unassigned)"] = workload.get(c["assignee"] or "(unassigned)", 0) + 1
+
+    def titles(rows) -> list[str]:
+        return [r["title"] for r in rows]
+
+    return {
+        "cards_per_column": {col["title"]: sum(c["column_id"] == col["id"] for c in cards) for col in columns},
+        "done_column": columns[-1]["title"] if columns else None,
+        "done_this_week": titles(c for c in cards if c["column_id"] == done and (c["moved_at"] or "") >= week_ago),
+        "created_this_week": titles(c for c in cards if (c["created_at"] or "") >= week_ago),
+        "overdue": titles(c for c in open_cards if c["due_date"] and c["due_date"] < today.isoformat()),
+        "due_in_next_7_days": titles(
+            c for c in open_cards if c["due_date"] and today.isoformat() <= c["due_date"] <= soon
+        ),
+        "open_cards_per_assignee": workload,
+    }
+
+
 def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
     """The messages for the model, and the board the chat is pinned to (404 if not a member)."""
     with db.connect() as conn:
         board = service.get_board(conn, user.id, body.board_id)
         board_id = service.member_board(conn, user.id, body.board_id)
         history = _history(conn, board_id, user.id, MAX_HISTORY)
+        today = datetime.date.today()
+        facts = board_facts(conn, board_id, today)
     messages = [
         {
             "role": "system",
-            "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())
-            + json.dumps(board, ensure_ascii=False),
+            "content": SYSTEM_PROMPT.format(today=today.isoformat())
+            + "Current board:\n"
+            + json.dumps(board, ensure_ascii=False)
+            + "\nFacts for summaries:\n"
+            + json.dumps(facts, ensure_ascii=False),
         },
         *history,
         {"role": "user", "content": body.message},

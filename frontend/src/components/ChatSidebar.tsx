@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { ApiError, applyChanges, chatStream, clearHistory, getHistory, undoChanges, type ChatMessage } from "@/lib/api";
+import { WEEKLY_REPORT } from "@/lib/assistant";
 import type { BoardState } from "@/lib/board";
 import { describe, type Operation, type Undo } from "@/lib/proposal";
 
@@ -18,8 +19,11 @@ type Message = ChatMessage & { error?: boolean; note?: string; proposal?: Propos
 const SUGGESTIONS = [
   "یک کارت برای نوشتن مستندات API در ستون «برای انجام» بساز.",
   "کارت «پژوهش رقبا» را به «در حال انجام» ببر.",
-  "چه کارهایی در حال انجام است؟",
+  "کدام کارها عقب افتاده‌اند؟",
 ];
+
+/** Lets the page send a message from elsewhere (e.g. "split this card"). */
+export type ChatHandle = { ask: (message: string) => void };
 
 function failureText(error: unknown) {
   if (error instanceof ApiError && error.status === 429)
@@ -33,10 +37,12 @@ export function ChatSidebar({
   boardId,
   board,
   onBoard,
+  ref,
 }: {
   boardId: string;
   board: BoardState | null;
   onBoard: (board: BoardState) => void;
+  ref?: Ref<ChatHandle>;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -128,6 +134,8 @@ export function ChatSidebar({
     }
   };
 
+  useImperativeHandle(ref, () => ({ ask: send }));
+
   return (
     <aside
       aria-label="دستیار هوش مصنوعی"
@@ -217,12 +225,22 @@ export function ChatSidebar({
         )}
       </div>
 
+      <div className="flex gap-2 border-t border-slate-100 px-3 pt-2.5">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => send(WEEKLY_REPORT)}
+          className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-navy transition hover:bg-amber-50 disabled:opacity-50"
+        >
+          گزارش هفتگی
+        </button>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           send(input);
         }}
-        className="flex items-end gap-2 border-t border-slate-100 p-3"
+        className="flex items-end gap-2 p-3 pt-2"
       >
         <textarea
           aria-label="پیام به دستیار"

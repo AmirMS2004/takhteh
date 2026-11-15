@@ -234,9 +234,29 @@ describe("ChatSidebar", () => {
 
   it("sends a suggestion when clicked", async () => {
     const { api, user } = await renderHome();
-    await user.click(within(chatPanel()).getByRole("button", { name: /چه کارهایی در حال انجام است/ }));
-    expect(await within(chatPanel()).findByText(/پاسخ به: چه کارهایی/)).toBeInTheDocument();
+    await user.click(within(chatPanel()).getByRole("button", { name: /کدام کارها عقب افتاده‌اند/ }));
+    expect(await within(chatPanel()).findByText(/پاسخ به: کدام کارها/)).toBeInTheDocument();
     expect(api.calls().some((c) => c.route === "POST /api/ai/chat/stream")).toBe(true);
+  });
+
+  it("asks for a weekly report", async () => {
+    const { api, user } = await renderHome();
+    await user.click(within(chatPanel()).getByRole("button", { name: "گزارش هفتگی" }));
+    expect(await within(chatPanel()).findByText("پاسخ به: گزارش هفتگی این برد را بنویس.")).toBeInTheDocument();
+    const sent = api.calls().find((c) => c.route === "POST /api/ai/chat/stream")!;
+    expect(sent.body).toEqual({ board_id: "board-1", message: "گزارش هفتگی این برد را بنویس." });
+  });
+
+  it("asks the assistant to split a card, opening the chat if it was closed", async () => {
+    const { api, user } = await renderHome();
+    await user.click(screen.getByRole("button", { name: "بستن دستیار" }));
+    expect(screen.queryByRole("complementary", { name: "دستیار هوش مصنوعی" })).not.toBeInTheDocument();
+
+    await user.click(within(column("backlog")).getByRole("button", { name: "تقسیم پژوهش رقبا با دستیار" }));
+    expect(chatPanel()).toBeVisible();
+    expect(await within(chatPanel()).findByText("پاسخ به: کارت «پژوهش رقبا» را به چند کارت کوچک‌تر تقسیم کن.")).toBeInTheDocument();
+    const sent = api.calls().find((c) => c.route === "POST /api/ai/chat/stream")!;
+    expect(sent.body.message).toBe("کارت «پژوهش رقبا» را به چند کارت کوچک‌تر تقسیم کن.");
   });
 
   it("does not send empty messages; Shift+Enter adds a new line", async () => {

@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS cards (
     position INTEGER NOT NULL,
     due_date TEXT,
     priority TEXT,
-    assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+    assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT,
+    moved_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position);
 CREATE TABLE IF NOT EXISTS labels (
@@ -68,7 +70,9 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages ON chat_messages(board_id, user_id,
 """
 
 # Card fields added after the first release; init_db adds them to older databases.
-CARD_DETAIL_COLUMNS = ["due_date", "priority"]
+# Optional TEXT columns added to older databases. created_at and moved_at (when the card last changed
+# column) are UTC "YYYY-MM-DD HH:MM:SS"; NULL for cards from before they existed.
+CARD_DETAIL_COLUMNS = ["due_date", "priority", "created_at", "moved_at"]
 
 # Like Trello, every board starts with one unnamed label per color.
 LABEL_COLORS = ["green", "yellow", "orange", "red", "purple", "blue"]
@@ -236,7 +240,8 @@ def init_db() -> None:
         positions: dict[int, int] = {}
         for col, title, details in DEMO_CARDS:
             conn.execute(
-                "INSERT INTO cards (column_id, title, details, position) VALUES (?, ?, ?, ?)",
+                "INSERT INTO cards (column_id, title, details, position, created_at, moved_at)"
+                " VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
                 (column_ids[col], title, details, positions.get(col, 0)),
             )
             positions[col] = positions.get(col, 0) + 1

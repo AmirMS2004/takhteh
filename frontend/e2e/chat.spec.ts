@@ -70,3 +70,27 @@ test("the chat panel can be hidden and shown again", async ({ page }) => {
   await page.getByRole("button", { name: "دستیار هوش مصنوعی" }).click();
   await expect(panel(page)).toBeVisible();
 });
+
+test("splits a card into smaller cards through the assistant", async ({ page }) => {
+  const sent: string[] = [];
+  await page.route("**/api/ai/chat/stream", async (route) => {
+    const body = route.request().postDataJSON();
+    sent.push(body.message);
+    const board = await (await page.request.get(`/api/boards/${body.board_id}`)).json();
+    const backlog = board.columns[0].id;
+    const operations = ["بررسی رقیب اول", "بررسی رقیب دوم"].map((title) => ({ ...NULLS, type: "create_card", column_id: backlog, title, details: "" }));
+    const done = { type: "done", reply: "پیشنهاد می‌کنم این دو کارت را بسازیم.", operations, error: null };
+    await route.fulfill({ contentType: "application/x-ndjson", body: JSON.stringify(done) + "\n" });
+  });
+
+  await page.getByRole("button", { name: "بستن دستیار" }).click();
+  await column(page, "backlog").getByRole("button", { name: "تقسیم پژوهش رقبا با دستیار", exact: true }).click();
+  await expect(panel(page)).toBeVisible();
+  const proposal = panel(page).getByRole("region", { name: "تغییرات پیشنهادی" });
+  await proposal.getByRole("button", { name: "اعمال تغییرات" }).click();
+
+  await expect(column(page, "backlog").getByText("بررسی رقیب اول")).toBeVisible();
+  await expect(column(page, "backlog").getByText("بررسی رقیب دوم")).toBeVisible();
+  await expect(column(page, "backlog").getByText("پژوهش رقبا", { exact: true })).toBeVisible(); // the original stays
+  expect(sent).toEqual(["کارت «پژوهش رقبا» را به چند کارت کوچک‌تر تقسیم کن."]);
+});

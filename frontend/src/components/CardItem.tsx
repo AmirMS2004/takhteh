@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardLabel, Card, Member, Priority } from "@/lib/board";
+import { AskAssistant, splitRequest } from "@/lib/assistant";
 import { PRIORITIES, colorOf, formatDue, labelTitle, today } from "@/lib/cardDetails";
 
 type Props = {
@@ -73,6 +74,7 @@ function CardLabels({ card, labels }: { card: Card; labels: BoardLabel[] }) {
 }
 
 export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
+  const ask = useContext(AskAssistant);
   return (
     <div
       className={`group relative rounded-xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
@@ -84,6 +86,20 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-[15px] font-semibold leading-6 text-navy">{card.title}</h3>
         <div className="-mt-1 -ml-1 flex shrink-0">
+          {ask && !overlay && (
+            <button
+              type="button"
+              aria-label={`تقسیم ${card.title} با دستیار`}
+              title="تقسیم به کارت‌های کوچک‌تر با دستیار"
+              onClick={() => ask(splitRequest(card.title))}
+              onPointerDown={(e) => e.stopPropagation()}
+              className={`${iconButton} hover:bg-amber-50 hover:text-navy`}
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M4 10h5m0 0l7-5M9 10l7 5M14 5h2v2M14 15h2v-2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
           {onEdit && (
             <button
               type="button"

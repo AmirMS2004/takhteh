@@ -170,7 +170,9 @@ def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dic
     column_id, board = _column(conn, user_id, column, board_id)
     position = len(_card_ids(conn, column_id))
     card_id = conn.execute(
-        "INSERT INTO cards (column_id, position, title) VALUES (?, ?, ?)", (column_id, position, fields["title"])
+        "INSERT INTO cards (column_id, position, title, created_at, moved_at)"
+        " VALUES (?, ?, ?, datetime('now'), datetime('now'))",
+        (column_id, position, fields["title"]),
     ).lastrowid
     _write_card(conn, user_id, board, card_id, {"details": ""} | fields)
     return _load_card(conn, card_id)
@@ -195,6 +197,7 @@ def move_card(
     _write_order(conn, target, ids)
     if source != target:
         _write_order(conn, source, _card_ids(conn, source))
+        conn.execute("UPDATE cards SET moved_at = datetime('now') WHERE id = ?", (row["id"],))
 
 
 def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> None:

@@ -124,7 +124,7 @@ export default function Home() {
           }}
         />
       ) : (
-        <BoardsArea username={profile.username} chatOpen={chatOpen} />
+        <BoardsArea username={profile.username} chatOpen={chatOpen} onOpenChat={() => setChatOpen(true)} />
       )}
     </main>
   );

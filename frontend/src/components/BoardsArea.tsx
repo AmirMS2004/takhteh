@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as api from "@/lib/api";
 import type { BoardSummary } from "@/lib/board";
 import { useBoard, type BoardStore } from "@/lib/useBoard";
 import { Avatar } from "./Avatar";
 import { Board } from "./Board";
-import { ChatSidebar } from "./ChatSidebar";
+import { AskAssistant } from "@/lib/assistant";
+import { ChatSidebar, type ChatHandle } from "./ChatSidebar";
 import { input } from "./LoginForm";
 import { Modal } from "./Modal";
 
@@ -208,6 +209,7 @@ function Workspace({
   boards,
   username,
   chatOpen,
+  onOpenChat,
   onSelect,
   onNew,
   onBoardsChanged,
@@ -216,6 +218,7 @@ function Workspace({
   boards: BoardSummary[];
   username: string;
   chatOpen: boolean;
+  onOpenChat: () => void;
   onSelect: (id: string) => void;
   onNew: () => void;
   onBoardsChanged: (removed: boolean) => void;
@@ -223,6 +226,11 @@ function Workspace({
   const store = useBoard(boardId);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const members = store.board?.members.length ?? 0;
+  const chat = useRef<ChatHandle>(null);
+  const ask = (message: string) => {
+    onOpenChat();
+    chat.current?.ask(message);
+  };
 
   return (
     <>
@@ -265,11 +273,13 @@ function Workspace({
 
       <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
-          <Board store={store} />
+          <AskAssistant value={ask}>
+            <Board store={store} />
+          </AskAssistant>
         </div>
         {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
         <div hidden={!chatOpen} className="px-6 sm:px-10 lg:pr-0 lg:pl-6">
-          <ChatSidebar boardId={boardId} board={store.board} onBoard={store.apply} />
+          <ChatSidebar ref={chat} boardId={boardId} board={store.board} onBoard={store.apply} />
         </div>
       </div>
 
@@ -289,7 +299,15 @@ function Workspace({
   );
 }
 
-export function BoardsArea({ username, chatOpen }: { username: string; chatOpen: boolean }) {
+export function BoardsArea({
+  username,
+  chatOpen,
+  onOpenChat,
+}: {
+  username: string;
+  chatOpen: boolean;
+  onOpenChat: () => void;
+}) {
   const [boards, setBoards] = useState<BoardSummary[] | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
@@ -325,6 +343,7 @@ export function BoardsArea({ username, chatOpen }: { username: string; chatOpen:
           boards={boards}
           username={username}
           chatOpen={chatOpen}
+          onOpenChat={onOpenChat}
           onSelect={(id) => {
             setCurrent(id);
             rememberBoard(id);
