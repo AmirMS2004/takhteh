@@ -1,10 +1,9 @@
 import json
-import os
 
 import pytest
 
 from app import ai
-from tests.conftest import board_path
+from tests.conftest import AI_KEY_SET, board_path
 
 
 NULLS = ["card_id", "column_id", "title", "details", "index", "due_date", "priority", "assignee", "labels"]
@@ -85,7 +84,8 @@ def test_rejects_invalid_requests(auth_client, model, body):
 
 
 def test_missing_key_is_503(auth_client, monkeypatch):
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    for name in ("AI_PROVIDER", "GROQ_API_KEY", "OPENROUTER_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
     assert send(auth_client).status_code == 503
 
 
@@ -247,7 +247,7 @@ def test_cannot_touch_another_users_board(client, model):
 
 
 @pytest.mark.live
-@pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set")
+@pytest.mark.skipif(not AI_KEY_SET, reason="no AI provider key set")
 def test_live_creates_card(auth_client):
     response = send(auth_client, "یک کارت با عنوان «تست زنده» در ستون «برای انجام» بساز.")
     assert response.status_code == 200, response.text
@@ -258,7 +258,7 @@ def test_live_creates_card(auth_client):
 
 
 @pytest.mark.live
-@pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set")
+@pytest.mark.skipif(not AI_KEY_SET, reason="no AI provider key set")
 def test_live_moves_card_and_answers_questions(auth_client):
     body = send(auth_client, "کارت «پژوهش رقبا» را به ستون «انجام‌شده» منتقل کن.").json()
     assert body["error"] is None, body
@@ -271,7 +271,7 @@ def test_live_moves_card_and_answers_questions(auth_client):
 
 
 @pytest.mark.live
-@pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set")
+@pytest.mark.skipif(not AI_KEY_SET, reason="no AI provider key set")
 def test_live_sets_card_details(auth_client):
     body = send(auth_client, "برای کارت «پژوهش رقبا» اولویت را بالا و برچسب را قرمز بگذار و مسئولش را «user» کن.").json()
     assert body["error"] is None, body

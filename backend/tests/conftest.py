@@ -7,6 +7,9 @@ import pytest
 # Set before importing the app, so files created at import time (the session key) go to a temp dir.
 os.environ["DB_PATH"] = str(Path(tempfile.mkdtemp()) / "app.db")
 
+# Live tests run when any AI provider key is configured (pass .env to the test container).
+AI_KEY_SET = bool(os.environ.get("GROQ_API_KEY") or os.environ.get("OPENROUTER_API_KEY"))
+
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402

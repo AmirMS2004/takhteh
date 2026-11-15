@@ -1,5 +1,4 @@
 import json
-import os
 from types import SimpleNamespace
 
 import httpx2
@@ -8,7 +7,7 @@ import pytest
 
 from app import ai
 from app.ai_routes import partial_reply
-from tests.conftest import board_path
+from tests.conftest import AI_KEY_SET, board_path
 
 REPLY = 'کارت «تست» ساخته شد.\nموفق "باشید"'
 
@@ -165,7 +164,7 @@ def test_rate_limit_is_429_on_the_regular_route(auth_client, monkeypatch):
 
 
 @pytest.mark.live
-@pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set")
+@pytest.mark.skipif(not AI_KEY_SET, reason="no AI provider key set")
 def test_live_stream(auth_client):
     evs = events(send(auth_client, "در دو جمله بگو کانبان چیست."))
     assert evs[-1]["type"] == "done", evs[-1]

@@ -1,18 +1,36 @@
-"""OpenRouter access through the OpenAI-compatible API."""
+"""AI access through an OpenAI-compatible API: Groq or OpenRouter, chosen in .env."""
 
 import os
 from collections.abc import Iterator
 
 from openai import OpenAI, OpenAIError, RateLimitError
 
-BASE_URL = "https://openrouter.ai/api/v1"
-# Free model with strict structured output; chosen by running the live chat tests.
-DEFAULT_MODEL = "particle-ai/particle-1:free"
+PROVIDERS = {
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "key": "GROQ_API_KEY",
+        "model": "openai/gpt-oss-120b",
+    },
+    "openrouter": {
+        "base_url": "https://openrouter.ai/api/v1",
+        "key": "OPENROUTER_API_KEY",
+        # Free model with strict structured output; chosen by running the live chat tests.
+        "model": "particle-ai/particle-1:free",
+    },
+}
+
+
+def provider() -> str:
+    """AI_PROVIDER in .env, or Groq when a Groq key is set, otherwise OpenRouter."""
+    name = os.environ.get("AI_PROVIDER") or ("groq" if os.environ.get("GROQ_API_KEY") else "openrouter")
+    if name not in PROVIDERS:
+        raise AIUnavailable(f"unknown AI_PROVIDER {name!r}")
+    return name
 
 
 def model() -> str:
-    """OPENROUTER_MODEL in .env overrides the default (e.g. a free ":free" model)."""
-    return os.environ.get("OPENROUTER_MODEL") or DEFAULT_MODEL
+    """AI_MODEL in .env overrides the provider's default model."""
+    return os.environ.get("AI_MODEL") or PROVIDERS[provider()]["model"]
 
 
 class AIUnavailable(Exception):
@@ -20,22 +38,26 @@ class AIUnavailable(Exception):
 
 
 class AIRateLimited(AIUnavailable):
-    """OpenRouter refused because of a rate limit (free models have a daily request quota)."""
+    """The provider refused because of a rate limit (free tiers have request quotas)."""
 
 
 def client() -> OpenAI:
-    key = os.environ.get("OPENROUTER_API_KEY")
+    config = PROVIDERS[provider()]
+    key = os.environ.get(config["key"])
     if not key:
-        raise AIUnavailable("OPENROUTER_API_KEY is not set")
+        raise AIUnavailable(f"{config['key']} is not set")
     # The SDK default (600 s read timeout, 2 retries) could leave the chat waiting for 30 minutes.
-    return OpenAI(api_key=key, base_url=BASE_URL, timeout=60, max_retries=1)
+    return OpenAI(api_key=key, base_url=config["base_url"], timeout=60, max_retries=1)
 
 
 def _options(response_format: dict | None) -> dict:
     if not response_format:
         return {}
-    # Route only to OpenRouter providers that honour response_format.
-    return {"response_format": response_format, "extra_body": {"provider": {"require_parameters": True}}}
+    options: dict = {"response_format": response_format}
+    if provider() == "openrouter":
+        # OpenRouter routes to several providers; only use those that honour response_format.
+        options["extra_body"] = {"provider": {"require_parameters": True}}
+    return options
 
 
 def _unavailable(e: OpenAIError) -> AIUnavailable:
