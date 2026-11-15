@@ -38,7 +38,7 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
         <button
           type="button"
           aria-label={`حذف ${labelTitle(label)}`}
-          onClick={() => window.confirm(`${labelTitle(label)} از برد و همه کارت‌ها حذف شود؟`) && onDelete(label.id)}
+          onClick={() => window.confirm(`${labelTitle(label)} از تخته و همه کارت‌ها حذف شود؟`) && onDelete(label.id)}
           className="rounded-md p-1.5 text-gray-text hover:bg-red-50 hover:text-red-600"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -78,7 +78,7 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
       >
         <div>
           <h2 id="labels-title" className="text-lg font-bold text-navy">
-            برچسب‌های برد
+            برچسب‌های تخته
           </h2>
           <p className="mt-1 text-xs text-gray-text">نام اختیاری است؛ تغییرها روی همه کارت‌های دارای این برچسب اعمال می‌شود.</p>
         </div>

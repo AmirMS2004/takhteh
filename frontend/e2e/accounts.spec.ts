@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { login } from "./helpers";
 
-const boardHeading = { name: "تخته پروژه", exact: true };
+const boardHeading = { name: "تخته", exact: true };
 
 async function signUp(page: Page, username: string, password: string) {
   await page.goto("/");
@@ -49,7 +49,7 @@ test("edits the profile in the dashboard and keeps it after reload", async ({ pa
   await expect(page.getByRole("heading", boardHeading)).toBeVisible();
 
   await page.getByRole("button", { name: /داشبورد من/ }).click();
-  const boards = page.getByRole("region", { name: "بردهای من" });
+  const boards = page.getByRole("region", { name: "تخته‌های من" });
   await expect(boards.getByRole("listitem")).toHaveCount(1);
   await expect(boards.getByRole("listitem")).toContainText("مالک");
 

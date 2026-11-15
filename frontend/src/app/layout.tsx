@@ -3,8 +3,8 @@ import "@fontsource-variable/vazirmatn";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "تخته پروژه",
-  description: "مدیریت ساده پروژه به سبک کانبان",
+  title: "تخته",
+  description: "همه کارها روی یک تخته؛ مدیریت ساده پروژه به سبک کانبان، با دستیار هوش مصنوعی.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -12,12 +12,12 @@ async function openDashboard(prepare?: (api: ReturnType<typeof fakeApi>) => void
   render(<Home />);
   await screen.findByTestId("column-backlog");
   await user.click(screen.getByRole("button", { name: /داشبورد من/ }));
-  await screen.findByRole("heading", { name: "بردهای من" });
+  await screen.findByRole("heading", { name: "تخته‌های من" });
   return { api, user };
 }
 
 const profileSection = () => screen.getByRole("region", { name: /user|امیر/ });
-const boardsSection = () => screen.getByRole("region", { name: "بردهای من" });
+const boardsSection = () => screen.getByRole("region", { name: "تخته‌های من" });
 const save = () => screen.getByRole("button", { name: "ذخیره تغییرات" });
 
 describe("dashboard", () => {
@@ -55,7 +55,7 @@ describe("dashboard", () => {
     });
     await user.click(screen.getByRole("button", { name: "باز کردن دوم" }));
     expect(await screen.findByRole("option", { name: "دوم", selected: true })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "تخته پروژه" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "تخته" })).toBeInTheDocument();
     expect(api.state.loggedIn).toBe(true);
   });
 
@@ -111,7 +111,7 @@ describe("dashboard", () => {
 
   it("goes back to the board", async () => {
     const { user } = await openDashboard();
-    await user.click(screen.getByRole("button", { name: "بازگشت به برد" }));
+    await user.click(screen.getByRole("button", { name: "بازگشت به تخته" }));
     expect(await screen.findByTestId("column-backlog")).toBeInTheDocument();
   });
 });

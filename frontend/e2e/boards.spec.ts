@@ -7,12 +7,12 @@ test.beforeEach(async ({ page }) => {
   await freshBoard(page);
 });
 
-const switcher = (page: import("@playwright/test").Page) => page.getByRole("combobox", { name: "انتخاب برد" });
+const switcher = (page: import("@playwright/test").Page) => page.getByRole("combobox", { name: "انتخاب تخته" });
 
 test("creates a second board, switches between boards, and keeps the choice after reload", async ({ page }) => {
-  await page.getByRole("button", { name: "+ برد تازه" }).click();
-  await page.getByLabel("نام برد").fill("بازاریابی");
-  await page.getByRole("button", { name: "ساخت برد" }).click();
+  await page.getByRole("button", { name: "+ تخته تازه" }).click();
+  await page.getByLabel("نام تخته").fill("بازاریابی");
+  await page.getByRole("button", { name: "ساخت تخته" }).click();
 
   await expect(switcher(page)).toHaveValue(/board-/);
   await expect(switcher(page).locator("option:checked")).toHaveText("بازاریابی");
@@ -32,7 +32,7 @@ test("shares the board with another user who can be the assignee", async ({ page
   expect((await other.post("/api/auth/signup", { data: { username: name, password: "secret123" } })).ok()).toBe(true);
 
   await page.getByRole("button", { name: /اعضا و تنظیمات/ }).click();
-  const dialog = page.getByRole("dialog", { name: "تنظیمات برد" });
+  const dialog = page.getByRole("dialog", { name: "تنظیمات تخته" });
   await dialog.getByLabel("نام کاربری عضو تازه").fill(name);
   await dialog.getByRole("button", { name: "افزودن" }).click();
   await expect(dialog.getByText(name)).toBeVisible();

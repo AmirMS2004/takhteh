@@ -45,7 +45,7 @@ export function useBoard(boardId: string) {
     dismissNotice: () => setNotice(null),
     persist: (call: Promise<unknown>) =>
       call.catch(() => {
-        setNotice("ذخیره تغییر ناموفق بود؛ برد از سرور دوباره بارگذاری شد.");
+        setNotice("ذخیره تغییر ناموفق بود؛ تخته از سرور دوباره بارگذاری شد.");
         return reload();
       }),
   };

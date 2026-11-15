@@ -4,4 +4,4 @@ import { createContext } from "react";
 export const AskAssistant = createContext<((message: string) => void) | null>(null);
 
 export const splitRequest = (title: string) => `کارت «${title}» را به چند کارت کوچک‌تر تقسیم کن.`;
-export const WEEKLY_REPORT = "گزارش هفتگی این برد را بنویس.";
+export const WEEKLY_REPORT = "گزارش هفتگی این تخته را بنویس.";

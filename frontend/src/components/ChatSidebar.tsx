@@ -80,7 +80,7 @@ export function ChatSidebar({
         status: "pending",
         problem:
           e instanceof ApiError && e.status === 409
-            ? "برد از زمان این پیشنهاد تغییر کرده و نمی‌توان آن را اعمال کرد. دوباره درخواست کنید."
+            ? "تخته از زمان این پیشنهاد تغییر کرده و نمی‌توان آن را اعمال کرد. دوباره درخواست کنید."
             : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
       });
     }
@@ -96,7 +96,7 @@ export function ChatSidebar({
         status: "applied",
         problem:
           e instanceof ApiError && e.status === 409
-            ? "برد از آن زمان تغییر کرده و نمی‌توان این تغییرات را برگرداند."
+            ? "تخته از آن زمان تغییر کرده و نمی‌توان این تغییرات را برگرداند."
             : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
       });
     }
@@ -130,7 +130,7 @@ export function ChatSidebar({
         {
           role: "assistant",
           content: res.reply,
-          note: res.error ? "این تغییرات با برد جور نبود و پیشنهاد نشد؛ دوباره و دقیق‌تر درخواست کنید." : undefined,
+          note: res.error ? "این تغییرات با تخته جور نبود و پیشنهاد نشد؛ دوباره و دقیق‌تر درخواست کنید." : undefined,
           proposal,
         },
       ]);
@@ -163,7 +163,7 @@ export function ChatSidebar({
               type="button"
               disabled={pending}
               onClick={async () => {
-                if (!window.confirm("گفت‌وگوی این برد پاک شود و از نو شروع کنید؟")) return;
+                if (!window.confirm("گفت‌وگوی این تخته پاک شود و از نو شروع کنید؟")) return;
                 await clearHistory(boardId);
                 setMessages([]);
               }}

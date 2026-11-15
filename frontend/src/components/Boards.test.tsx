@@ -14,8 +14,8 @@ async function setup(prepare?: (api: ReturnType<typeof fakeApi>) => void) {
   return { api, user: userEvent.setup() };
 }
 
-const switcher = () => screen.getByRole("combobox", { name: "انتخاب برد" });
-const settings = () => screen.getByRole("dialog", { name: "تنظیمات برد" });
+const switcher = () => screen.getByRole("combobox", { name: "انتخاب تخته" });
+const settings = () => screen.getByRole("dialog", { name: "تنظیمات تخته" });
 const options = () => within(switcher()).getAllByRole("option").map((o) => o.textContent);
 
 async function openSettings(user: ReturnType<typeof userEvent.setup>) {
@@ -26,9 +26,9 @@ async function openSettings(user: ReturnType<typeof userEvent.setup>) {
 describe("boards", () => {
   it("creates a board, switches to it, and remembers it", async () => {
     const { user } = await setup();
-    await user.click(screen.getByRole("button", { name: "+ برد تازه" }));
-    await user.type(within(screen.getByRole("dialog", { name: "برد تازه" })).getByLabelText("نام برد"), "بازاریابی");
-    await user.click(screen.getByRole("button", { name: "ساخت برد" }));
+    await user.click(screen.getByRole("button", { name: "+ تخته تازه" }));
+    await user.type(within(screen.getByRole("dialog", { name: "تخته تازه" })).getByLabelText("نام تخته"), "بازاریابی");
+    await user.click(screen.getByRole("button", { name: "ساخت تخته" }));
 
     expect(await screen.findByRole("option", { name: "بازاریابی", selected: true })).toBeInTheDocument();
     expect(options()).toEqual(["تخته پروژه", "بازاریابی"]);
@@ -53,7 +53,7 @@ describe("boards", () => {
   it("renames the board", async () => {
     const { api, user } = await setup();
     const dialog = await openSettings(user);
-    const title = within(dialog).getByLabelText("نام برد");
+    const title = within(dialog).getByLabelText("نام تخته");
     await user.clear(title);
     await user.type(title, "محصول{Enter}");
     expect(api.state.board.title).toBe("محصول");
@@ -77,7 +77,7 @@ describe("boards", () => {
 
     await user.type(within(dialog).getByLabelText("نام کاربری عضو تازه"), "bob");
     await user.click(within(dialog).getByRole("button", { name: "افزودن" }));
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent("از قبل عضو این برد است");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("از قبل عضو این تخته است");
 
     await user.click(within(dialog).getByRole("button", { name: "بستن" }));
     await user.click(screen.getByRole("button", { name: "ویرایش پژوهش رقبا" }));
@@ -86,20 +86,20 @@ describe("boards", () => {
     await user.click(screen.getByRole("button", { name: "انصراف" }));
 
     dialog = await openSettings(user);
-    await user.click(within(dialog).getByRole("button", { name: "حذف bob از برد" }));
+    await user.click(within(dialog).getByRole("button", { name: "حذف bob از تخته" }));
     expect(within(dialog).queryByText("bob")).not.toBeInTheDocument();
   });
 
   it("deletes a board after confirmation and opens another one", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const { api, user } = await setup();
-    await user.click(screen.getByRole("button", { name: "+ برد تازه" }));
-    await user.type(screen.getByLabelText("نام برد"), "موقت");
-    await user.click(screen.getByRole("button", { name: "ساخت برد" }));
+    await user.click(screen.getByRole("button", { name: "+ تخته تازه" }));
+    await user.type(screen.getByLabelText("نام تخته"), "موقت");
+    await user.click(screen.getByRole("button", { name: "ساخت تخته" }));
     await screen.findByRole("option", { name: "موقت", selected: true });
 
     const dialog = await openSettings(user);
-    await user.click(within(dialog).getByRole("button", { name: "حذف برد" }));
+    await user.click(within(dialog).getByRole("button", { name: "حذف تخته" }));
     expect(await screen.findByRole("option", { name: "تخته پروژه", selected: true })).toBeInTheDocument();
     expect(Object.keys(api.state.boards)).toEqual(["board-1"]);
   });
@@ -118,12 +118,12 @@ describe("boards", () => {
     });
     expect(options()).toEqual(["تخته پروژه (از bob)"]);
     const dialog = await openSettings(user);
-    expect(within(dialog).queryByLabelText("نام برد")).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("نام تخته")).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText("نام کاربری عضو تازه")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /حذف bob/ })).not.toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole("button", { name: "خروج از برد" }));
-    expect(await screen.findByText("هنوز بردی ندارید.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "خروج از تخته" }));
+    expect(await screen.findByText("هنوز تخته‌ای ندارید.")).toBeInTheDocument();
     expect(api.state.boards).toEqual({});
   });
 
@@ -133,9 +133,9 @@ describe("boards", () => {
     api.state.boards = {};
     render(<Home />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "ساخت اولین برد" }));
-    await user.type(screen.getByLabelText("نام برد"), "اولین");
-    await user.click(screen.getByRole("button", { name: "ساخت برد" }));
+    await user.click(await screen.findByRole("button", { name: "ساخت اولین تخته" }));
+    await user.type(screen.getByLabelText("نام تخته"), "اولین");
+    await user.click(screen.getByRole("button", { name: "ساخت تخته" }));
     expect(await screen.findByRole("option", { name: "اولین", selected: true })).toBeInTheDocument();
   });
 });

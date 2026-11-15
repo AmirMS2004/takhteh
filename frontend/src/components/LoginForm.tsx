@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BRAND, LogoMark } from "./Logo";
 import { ApiError, login, signup } from "@/lib/api";
 
 export const input =
@@ -60,11 +61,17 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
         onSubmit={submit}
         className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-[0_18px_40px_-24px_rgba(3,33,71,0.35)]"
       >
-        <div className="h-1 w-12 rounded-full bg-accent" />
-        <div>
-          <h1 className="text-2xl font-extrabold text-navy">{isSignup ? "ساخت حساب تازه" : "ورود به تخته پروژه"}</h1>
+        <div className="flex items-center gap-3 pb-2">
+          <LogoMark size={48} />
+          <div>
+            <p className="text-2xl leading-none font-black tracking-tight text-navy">{BRAND.name}</p>
+            <p className="mt-1.5 text-xs text-gray-text">{BRAND.tagline}</p>
+          </div>
+        </div>
+        <div className="border-t border-slate-100 pt-4">
+          <h1 className="text-xl font-extrabold text-navy">{isSignup ? "ساخت حساب تازه" : "ورود به تخته"}</h1>
           <p className="mt-1 text-sm text-gray-text">
-            {isSignup ? "یک برد خالی برای پروژه‌تان ساخته می‌شود." : "برای دیدن برد، وارد حساب خود شوید."}
+            {isSignup ? "یک تخته خالی برای پروژه‌تان ساخته می‌شود." : "برای دیدن تخته، وارد حساب خود شوید."}
           </p>
         </div>
         <label className="block space-y-1.5">

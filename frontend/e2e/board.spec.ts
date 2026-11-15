@@ -134,7 +134,7 @@ test("adds a card with all its details and keeps them after reload", async ({ pa
 
 test("names a label, puts it on a card, and keeps both after reload", async ({ page }) => {
   await page.getByRole("button", { name: "برچسب‌ها", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "برچسب‌های برد" });
+  const dialog = page.getByRole("dialog", { name: "برچسب‌های تخته" });
   await dialog.getByLabel("نام برچسب قرمز").fill("فوری");
   await dialog.getByLabel("نام برچسب قرمز").press("Enter");
   await dialog.getByRole("button", { name: "بستن" }).click();

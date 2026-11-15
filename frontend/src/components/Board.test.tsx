@@ -29,7 +29,7 @@ describe("Board", () => {
   it("shows an error when the board cannot be loaded", async () => {
     fakeApi({ overrides: { "GET /api/boards/board-1": { status: 500 } } });
     render(<Harness />);
-    expect(await screen.findByText(/بارگذاری برد ناموفق بود/)).toBeInTheDocument();
+    expect(await screen.findByText(/بارگذاری تخته ناموفق بود/)).toBeInTheDocument();
   });
 
   it("renames a column on Enter, saves it, and ignores empty names", async () => {

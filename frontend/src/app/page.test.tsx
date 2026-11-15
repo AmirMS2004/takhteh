@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { fakeApi } from "@/test/fakeApi";
 import Home from "./page";
 
-const loginHeading = { name: "ورود به تخته پروژه" };
-const boardHeading = { name: "تخته پروژه" };
+const loginHeading = { name: "ورود به تخته" };
+const boardHeading = { name: "تخته" };
 
 async function fillLogin(username: string, password: string) {
   const user = userEvent.setup();

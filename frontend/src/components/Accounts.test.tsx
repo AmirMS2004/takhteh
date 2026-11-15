@@ -57,7 +57,7 @@ describe("sign-up", () => {
     const user = await openSignup();
     await user.type(screen.getByLabelText("رمز عبور"), "secret123");
     await user.click(screen.getByRole("button", { name: "وارد شوید" }));
-    expect(screen.getByRole("heading", { name: "ورود به تخته پروژه" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ورود به تخته" })).toBeInTheDocument();
     expect(screen.getByLabelText("رمز عبور")).toHaveValue("");
     expect(screen.queryByLabelText("تکرار رمز عبور")).not.toBeInTheDocument();
   });

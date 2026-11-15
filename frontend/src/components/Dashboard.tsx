@@ -171,14 +171,14 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
       <div className="flex items-center gap-2">
         <span className="h-5 w-1 rounded-full bg-accent" />
         <h2 id="boards-title" className="font-bold text-navy">
-          بردهای من
+          تخته‌های من
         </h2>
         {boards && <span className="text-sm text-gray-text">({fa(boards.length)})</span>}
       </div>
       {!boards ? (
         <p className="text-sm text-gray-text">در حال بارگذاری…</p>
       ) : boards.length === 0 ? (
-        <p className="text-sm text-gray-text">هنوز در هیچ بردی نیستید.</p>
+        <p className="text-sm text-gray-text">هنوز در هیچ تخته‌ای نیستید.</p>
       ) : (
         <ul className="space-y-2">
           {boards.map((b) => (

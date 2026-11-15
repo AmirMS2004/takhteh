@@ -62,7 +62,7 @@ export function Board({ store }: { store: BoardStore }) {
   );
 
   if (failed && !board) {
-    return <p className="px-6 text-sm text-red-700 sm:px-10">بارگذاری برد ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
+    return <p className="px-6 text-sm text-red-700 sm:px-10">بارگذاری تخته ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
   }
   if (!board) {
     return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;

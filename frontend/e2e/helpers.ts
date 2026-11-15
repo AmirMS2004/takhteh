@@ -30,7 +30,7 @@ export async function login(page: Page, username = "user", password = "password"
 
 export async function loginAndWaitForBoard(page: Page) {
   await login(page);
-  await expect(page.getByRole("heading", { name: "تخته پروژه", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "تخته", exact: true })).toBeVisible();
   await expect(page.getByTestId(/^column-/)).toHaveCount(5);
 }
 
@@ -55,7 +55,7 @@ export async function resetBoard(page: Page) {
 /** Signs in, resets the board to the seed data, and shows it. */
 export async function freshBoard(page: Page) {
   await login(page);
-  await expect(page.getByRole("heading", { name: "تخته پروژه", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "تخته", exact: true })).toBeVisible();
   await resetBoard(page);
   await page.reload();
   await expect(page.getByTestId(/^column-/)).toHaveCount(5);

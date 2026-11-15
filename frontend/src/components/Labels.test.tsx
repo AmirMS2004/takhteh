@@ -16,7 +16,7 @@ async function setup() {
   return { api, user: userEvent.setup() };
 }
 
-const dialog = () => screen.getByRole("dialog", { name: "برچسب‌های برد" });
+const dialog = () => screen.getByRole("dialog", { name: "برچسب‌های تخته" });
 const card = (id: string) => screen.getByTestId(`card-${id}`);
 
 async function giveLabels(user: ReturnType<typeof userEvent.setup>, cardTitle: string, labels: string[]) {

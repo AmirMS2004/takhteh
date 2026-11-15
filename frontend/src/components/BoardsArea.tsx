@@ -34,7 +34,7 @@ function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Pr
   const [title, setTitle] = useState("");
   const [pending, setPending] = useState(false);
   return (
-    <Modal title="برد تازه" onClose={onClose}>
+    <Modal title="تخته تازه" onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={async (e) => {
@@ -44,12 +44,12 @@ function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Pr
         }}
       >
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام برد</span>
+          <span className="text-sm font-medium text-gray-text">نام تخته</span>
           <input autoFocus maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} className={input} />
         </label>
         <div className="flex gap-2">
           <button type="submit" disabled={pending || !title.trim()} className={`${purpleButton} flex-1`}>
-            ساخت برد
+            ساخت تخته
           </button>
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-text hover:bg-slate-100">
             انصراف
@@ -103,7 +103,7 @@ function BoardSettingsDialog({
     const name = newMember.trim();
     const ok = await run(() => api.addMember(board.id, name), {
       404: `کاربری با نام «${name}» نیست.`,
-      409: `«${name}» از قبل عضو این برد است.`,
+      409: `«${name}» از قبل عضو این تخته است.`,
     });
     if (ok) {
       setNewMember("");
@@ -112,23 +112,23 @@ function BoardSettingsDialog({
   };
 
   const removeMember = async (name: string) => {
-    if (!window.confirm(`«${name}» از این برد حذف شود؟ کارت‌هایی که مسئولش است بدون مسئول می‌شوند.`)) return;
+    if (!window.confirm(`«${name}» از این تخته حذف شود؟ کارت‌هایی که مسئولش است بدون مسئول می‌شوند.`)) return;
     if (await run(() => api.removeMember(board.id, name))) await store.reload();
   };
 
   const leaveOrDelete = async () => {
     const question = owner
-      ? `برد «${board.title}» با همه کارت‌هایش برای همه اعضا حذف شود؟ این کار برگشت‌پذیر نیست.`
-      : `از برد «${board.title}» خارج می‌شوید؟`;
+      ? `تخته «${board.title}» با همه کارت‌هایش برای همه اعضا حذف شود؟ این کار برگشت‌پذیر نیست.`
+      : `از تخته «${board.title}» خارج می‌شوید؟`;
     if (!window.confirm(question)) return;
     if (await run(() => (owner ? api.deleteBoard(board.id) : api.removeMember(board.id, username)))) onLeft();
   };
 
   return (
-    <Modal title="تنظیمات برد" onClose={onClose}>
+    <Modal title="تنظیمات تخته" onClose={onClose}>
       {owner ? (
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام برد</span>
+          <span className="text-sm font-medium text-gray-text">نام تخته</span>
           <input
             maxLength={100}
             value={title}
@@ -140,7 +140,7 @@ function BoardSettingsDialog({
         </label>
       ) : (
         <p className="text-sm text-gray-text">
-          مالک این برد <span dir="ltr">{board.members.find((m) => m.role === "owner")?.username}</span> است.
+          مالک این تخته <span dir="ltr">{board.members.find((m) => m.role === "owner")?.username}</span> است.
         </p>
       )}
 
@@ -157,7 +157,7 @@ function BoardSettingsDialog({
               {owner && m.role !== "owner" && (
                 <button
                   type="button"
-                  aria-label={`حذف ${m.username} از برد`}
+                  aria-label={`حذف ${m.username} از تخته`}
                   onClick={() => removeMember(m.username)}
                   className="mr-auto rounded-md px-2 py-0.5 text-xs text-gray-text hover:bg-red-50 hover:text-red-600"
                 >
@@ -193,7 +193,7 @@ function BoardSettingsDialog({
 
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
         <button type="button" onClick={leaveOrDelete} className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-          {owner ? "حذف برد" : "خروج از برد"}
+          {owner ? "حذف تخته" : "خروج از تخته"}
         </button>
         <button type="button" autoFocus onClick={onClose} className={purpleButton}>
           بستن
@@ -236,7 +236,7 @@ function Workspace({
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2 px-6 sm:px-10">
         <select
-          aria-label="انتخاب برد"
+          aria-label="انتخاب تخته"
           value={boardId}
           onChange={(e) => onSelect(e.target.value)}
           className="max-w-64 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-navy outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
@@ -267,7 +267,7 @@ function Workspace({
           onClick={onNew}
           className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-sky-50"
         >
-          + برد تازه
+          + تخته تازه
         </button>
       </div>
 
@@ -353,9 +353,9 @@ export function BoardsArea({
         />
       ) : (
         <div className="mx-6 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center sm:mx-10">
-          <p className="text-sm text-gray-text">هنوز بردی ندارید.</p>
+          <p className="text-sm text-gray-text">هنوز تخته‌ای ندارید.</p>
           <button type="button" onClick={() => setNewOpen(true)} className={`${purpleButton} mt-4`}>
-            ساخت اولین برد
+            ساخت اولین تخته
           </button>
         </div>
       )}

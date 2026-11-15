@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { login, loginAndWaitForBoard } from "./helpers";
 
-const loginHeading = { name: "ورود به تخته پروژه" };
+const loginHeading = { name: "ورود به تخته" };
 
 test("shows the login form before the board", async ({ page }) => {
   await page.goto("/");
@@ -21,7 +21,7 @@ test("signs in, stays signed in after reload, and signs out", async ({ page }) =
   await expect(page.getByTestId(/^column-/)).toHaveCount(5);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "تخته پروژه", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "تخته", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "خروج" }).click();
   await expect(page.getByRole("heading", loginHeading)).toBeVisible();

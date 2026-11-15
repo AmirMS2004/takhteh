@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { BoardsArea, rememberBoard } from "@/components/BoardsArea";
 import { Dashboard } from "@/components/Dashboard";
+import { BRAND, LogoMark } from "@/components/Logo";
 import { LoginForm } from "@/components/LoginForm";
 import { UNAUTHORIZED_EVENT, getMe, logout, type Profile } from "@/lib/api";
 
@@ -45,14 +46,14 @@ export default function Home() {
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 px-6 pt-8 pb-6 sm:px-10 sm:pt-10">
         <div>
           <div className="flex items-center gap-3">
-            <span className="h-8 w-1.5 rounded-full bg-accent" />
+            <LogoMark size={40} />
             <h1 className="text-2xl font-extrabold tracking-tight text-navy sm:text-3xl">
-              {dashboard ? "داشبورد من" : "تخته پروژه"}
+              {dashboard ? "داشبورد من" : BRAND.name}
             </h1>
           </div>
-          <p className="mt-2 hidden pr-4.5 text-sm text-gray-text sm:block">
+          <p className="mt-2 hidden pr-[52px] text-sm text-gray-text sm:block">
             {dashboard
-              ? "پروفایل، عکس و رمز خود را تغییر دهید و بردهایتان را ببینید."
+              ? "پروفایل، عکس و رمز خود را تغییر دهید و تخته‌هایتان را ببینید."
               : "کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید."}
           </p>
         </div>
@@ -63,7 +64,7 @@ export default function Home() {
               onClick={() => setView("board")}
               className="rounded-lg bg-primary px-3 py-1.5 font-medium whitespace-nowrap text-white transition hover:brightness-110"
             >
-              بازگشت به برد
+              بازگشت به تخته
             </button>
           ) : (
             <button

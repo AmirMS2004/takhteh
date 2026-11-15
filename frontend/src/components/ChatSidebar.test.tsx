@@ -147,7 +147,7 @@ describe("ChatSidebar", () => {
     });
     await say(user, "یک کارت بساز");
     await user.click(await within(chatPanel()).findByRole("button", { name: "اعمال تغییرات" }));
-    expect(await within(proposalBox()).findByRole("alert")).toHaveTextContent("برد از زمان این پیشنهاد تغییر کرده");
+    expect(await within(proposalBox()).findByRole("alert")).toHaveTextContent("تخته از زمان این پیشنهاد تغییر کرده");
     expect(within(proposalBox()).getByRole("button", { name: "اعمال تغییرات" })).toBeEnabled();
     expect(within(column("todo")).queryByText("کارت هوش مصنوعی")).not.toBeInTheDocument();
   });
@@ -162,7 +162,7 @@ describe("ChatSidebar", () => {
       }),
     });
     await say(user, "کاری کن");
-    expect(await within(chatPanel()).findByText(/با برد جور نبود/)).toBeInTheDocument();
+    expect(await within(chatPanel()).findByText(/با تخته جور نبود/)).toBeInTheDocument();
     expect(within(chatPanel()).queryByRole("region", { name: "تغییرات پیشنهادی" })).not.toBeInTheDocument();
     expect(screen.queryByText("نباید دیده شود")).not.toBeInTheDocument();
   });
@@ -267,9 +267,9 @@ describe("ChatSidebar", () => {
   it("asks for a weekly report", async () => {
     const { api, user } = await renderHome();
     await user.click(within(chatPanel()).getByRole("button", { name: "گزارش هفتگی" }));
-    expect(await within(chatPanel()).findByText("پاسخ به: گزارش هفتگی این برد را بنویس.")).toBeInTheDocument();
+    expect(await within(chatPanel()).findByText("پاسخ به: گزارش هفتگی این تخته را بنویس.")).toBeInTheDocument();
     const sent = api.calls().find((c) => c.route === "POST /api/ai/chat/stream")!;
-    expect(sent.body).toEqual({ board_id: "board-1", message: "گزارش هفتگی این برد را بنویس." });
+    expect(sent.body).toEqual({ board_id: "board-1", message: "گزارش هفتگی این تخته را بنویس." });
   });
 
   it("asks the assistant to split a card, opening the chat if it was closed", async () => {
