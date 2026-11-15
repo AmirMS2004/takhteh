@@ -39,6 +39,10 @@ class ColumnUpdate(BaseModel):
     title: Title
 
 
+class ColumnMove(BaseModel):
+    index: int = Field(ge=0)
+
+
 class CardCreate(CardFields):
     column_id: str
     title: Title
@@ -130,6 +134,26 @@ def remove_member(board_id: str, username: str, user: CurrentUser) -> dict[str, 
 def rename_column(column_id: str, body: ColumnUpdate, user: CurrentUser) -> dict[str, bool]:
     with db.connect() as conn:
         service.rename_column(conn, user.id, column_id, body.title)
+    return {"ok": True}
+
+
+@router.post("/boards/{board_id}/columns", status_code=201)
+def create_column(board_id: str, body: ColumnUpdate, user: CurrentUser) -> dict:
+    with db.connect() as conn:
+        return service.create_column(conn, user.id, board_id, body.title)
+
+
+@router.delete("/columns/{column_id}")
+def delete_column(column_id: str, user: CurrentUser) -> dict[str, bool]:
+    with db.connect() as conn:
+        service.delete_column(conn, user.id, column_id)
+    return {"ok": True}
+
+
+@router.post("/columns/{column_id}/move")
+def move_column(column_id: str, body: ColumnMove, user: CurrentUser) -> dict[str, bool]:
+    with db.connect() as conn:
+        service.move_column(conn, user.id, column_id, body.index)
     return {"ok": True}
 
 

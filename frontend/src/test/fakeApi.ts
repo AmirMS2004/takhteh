@@ -1,7 +1,10 @@
 import { vi } from "vitest";
 import {
   addCard,
+  addColumn,
   addLabel,
+  moveColumn,
+  removeColumn,
   deleteCard,
   removeLabel,
   updateLabel,
@@ -154,6 +157,21 @@ export function fakeApi({
     }
     if (method === "DELETE" && (m = path.match(/^\/api\/labels\/(.+)$/))) {
       put(removeLabel(boardOf(m[1]), m[1]));
+      return json({ ok: true });
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/boards\/([^/]+)\/columns$/))) {
+      const column = { id: `col-new-${state.nextId++}`, title: body.title as string, cardIds: [] };
+      put(addColumn(state.boards[m[1]], column));
+      return json(column, 201);
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/columns\/(.+)\/move$/))) {
+      put(moveColumn(boardOf(m[1]), m[1], body.index as number));
+      return json({ ok: true });
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/columns\/(.+)$/))) {
+      const b = boardOf(m[1]);
+      if (b.columns.length === 1) return json({}, 409);
+      put(removeColumn(b, m[1]));
       return json({ ok: true });
     }
     if (method === "PATCH" && (m = path.match(/^\/api\/columns\/(.+)$/))) {

@@ -1,4 +1,4 @@
-import type { BoardLabel, BoardState, BoardSummary, Card } from "./board";
+import type { BoardLabel, BoardState, BoardSummary, Card, Column } from "./board";
 
 /** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
 export const UNAUTHORIZED_EVENT = "pm:unauthorized";
@@ -85,6 +85,18 @@ export async function removeMember(boardId: string, username: string): Promise<v
 
 export async function renameColumn(columnId: string, title: string): Promise<void> {
   await request(`/api/columns/${columnId}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+export function createColumn(boardId: string, title: string): Promise<Column> {
+  return request<Column>(`/api/boards/${boardId}/columns`, { method: "POST", body: JSON.stringify({ title }) });
+}
+
+export async function deleteColumn(columnId: string): Promise<void> {
+  await request(`/api/columns/${columnId}`, { method: "DELETE" });
+}
+
+export async function moveColumn(columnId: string, index: number): Promise<void> {
+  await request(`/api/columns/${columnId}/move`, { method: "POST", body: JSON.stringify({ index }) });
 }
 
 export function createCard(columnId: string, title: string, details: string): Promise<Card> {

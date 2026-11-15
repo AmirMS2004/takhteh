@@ -5,7 +5,10 @@ import {
   findColumn,
   initialBoard,
   moveCard,
+  addColumn,
   addLabel,
+  moveColumn,
+  removeColumn,
   removeLabel,
   renameColumn,
   updateCard,
@@ -142,3 +145,25 @@ describe("labels", () => {
     expect(next.cards["1"]).toBe(board.cards["1"]);
   });
 });
+
+describe("columns", () => {
+  it("adds a column at the end", () => {
+    const next = addColumn(board, { id: "d", title: "D", cardIds: [] });
+    expect(next.columns.map((c) => c.id)).toEqual(["a", "b", "c", "d"]);
+    expect(next.labels).toBe(board.labels);
+  });
+
+  it("removes a column together with its cards", () => {
+    const next = removeColumn(board, "a");
+    expect(next.columns.map((c) => c.id)).toEqual(["b", "c"]);
+    expect(Object.keys(next.cards)).toEqual(["4"]);
+    expect(board.columns).toHaveLength(3);
+  });
+
+  it("moves a column", () => {
+    expect(moveColumn(board, "a", 2).columns.map((c) => c.id)).toEqual(["b", "c", "a"]);
+    expect(moveColumn(board, "c", 0).columns.map((c) => c.id)).toEqual(["c", "a", "b"]);
+    expect(moveColumn(board, "zzz", 0)).toBe(board);
+  });
+});
+

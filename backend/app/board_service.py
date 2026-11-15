@@ -208,6 +208,43 @@ def rename_column(conn: sqlite3.Connection, user_id: int, column: str, title: st
     conn.execute("UPDATE columns SET title = ? WHERE id = ?", (title, column_id))
 
 
+def _column_ids(conn: sqlite3.Connection, board_id: int) -> list[int]:
+    rows = conn.execute("SELECT id FROM columns WHERE board_id = ? ORDER BY position", (board_id,))
+    return [row["id"] for row in rows]
+
+
+def _write_column_order(conn: sqlite3.Connection, column_ids: list[int]) -> None:
+    conn.executemany("UPDATE columns SET position = ? WHERE id = ?", [(i, c) for i, c in enumerate(column_ids)])
+
+
+def create_column(conn: sqlite3.Connection, user_id: int, board: str, title: str) -> dict:
+    """Adds a column at the end of the board."""
+    board_id = member_board(conn, user_id, board)
+    column_id = conn.execute(
+        "INSERT INTO columns (board_id, title, position) VALUES (?, ?, ?)",
+        (board_id, title, len(_column_ids(conn, board_id))),
+    ).lastrowid
+    return {"id": column_key(column_id), "title": title, "cardIds": []}
+
+
+def delete_column(conn: sqlite3.Connection, user_id: int, column: str) -> None:
+    """Deletes the column with its cards (ON DELETE CASCADE). A board keeps at least one column."""
+    column_id, board_id = _column(conn, user_id, column)
+    remaining = [c for c in _column_ids(conn, board_id) if c != column_id]
+    if not remaining:
+        raise Conflict("a board needs at least one column")
+    conn.execute("DELETE FROM columns WHERE id = ?", (column_id,))
+    _write_column_order(conn, remaining)
+
+
+def move_column(conn: sqlite3.Connection, user_id: int, column: str, index: int) -> None:
+    """Moves the column to `index` (clamped) among its board's columns."""
+    column_id, board_id = _column(conn, user_id, column)
+    ids = [c for c in _column_ids(conn, board_id) if c != column_id]
+    ids.insert(min(max(index, 0), len(ids)), column_id)
+    _write_column_order(conn, ids)
+
+
 # --- labels ---
 
 

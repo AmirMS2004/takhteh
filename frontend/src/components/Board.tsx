@@ -17,15 +17,18 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import * as api from "@/lib/api";
 import type { BoardStore } from "@/lib/useBoard";
 import {
   addCard,
+  addColumn,
   addLabel,
   deleteCard,
   findColumn,
   moveCard,
+  moveColumn,
+  removeColumn,
   removeLabel,
   renameColumn,
   updateCard,
@@ -34,7 +37,7 @@ import {
 } from "@/lib/board";
 import { today } from "@/lib/cardDetails";
 import { emptyFilter, isActive, matches, type Filter } from "@/lib/filter";
-import { ColumnView } from "./ColumnView";
+import { AddColumn, ColumnPreview, ColumnView } from "./ColumnView";
 import { FilterBar } from "./FilterBar";
 import { LabelsDialog } from "./LabelsDialog";
 import { CardView } from "./CardItem";
@@ -65,9 +68,18 @@ export function Board({ store }: { store: BoardStore }) {
     return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;
   }
 
-  // Target the column under the pointer; inside it, snap to the nearest card (or the column if empty).
+  const isColumn = (id: string) => current().columns.some((c) => c.id === id);
+
+  // A dragged column only collides with columns. A dragged card targets the column under the pointer and,
+  // inside it, snaps to the nearest card (or the column itself if it is empty).
   const collisionDetection: CollisionDetection = (args) => {
     const b = current();
+    if (isColumn(String(args.active.id))) {
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter((c) => isColumn(String(c.id))),
+      });
+    }
     const column = pointerWithin(args).find((hit) => b.columns.some((c) => c.id === hit.id));
     if (!column) return closestCorners(args);
     const cardIds = findColumn(b, String(column.id))!.cardIds;
@@ -85,7 +97,7 @@ export function Board({ store }: { store: BoardStore }) {
 
   // Move the card into another column while hovering, so the target list makes room for it.
   const onDragOver = ({ active, over }: DragOverEvent) => {
-    if (!over) return;
+    if (!over || isColumn(String(active.id))) return;
     const b = current();
     const cardId = String(active.id);
     const overId = String(over.id);
@@ -103,6 +115,15 @@ export function Board({ store }: { store: BoardStore }) {
     if (!start) return;
     if (!over) {
       apply(start);
+      return;
+    }
+    if (isColumn(String(active.id))) {
+      const columnId = String(active.id);
+      const index = current().columns.findIndex((c) => c.id === String(over.id));
+      if (index >= 0 && start.columns[index]?.id !== columnId) {
+        apply(moveColumn(current(), columnId, index));
+        persist(api.moveColumn(columnId, index));
+      }
       return;
     }
     const cardId = String(active.id);
@@ -128,6 +149,7 @@ export function Board({ store }: { store: BoardStore }) {
   };
 
   const activeCard = activeId ? board.cards[activeId] : null;
+  const activeColumn = activeId ? board.columns.find((c) => c.id === activeId) : undefined;
   // Filtering hides cards. Dragging is paused meanwhile: with cards hidden, a drop position
   // could not be mapped back to the real order.
   const filtering = isActive(filter);
@@ -181,36 +203,50 @@ export function Board({ store }: { store: BoardStore }) {
         </p>
       )}
       <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
-        {board.columns.map((column) => (
-          <ColumnView
-            key={column.id}
-            column={column}
-            cards={visibleCards(column.cardIds)}
-            filtering={filtering}
-            onRename={(title) => {
-              apply(renameColumn(current(), column.id, title));
-              persist(api.renameColumn(column.id, title));
-            }}
-            onAdd={(title, details) =>
-              persist(
-                api.createCard(column.id, title, details).then((card) => apply(addCard(current(), column.id, card))),
-              )
-            }
-            onDelete={(cardId) => {
-              apply(deleteCard(current(), cardId));
-              persist(api.deleteCard(cardId));
-            }}
-            onUpdate={(cardId, changes) => {
-              apply(updateCard(current(), cardId, changes));
-              persist(api.updateCard(cardId, changes));
-            }}
-            labels={board.labels}
-            members={board.members}
-            onManageLabels={() => setLabelsOpen(true)}
-          />
-        ))}
+        <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
+          {board.columns.map((column) => (
+            <ColumnView
+              key={column.id}
+              column={column}
+              cards={visibleCards(column.cardIds)}
+              filtering={filtering}
+              onRename={(title) => {
+                apply(renameColumn(current(), column.id, title));
+                persist(api.renameColumn(column.id, title));
+              }}
+              onAdd={(title, details) =>
+                persist(
+                  api.createCard(column.id, title, details).then((card) => apply(addCard(current(), column.id, card))),
+                )
+              }
+              onDelete={(cardId) => {
+                apply(deleteCard(current(), cardId));
+                persist(api.deleteCard(cardId));
+              }}
+              onUpdate={(cardId, changes) => {
+                apply(updateCard(current(), cardId, changes));
+                persist(api.updateCard(cardId, changes));
+              }}
+              labels={board.labels}
+              members={board.members}
+              onManageLabels={() => setLabelsOpen(true)}
+              onDeleteColumn={() => {
+                apply(removeColumn(current(), column.id));
+                persist(api.deleteColumn(column.id));
+              }}
+            />
+          ))}
+        </SortableContext>
+        <AddColumn
+          onAdd={(title) =>
+            persist(api.createColumn(current().id, title).then((column) => apply(addColumn(current(), column))))
+          }
+        />
       </div>
-      <DragOverlay>{activeCard && <CardView card={activeCard} labels={board.labels} overlay />}</DragOverlay>
+      <DragOverlay>
+        {activeCard && <CardView card={activeCard} labels={board.labels} overlay />}
+        {activeColumn && <ColumnPreview title={activeColumn.title} count={activeColumn.cardIds.length} />}
+      </DragOverlay>
       {labelsOpen && (
         <LabelsDialog
           labels={board.labels}

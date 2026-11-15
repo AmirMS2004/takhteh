@@ -53,6 +53,28 @@ export function updateCard(
   return { ...board, cards: { ...board.cards, [cardId]: { ...card, ...changes } } };
 }
 
+export function addColumn(board: BoardState, column: Column): BoardState {
+  return { ...board, columns: [...board.columns, column] };
+}
+
+/** Removes the column and its cards. */
+export function removeColumn(board: BoardState, columnId: string): BoardState {
+  const column = board.columns.find((c) => c.id === columnId);
+  if (!column) return board;
+  const cards = { ...board.cards };
+  for (const id of column.cardIds) delete cards[id];
+  return { ...board, cards, columns: board.columns.filter((c) => c.id !== columnId) };
+}
+
+/** Moves the column to `index` among the board's columns. */
+export function moveColumn(board: BoardState, columnId: string, index: number): BoardState {
+  const column = board.columns.find((c) => c.id === columnId);
+  if (!column) return board;
+  const columns = board.columns.filter((c) => c.id !== columnId);
+  columns.splice(index, 0, column);
+  return { ...board, columns };
+}
+
 export function addLabel(board: BoardState, label: BoardLabel): BoardState {
   return { ...board, labels: [...board.labels, label] };
 }

@@ -39,18 +39,18 @@ test("loads five columns from the server with no console errors", async ({ page 
 
 test("renames a column, cancels with Escape, and keeps the name after reload", async ({ page }) => {
   const col = column(page, "doing");
-  await col.getByRole("button", { name: "در حال انجام" }).click();
+  await col.getByRole("button", { name: "در حال انجام", exact: true }).click();
   await page.getByLabel("نام ستون").fill("در جریان");
   await page.keyboard.press("Enter");
-  await expect(col.getByRole("button", { name: "در جریان" })).toBeVisible();
+  await expect(col.getByRole("button", { name: "در جریان", exact: true })).toBeVisible();
 
-  await col.getByRole("button", { name: "در جریان" }).click();
+  await col.getByRole("button", { name: "در جریان", exact: true }).click();
   await page.getByLabel("نام ستون").fill("نه");
   await page.keyboard.press("Escape");
-  await expect(col.getByRole("button", { name: "در جریان" })).toBeVisible();
+  await expect(col.getByRole("button", { name: "در جریان", exact: true })).toBeVisible();
 
   await reloadAfterSave(page);
-  await expect(column(page, "doing").getByRole("button", { name: "در جریان" })).toBeVisible();
+  await expect(column(page, "doing").getByRole("button", { name: "در جریان", exact: true })).toBeVisible();
 });
 
 test("adds a card and deletes it, both persisted", async ({ page }) => {
@@ -169,7 +169,7 @@ test("drags a card to another column and keeps it there after reload", async ({ 
 test("drags a card into an empty column and keeps it there after reload", async ({ page }) => {
   const review = column(page, "review");
   await review.locator("li").first().hover();
-  await review.getByRole("button", { name: /^حذف/ }).click();
+  await review.locator("li").getByRole("button", { name: /^حذف/ }).click();
   await expect(review.locator("li h3")).toHaveCount(0);
   await expect(review.getByText(/کارتی نیست/)).toBeVisible();
   await drag(page, card(page, "پیاده‌سازی API کاربران"), review.locator("ul"));
@@ -191,7 +191,7 @@ test("reorders cards within a column and keeps the order after reload", async ({
 
 test("keeps changes after the container restarts", async ({ page }) => {
   const col = column(page, "done");
-  await col.getByRole("button", { name: "انجام‌شده" }).click();
+  await col.getByRole("button", { name: "انجام‌شده", exact: true }).click();
   await page.getByLabel("نام ستون").fill("تحویل‌شده");
   await page.keyboard.press("Enter");
   await page.waitForLoadState("networkidle");
@@ -199,5 +199,5 @@ test("keeps changes after the container restarts", async ({ page }) => {
   await restartContainer();
   // The session key is kept with the data, so the user stays signed in across the restart.
   await page.reload();
-  await expect(column(page, "done").getByRole("button", { name: "تحویل‌شده" })).toBeVisible();
+  await expect(column(page, "done").getByRole("button", { name: "تحویل‌شده", exact: true })).toBeVisible();
 });
