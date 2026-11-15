@@ -299,5 +299,31 @@ export function fakeApi({
       body: init?.body ? JSON.parse(init.body as string) : undefined,
     }));
 
-  return { state, fetchMock, calls };
+  vi.stubGlobal("WebSocket", FakeSocket);
+  FakeSocket.open = [];
+
+  /** Live channel: tells the sockets of `boardId` that it changed, as if `origin` (another tab) did it. */
+  const announce = (boardId: string, origin = "someone-else") =>
+    FakeSocket.open
+      .filter((ws) => ws.url.endsWith(`/api/boards/${boardId}/live`))
+      .forEach((ws) => ws.onmessage?.({ data: JSON.stringify({ type: "board_changed", board: boardId, origin }) }));
+  /** Live channel: the server drops every connection. */
+  const disconnect = () => FakeSocket.open.splice(0).forEach((ws) => ws.onclose?.());
+
+  return { state, fetchMock, calls, announce, disconnect, sockets: () => FakeSocket.open };
+}
+
+/** Stands in for the browser WebSocket: connects at once; the test drives messages with `announce`. */
+class FakeSocket {
+  static open: FakeSocket[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((e: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  constructor(public url: string) {
+    FakeSocket.open.push(this);
+    queueMicrotask(() => this.onopen?.());
+  }
+  close() {
+    FakeSocket.open = FakeSocket.open.filter((ws) => ws !== this);
+  }
 }

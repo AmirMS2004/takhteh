@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, StringConstraints, model_validator
 
 from app import board_service as service
-from app import db
+from app import db, live
 from app.auth import User, current_user
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -31,7 +31,7 @@ class CardFields(BaseModel):
     labels: list[str] | None = Field(default=None, max_length=20)
 
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", dependencies=[Depends(live.track_changes)])
 CurrentUser = Annotated[User, Depends(current_user)]
 
 

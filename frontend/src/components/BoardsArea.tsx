@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLive, type LiveStatus } from "@/lib/live";
 import * as api from "@/lib/api";
 import type { BoardSummary } from "@/lib/board";
 import { useBoard, type BoardStore } from "@/lib/useBoard";
@@ -236,6 +237,17 @@ function Workspace({
     onOpenChat();
     chat.current?.ask(message);
   };
+  // Changes by others arrive live: reload the board (and the board list, whose titles may have changed).
+  const [updates, setUpdates] = useState(0);
+  const live = useLive(boardId, () => {
+    store.remoteChanged();
+    onBoardsChanged(false);
+    setUpdates((n) => n + 1);
+  });
+  // Deleted, or the user was removed from it: show another board.
+  useEffect(() => {
+    if (store.gone) onBoardsChanged(true);
+  }, [store.gone, onBoardsChanged]);
 
   return (
     <>
@@ -274,8 +286,15 @@ function Workspace({
         >
           + تخته تازه
         </button>
-        <p className="mr-auto hidden text-xs text-gray-text xl:block">
-          کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید.
+        <div className="mr-auto flex items-center gap-3">
+          <p className="hidden text-xs text-gray-text xl:block">
+            کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید.
+          </p>
+          <LiveBadge status={live} />
+        </div>
+        {/* Tells screen readers when the board changed because of someone else. */}
+        <p aria-live="polite" className="sr-only">
+          {updates > 0 ? `تخته با تغییرات دیگران به‌روز شد (${updates.toLocaleString("fa-IR")})` : ""}
         </p>
       </div>
 
@@ -304,6 +323,30 @@ function Workspace({
         />
       )}
     </>
+  );
+}
+
+/** Whether changes by others show up live; a dot and a word, with the details in the tooltip. */
+function LiveBadge({ status }: { status: LiveStatus }) {
+  const text = { live: "هم‌گام", connecting: "در حال اتصال…", offline: "قطع" }[status];
+  const title = {
+    live: "تغییرات اعضای دیگر و تب‌های دیگر همین حالا دیده می‌شوند.",
+    connecting: "در حال اتصال برای دیدن زنده تغییرات دیگران…",
+    offline: "اتصال زنده قطع است؛ دوباره وصل می‌شود و تخته را به‌روز می‌کند.",
+  }[status];
+  return (
+    <span
+      title={title}
+      data-testid="live-status"
+      data-status={status}
+      className="flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs text-gray-text ring-1 ring-line"
+    >
+      <span
+        aria-hidden
+        className={`h-2 w-2 rounded-full ${status === "live" ? "bg-primary" : status === "offline" ? "bg-danger" : "bg-accent animate-pulse"}`}
+      />
+      {text}
+    </span>
   );
 }
 

@@ -13,6 +13,11 @@ export function useBoard(boardId: string) {
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const ref = useRef<BoardState | null>(null);
+  // The board was deleted, or the user is no longer on it.
+  const [gone, setGone] = useState(false);
+  // While a drag is in progress, changes from others wait, so the board does not jump under the pointer.
+  const held = useRef(false);
+  const waiting = useRef(false);
 
   const apply = (next: BoardState) => {
     ref.current = next;
@@ -26,8 +31,14 @@ export function useBoard(boardId: string) {
         apply(b);
         setFailed(false);
       },
-      () => setFailed(true),
+      (e) => (e instanceof api.ApiError && e.status === 404 ? setGone(true) : setFailed(true)),
     );
+
+  /** Someone else changed the board: reload it now, or when the current drag ends. */
+  const remoteChanged = () => {
+    if (held.current) waiting.current = true;
+    else reload();
+  };
 
   // Loads once: the page keys the workspace by board id, so another board gets a fresh store.
   useEffect(() => {
@@ -38,6 +49,15 @@ export function useBoard(boardId: string) {
   return {
     board,
     failed,
+    gone,
+    remoteChanged,
+    hold: (on: boolean) => {
+      held.current = on;
+      if (!on && waiting.current) {
+        waiting.current = false;
+        reload();
+      }
+    },
     apply,
     current: () => ref.current!,
     reload,

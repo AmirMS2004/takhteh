@@ -9,12 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from app import ai, db
+from app import ai, changes, db, live
 from app import board_service as service
 from app.auth import User, current_user
 from app.board import Assignee, DueDate, LabelColor, Priority
 
-router = APIRouter(prefix="/api/ai")
+router = APIRouter(prefix="/api/ai", dependencies=[Depends(live.track_changes)])
 
 SYSTEM_PROMPT = """You are the assistant inside a kanban project-management app. The user sees their board and \
 talks to you in a sidebar.
@@ -465,7 +465,7 @@ def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
 def _check_operations(user_id: int, board_id: int, operations: list[Operation]) -> str | None:
     """Applies the operations and rolls them back: None if they all work, otherwise the reason."""
     try:
-        with db.connect() as conn:
+        with changes.quiet(), db.connect() as conn:
             Applier(conn, user_id, board_id).apply_all(operations)
             conn.rollback()
     except CHANGE_ERRORS as e:

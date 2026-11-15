@@ -1,4 +1,5 @@
 import type { BoardLabel, BoardState, BoardSummary, Card, Column } from "./board";
+import { CLIENT_ID } from "./live";
 import type { Proposal } from "./proposal";
 
 /** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
@@ -7,7 +8,7 @@ export const UNAUTHORIZED_EVENT = "pm:unauthorized";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", "X-Client-Id": CLIENT_ID, ...init?.headers },
   });
   if (res.status === 401 && !path.startsWith("/api/auth/")) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   if (!res.ok) throw new ApiError(res.status);

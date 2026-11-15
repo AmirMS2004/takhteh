@@ -6,8 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import AfterValidator, BaseModel, Field
 
 from app import db
+from app.changes import touch
+from app.live import track_changes
 
-router = APIRouter(prefix="/api/auth")
+router = APIRouter(prefix="/api/auth", dependencies=[Depends(track_changes)])
 
 
 @dataclass
@@ -124,6 +126,9 @@ def change_profile(body: ProfileChange, user: Annotated[User, Depends(current_us
         with db.connect() as conn:
             for field, value in changes.items():  # field names come from the model, not the request
                 conn.execute(f"UPDATE users SET {field} = ? WHERE id = ?", (value, user.id))
+            if changes.keys() & {"username", "avatar"}:  # shown in the member lists of the user's boards
+                for (board_id,) in conn.execute("SELECT board_id FROM board_members WHERE user_id = ?", (user.id,)):
+                    touch(board_id)
             return profile(conn, user.id)
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Username is taken") from None

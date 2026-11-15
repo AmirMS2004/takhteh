@@ -93,6 +93,7 @@ export function Board({ store }: { store: BoardStore }) {
   const onDragStart = ({ active }: DragStartEvent) => {
     dragStart.current = current();
     setActiveId(String(active.id));
+    store.hold(true);
   };
 
   // Move the card into another column while hovering, so the target list makes room for it.
@@ -110,6 +111,7 @@ export function Board({ store }: { store: BoardStore }) {
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null);
+    store.hold(false);
     const start = dragStart.current;
     dragStart.current = null;
     if (!start) return;
@@ -144,6 +146,7 @@ export function Board({ store }: { store: BoardStore }) {
 
   const onDragCancel = () => {
     setActiveId(null);
+    store.hold(false);
     if (dragStart.current) apply(dragStart.current);
     dragStart.current = null;
   };

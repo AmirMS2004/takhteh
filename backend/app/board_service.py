@@ -7,6 +7,7 @@ import json
 import sqlite3
 
 from app import db
+from app.changes import touch
 
 
 class NotFound(Exception):
@@ -177,6 +178,7 @@ def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dic
         (column_id, position, fields["title"]),
     ).lastrowid
     _write_card(conn, user_id, board, card_id, {"details": ""} | fields)
+    touch(board)
     return _load_card(conn, card_id)
 
 
@@ -184,6 +186,7 @@ def update_card(conn: sqlite3.Connection, user_id: int, card: str, changes: dict
     """Sets the given fields (None clears an optional one); "labels" replaces the card's labels."""
     row, board = _card(conn, user_id, card, board_id)
     _write_card(conn, user_id, board, row["id"], changes)
+    touch(board)
     return _load_card(conn, row["id"])
 
 
@@ -200,11 +203,13 @@ def move_card(
     if source != target:
         _write_order(conn, source, _card_ids(conn, source))
         conn.execute("UPDATE cards SET moved_at = datetime('now') WHERE id = ?", (row["id"],))
+    touch(board)
 
 
 def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> None:
-    row, _ = _card(conn, user_id, card)
+    row, board = _card(conn, user_id, card)
     conn.execute("DELETE FROM cards WHERE id = ?", (row["id"],))
+    touch(board)
     _write_order(conn, row["column_id"], _card_ids(conn, row["column_id"]))
 
 
@@ -261,11 +266,13 @@ def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict) -> Non
             " SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM users WHERE id = ?)",
             (board_id, m["user_id"], m["role"], m["user_id"]),
         )
+    touch(board_id)
 
 
 def rename_column(conn: sqlite3.Connection, user_id: int, column: str, title: str) -> None:
-    column_id, _ = _column(conn, user_id, column)
+    column_id, board_id = _column(conn, user_id, column)
     conn.execute("UPDATE columns SET title = ? WHERE id = ?", (title, column_id))
+    touch(board_id)
 
 
 def _column_ids(conn: sqlite3.Connection, board_id: int) -> list[int]:
@@ -284,6 +291,7 @@ def create_column(conn: sqlite3.Connection, user_id: int, board: str, title: str
         "INSERT INTO columns (board_id, title, position) VALUES (?, ?, ?)",
         (board_id, title, len(_column_ids(conn, board_id))),
     ).lastrowid
+    touch(board_id)
     return {"id": column_key(column_id), "title": title, "cardIds": []}
 
 
@@ -295,6 +303,7 @@ def delete_column(conn: sqlite3.Connection, user_id: int, column: str) -> None:
         raise Conflict("a board needs at least one column")
     conn.execute("DELETE FROM columns WHERE id = ?", (column_id,))
     _write_column_order(conn, remaining)
+    touch(board_id)
 
 
 def move_column(conn: sqlite3.Connection, user_id: int, column: str, index: int) -> None:
@@ -303,9 +312,14 @@ def move_column(conn: sqlite3.Connection, user_id: int, column: str, index: int)
     ids = [c for c in _column_ids(conn, board_id) if c != column_id]
     ids.insert(min(max(index, 0), len(ids)), column_id)
     _write_column_order(conn, ids)
+    touch(board_id)
 
 
 # --- labels ---
+
+
+def _touch_label(conn: sqlite3.Connection, label_id: int) -> None:
+    touch(conn.execute("SELECT board_id FROM labels WHERE id = ?", (label_id,)).fetchone()["board_id"])
 
 
 def _label_dict(row: sqlite3.Row) -> dict:
@@ -317,11 +331,13 @@ def create_label(conn: sqlite3.Connection, user_id: int, board: str, name: str, 
     label_id = conn.execute(
         "INSERT INTO labels (board_id, name, color) VALUES (?, ?, ?)", (board_id, name, color)
     ).lastrowid
+    touch(board_id)
     return _label_dict(conn.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone())
 
 
 def update_label(conn: sqlite3.Connection, user_id: int, label: str, changes: dict) -> dict:
     label_id = _label(conn, user_id, label)
+    _touch_label(conn, label_id)
     for field in ("name", "color"):
         if field in changes:
             conn.execute(f"UPDATE labels SET {field} = ? WHERE id = ?", (changes[field], label_id))
@@ -330,7 +346,9 @@ def update_label(conn: sqlite3.Connection, user_id: int, label: str, changes: di
 
 def delete_label(conn: sqlite3.Connection, user_id: int, label: str) -> None:
     """Also removes the label from every card (ON DELETE CASCADE)."""
-    conn.execute("DELETE FROM labels WHERE id = ?", (_label(conn, user_id, label),))
+    label_id = _label(conn, user_id, label)
+    _touch_label(conn, label_id)
+    conn.execute("DELETE FROM labels WHERE id = ?", (label_id,))
 
 
 # --- boards ---
@@ -399,12 +417,16 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
 
 
 def rename_board(conn: sqlite3.Connection, user_id: int, board: str, title: str) -> None:
-    conn.execute("UPDATE boards SET title = ? WHERE id = ?", (title, _owner_board(conn, user_id, board)))
+    board_id = _owner_board(conn, user_id, board)
+    conn.execute("UPDATE boards SET title = ? WHERE id = ?", (title, board_id))
+    touch(board_id)
 
 
 def delete_board(conn: sqlite3.Connection, user_id: int, board: str) -> None:
     """Deletes the board with its columns, cards, labels and memberships (ON DELETE CASCADE)."""
-    conn.execute("DELETE FROM boards WHERE id = ?", (_owner_board(conn, user_id, board),))
+    board_id = _owner_board(conn, user_id, board)
+    conn.execute("DELETE FROM boards WHERE id = ?", (board_id,))
+    touch(board_id)  # its clients reload and find it gone
 
 
 def add_member(conn: sqlite3.Connection, user_id: int, board: str, username: str) -> None:
@@ -416,6 +438,7 @@ def add_member(conn: sqlite3.Connection, user_id: int, board: str, username: str
         conn.execute(
             "INSERT INTO board_members (board_id, user_id, role) VALUES (?, ?, 'member')", (board_id, row["id"])
         )
+        touch(board_id)
     except sqlite3.IntegrityError:
         raise Conflict(f"{username} is already a member") from None
 
@@ -435,6 +458,7 @@ def remove_member(conn: sqlite3.Connection, user_id: int, board: str, username: 
     if row["user_id"] != user_id and _role(conn, user_id, board_id) != "owner":
         raise Forbidden("only the board owner can remove other members")
     conn.execute("DELETE FROM board_members WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))
+    touch(board_id)
     # Their AI conversation on this board goes too.
     conn.execute("DELETE FROM chat_messages WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))
     conn.execute(
