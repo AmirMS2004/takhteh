@@ -65,8 +65,12 @@ def _write_order(conn: sqlite3.Connection, column_id: int, card_ids: list[int]) 
     )
 
 
+# Fields a card update may change; the API and the AI validate their values.
+EDITABLE = ("title", "details", "due_date", "priority", "label", "assignee")
+
+
 def _card_dict(row: sqlite3.Row) -> dict:
-    return {"id": card_key(row["id"]), "title": row["title"], "details": row["details"]}
+    return {"id": card_key(row["id"])} | {field: row[field] for field in EDITABLE}
 
 
 def get_board(conn: sqlite3.Connection, user_id: int) -> dict:
@@ -98,24 +102,27 @@ def rename_column(conn: sqlite3.Connection, user_id: int, column: str, title: st
     conn.execute("UPDATE columns SET title = ? WHERE id = ?", (title, column_id))
 
 
-def create_card(conn: sqlite3.Connection, user_id: int, column: str, title: str, details: str) -> dict:
+def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dict) -> dict:
+    """`fields` holds title and any other EDITABLE values."""
     column_id = _owned_column(conn, user_id, column)
     position = len(_card_ids(conn, column_id))
+    values = {"details": ""} | {k: v for k, v in fields.items() if k in EDITABLE}
+    names = ", ".join(values)
     card_id = conn.execute(
-        "INSERT INTO cards (column_id, title, details, position) VALUES (?, ?, ?, ?)",
-        (column_id, title, details, position),
+        f"INSERT INTO cards (column_id, position, {names}) VALUES (?, ?{', ?' * len(values)})",
+        (column_id, position, *values.values()),
     ).lastrowid
-    return {"id": card_key(card_id), "title": title, "details": details}
+    return _card_dict(conn.execute("SELECT * FROM cards WHERE id = ?", (card_id,)).fetchone())
 
 
-def update_card(
-    conn: sqlite3.Connection, user_id: int, card: str, title: str | None, details: str | None
-) -> dict:
+def update_card(conn: sqlite3.Connection, user_id: int, card: str, changes: dict) -> dict:
+    """Sets the given EDITABLE fields; None clears an optional field."""
     row = _owned_card(conn, user_id, card)
-    title = row["title"] if title is None else title
-    details = row["details"] if details is None else details
-    conn.execute("UPDATE cards SET title = ?, details = ? WHERE id = ?", (title, details, row["id"]))
-    return {"id": card_key(row["id"]), "title": title, "details": details}
+    changes = {k: v for k, v in changes.items() if k in EDITABLE}
+    if changes:
+        assignments = ", ".join(f"{k} = ?" for k in changes)
+        conn.execute(f"UPDATE cards SET {assignments} WHERE id = ?", (*changes.values(), row["id"]))
+    return _card_dict(conn.execute("SELECT * FROM cards WHERE id = ?", (row["id"],)).fetchone())
 
 
 def move_card(conn: sqlite3.Connection, user_id: int, card: str, column: str, index: int) -> None:

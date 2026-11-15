@@ -122,8 +122,48 @@ describe("Board", () => {
     expect(screen.queryByText("حالت تاریک")).not.toBeInTheDocument();
     expect(api.calls().at(-1)).toEqual({
       route: "PATCH /api/cards/c2",
-      body: { title: "تم تیره", details: "جزئیات تازه" },
+      body: { title: "تم تیره", details: "جزئیات تازه", due_date: null, priority: null, label: null, assignee: null },
     });
+  });
+
+  it("sets a due date, priority, label and assignee, and shows them on the card", async () => {
+    const { api, user } = await renderBoard();
+    await user.click(screen.getByRole("button", { name: "ویرایش حالت تاریک" }));
+    const form = column("backlog");
+    await user.type(within(form).getByLabelText("سررسید"), "2099-03-21");
+    await user.selectOptions(within(form).getByLabelText("اولویت"), "high");
+    await user.type(within(form).getByLabelText("مسئول"), "سارا");
+    await user.click(within(form).getByRole("button", { name: "برچسب سبز" }));
+    await user.click(screen.getByRole("button", { name: "ذخیره" }));
+
+    expect(api.state.board.cards.c2).toMatchObject({
+      due_date: "2099-03-21",
+      priority: "high",
+      label: "green",
+      assignee: "سارا",
+    });
+    const card = screen.getByTestId("card-c2");
+    expect(within(card).getByText("اولویت بالا")).toBeInTheDocument();
+    expect(within(card).getByText("سارا")).toBeInTheDocument();
+    expect(within(card).getByTitle("برچسب سبز")).toBeInTheDocument();
+    expect(within(card).getByTitle("سررسید")).toHaveTextContent(/فروردین ۱۴۷۸/);
+  });
+
+  it("marks an overdue card and clears details", async () => {
+    const { api, user } = await renderBoard();
+    await user.click(screen.getByRole("button", { name: "ویرایش حالت تاریک" }));
+    const form = column("backlog");
+    await user.type(within(form).getByLabelText("سررسید"), "2000-01-01");
+    await user.selectOptions(within(form).getByLabelText("اولویت"), "low");
+    await user.click(screen.getByRole("button", { name: "ذخیره" }));
+    expect(within(screen.getByTestId("card-c2")).getByTitle("سررسید گذشته")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "ویرایش حالت تاریک" }));
+    await user.clear(within(column("backlog")).getByLabelText("سررسید"));
+    await user.selectOptions(within(column("backlog")).getByLabelText("اولویت"), "");
+    await user.click(screen.getByRole("button", { name: "ذخیره" }));
+    expect(api.state.board.cards.c2).toMatchObject({ due_date: null, priority: null });
+    expect(within(screen.getByTestId("card-c2")).queryByText(/اولویت/)).not.toBeInTheDocument();
   });
 
   it("cancels editing on Escape and keeps the original card", async () => {

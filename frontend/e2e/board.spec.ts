@@ -93,6 +93,25 @@ test("edits a card and keeps the edit after reload", async ({ page }) => {
   await expect(col.getByText("طراحی صفحه ورود")).toHaveCount(0);
 });
 
+test("sets card details and keeps them after reload", async ({ page }) => {
+  const target = card(page, "تعریف شاخص‌ها");
+  await target.hover();
+  await target.getByRole("button", { name: "ویرایش تعریف شاخص‌ها" }).click();
+  const form = column(page, "todo");
+  await form.getByLabel("سررسید").fill("2099-03-21");
+  await form.getByLabel("اولویت").selectOption("medium");
+  await form.getByLabel("مسئول").fill("نگار");
+  await form.getByRole("button", { name: "برچسب بنفش" }).click();
+  await form.getByRole("button", { name: "ذخیره" }).click();
+
+  await reloadAfterSave(page);
+  const saved = card(page, "تعریف شاخص‌ها");
+  await expect(saved.getByText("اولویت متوسط")).toBeVisible();
+  await expect(saved.getByText("نگار")).toBeVisible();
+  await expect(saved.getByTitle("برچسب بنفش")).toBeVisible();
+  await expect(saved.getByTitle("سررسید")).toContainText("فروردین");
+});
+
 test("cancels adding a card", async ({ page }) => {
   const col = column(page, "todo");
   await col.getByRole("button", { name: /افزودن کارت/ }).click();

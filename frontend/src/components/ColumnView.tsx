@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, Column } from "@/lib/board";
-import { CardItem } from "./CardItem";
+import { CardItem, type CardChanges } from "./CardItem";
 
 type Props = {
   column: Column;
@@ -12,7 +12,7 @@ type Props = {
   onRename: (title: string) => void;
   onAdd: (title: string, details: string) => void;
   onDelete: (cardId: string) => void;
-  onUpdate: (cardId: string, title: string, details: string) => void;
+  onUpdate: (cardId: string, changes: CardChanges) => void;
 };
 
 function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string) => void }) {
@@ -165,7 +165,7 @@ export function ColumnView({ column, cards, onRename, onAdd, onDelete, onUpdate 
               key={card.id}
               card={card}
               onDelete={onDelete}
-              onUpdate={(title, details) => onUpdate(card.id, title, details)}
+              onUpdate={(changes) => onUpdate(card.id, changes)}
             />
           ))}
         </ul>

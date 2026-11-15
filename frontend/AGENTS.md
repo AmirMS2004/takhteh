@@ -25,7 +25,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `src/lib/board.ts` — نوع‌ها (`Card`، `Column`، `BoardState`)، توابع خالص تغییر برد (`renameColumn`، `addCard`، `updateCard`، `deleteCard`، `moveCard`، `findColumn`) و `initialBoard` که فقط در آزمون‌ها استفاده می‌شود.
 - `src/components/Board.tsx` — نمایش برد از `useBoard` (prop به نام `store`) و ذخیره هر تغییر. تغییرات ابتدا در صفحه اعمال می‌شوند و اگر ذخیره شکست بخورد، برد از سرور دوباره خوانده می‌شود. کارت جدید پس از پاسخ سرور (با شناسه سرور) اضافه می‌شود. در کشیدن و رها کردن، فقط هنگام رها کردن یک درخواست `move` با ستون و اندیس نهایی فرستاده می‌شود؛ handlerها برد را از `store.current()` می‌خوانند تا هیچ‌وقت نسخه قدیمی را نبینند، و لغو کشیدن برد را به حالت پیش از کشیدن برمی‌گرداند.
 - `src/components/ColumnView.tsx` — یک ستون: تغییر نام درون‌خطی (Enter ذخیره، Escape لغو)، شمارنده کارت‌ها، فرم افزودن کارت.
-- `src/components/CardItem.tsx` — `CardView` (ظاهر کارت، دکمه‌های ویرایش و حذف؛ در صفحه لمسی همیشه دیده می‌شوند؛ حذف با تأیید `window.confirm`)، `CardEditForm` (ویرایش درون‌خطی) و `CardItem` (پوشش sortable؛ هنگام ویرایش، کشیدن غیرفعال است).
+- `src/lib/cardDetails.ts` — نام فارسی و رنگ اولویت‌ها و برچسب‌ها، `today()` و `formatDue()` (نمایش سررسید با تقویم شمسی).
+- `src/components/CardItem.tsx` — `CardView` (ظاهر کارت: نوار رنگ برچسب، و تراشه‌های اولویت، سررسید (قرمز اگر گذشته باشد) و مسئول؛ دکمه‌های ویرایش و حذف؛ در صفحه لمسی همیشه دیده می‌شوند؛ حذف با تأیید `window.confirm`)، `CardEditForm` (ویرایش درون‌خطی همه فیلدها، از جمله سررسید، اولویت، مسئول و برچسب) و `CardItem` (پوشش sortable؛ هنگام ویرایش، کشیدن غیرفعال است).
 
 ## آزمون‌ها
 

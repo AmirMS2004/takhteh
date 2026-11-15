@@ -31,10 +31,17 @@ CREATE TABLE IF NOT EXISTS cards (
     column_id INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     details TEXT NOT NULL DEFAULT '',
-    position INTEGER NOT NULL
+    position INTEGER NOT NULL,
+    due_date TEXT,
+    priority TEXT,
+    label TEXT,
+    assignee TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position);
 """
+
+# Card fields added after the first release; init_db adds them to older databases.
+CARD_DETAIL_COLUMNS = ["due_date", "priority", "label", "assignee"]
 
 DEFAULT_COLUMNS = ["ایده‌ها", "برای انجام", "در حال انجام", "بازبینی", "انجام‌شده"]
 
@@ -106,6 +113,10 @@ def init_db() -> None:
     db_path().parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.executescript(SCHEMA)
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(cards)")}
+        for name in CARD_DETAIL_COLUMNS:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE cards ADD COLUMN {name} TEXT")
         if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             return
         user_id = create_user(conn, "user", "password")

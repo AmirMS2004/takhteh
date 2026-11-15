@@ -1,7 +1,9 @@
 {
   "database": "SQLite",
   "file": "data/app.db",
-  "pragmas": ["foreign_keys = ON"],
+  "pragmas": [
+    "foreign_keys = ON"
+  ],
   "tables": {
     "users": {
       "columns": {
@@ -33,22 +35,55 @@
         "column_id": "INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE",
         "title": "TEXT NOT NULL",
         "details": "TEXT NOT NULL DEFAULT ''",
-        "position": "INTEGER NOT NULL"
+        "position": "INTEGER NOT NULL",
+        "due_date": "TEXT",
+        "priority": "TEXT",
+        "label": "TEXT",
+        "assignee": "TEXT"
       },
-      "indexes": ["CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"],
-      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete."
+      "indexes": [
+        "CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"
+      ],
+      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; label is red|orange|yellow|green|blue|purple; assignee is free text (max 50). All four are optional (NULL) and are added to older databases at startup."
     }
   },
   "api_board_shape": {
     "description": "GET /api/board and the AI prompt use the frontend BoardState shape. Database ids are exposed as prefixed strings so column and card ids never collide.",
     "example": {
       "columns": [
-        { "id": "col-1", "title": "ایده‌ها", "cardIds": ["card-1", "card-2"] },
-        { "id": "col-2", "title": "برای انجام", "cardIds": [] }
+        {
+          "id": "col-1",
+          "title": "ایده‌ها",
+          "cardIds": [
+            "card-1",
+            "card-2"
+          ]
+        },
+        {
+          "id": "col-2",
+          "title": "برای انجام",
+          "cardIds": []
+        }
       ],
       "cards": {
-        "card-1": { "id": "card-1", "title": "پژوهش رقبا", "details": "..." },
-        "card-2": { "id": "card-2", "title": "حالت تاریک", "details": "..." }
+        "card-1": {
+          "id": "card-1",
+          "title": "پژوهش رقبا",
+          "details": "...",
+          "due_date": null,
+          "priority": null,
+          "label": null,
+          "assignee": null
+        },
+        "card-2": {
+          "id": "card-2",
+          "title": "حالت تاریک",
+          "details": "...",
+          "due_date": null,
+          "priority": null,
+          "label": null,
+          "assignee": null
+        }
       }
     }
   }

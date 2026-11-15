@@ -6,9 +6,12 @@ import pytest
 from app import ai
 
 
+NULLS = ["card_id", "column_id", "title", "details", "index", "due_date", "priority", "label", "assignee"]
+
+
 def op(type_: str, **fields) -> dict:
     """A flat operation as the model returns it: unused fields are null."""
-    return {"type": type_, "card_id": None, "column_id": None, "title": None, "details": None, "index": None} | fields
+    return {"type": type_} | dict.fromkeys(NULLS) | fields
 
 
 class FakeModel:
@@ -142,6 +145,33 @@ def test_several_operations_apply_in_order(auth_client, model):
     assert result["cards"][second]["details"] == "جزئیات نو"
 
 
+def test_prompt_includes_today(auth_client, model):
+    import datetime
+
+    send(auth_client)
+    assert f"Today is {datetime.date.today().isoformat()}" in model.calls[0]["messages"][0]["content"]
+
+
+def test_create_and_update_card_details(auth_client, model):
+    b = board(auth_client)
+    todo, first = b["columns"][1]["id"], b["columns"][0]["cardIds"][0]
+    model.reply["operations"] = [
+        op("create_card", column_id=todo, title="گزارش", details="", due_date="2026-12-05", priority="high"),
+        op("update_card", card_id=first, label="red", assignee="علی"),
+    ]
+    result = send(auth_client).json()["board"]
+    created = result["cards"][result["columns"][1]["cardIds"][-1]]
+    assert (created["title"], created["due_date"], created["priority"]) == ("گزارش", "2026-12-05", "high")
+    assert (result["cards"][first]["label"], result["cards"][first]["assignee"]) == ("red", "علی")
+    assert result["cards"][first]["title"] == "پژوهش رقبا"  # null kept the title
+
+
+@pytest.mark.parametrize("bad", [{"priority": "urgent"}, {"label": "pink"}, {"due_date": "next week"}])
+def test_invalid_detail_values_are_malformed_output(auth_client, model, bad):
+    model.reply["operations"] = [op("update_card", card_id="card-1", **bad)]
+    assert send(auth_client).status_code == 502
+
+
 # --- failures leave the board untouched ---
 
 
@@ -218,3 +248,12 @@ def test_live_moves_card_and_answers_questions(auth_client):
     body = send(auth_client, "ستون «در حال انجام» چند کارت دارد؟").json()
     assert body["applied"] == 0 and body["board"] == before, body
     assert body["reply"]
+
+
+@pytest.mark.live
+@pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set")
+def test_live_sets_card_details(auth_client):
+    body = send(auth_client, "برای کارت «پژوهش رقبا» اولویت را بالا و برچسب را قرمز بگذار و مسئولش را «سارا» کن.").json()
+    assert body["error"] is None, body
+    research = next(c for c in body["board"]["cards"].values() if c["title"] == "پژوهش رقبا")
+    assert (research["priority"], research["label"], research["assignee"]) == ("high", "red", "سارا"), body

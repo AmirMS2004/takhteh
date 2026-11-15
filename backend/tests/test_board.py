@@ -116,7 +116,8 @@ def test_update_card_partial(auth_client):
     assert card["details"] == "بررسی سه محصول رقیب و جمع‌بندی نقاط قوت و ضعف."
 
     auth_client.patch(f"/api/cards/{card_id}", json={"details": ""})
-    assert board(auth_client)["cards"][card_id] == {"id": card_id, "title": "عنوان نو", "details": ""}
+    card = board(auth_client)["cards"][card_id]
+    assert (card["title"], card["details"]) == ("عنوان نو", "")
 
 
 def test_update_unknown_card(auth_client):

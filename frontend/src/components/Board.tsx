@@ -157,9 +157,9 @@ export function Board({ store }: { store: BoardStore }) {
               apply(deleteCard(current(), cardId));
               persist(api.deleteCard(cardId));
             }}
-            onUpdate={(cardId, title, details) => {
-              apply(updateCard(current(), cardId, { title, details }));
-              persist(api.updateCard(cardId, { title, details }));
+            onUpdate={(cardId, changes) => {
+              apply(updateCard(current(), cardId, changes));
+              persist(api.updateCard(cardId, changes));
             }}
           />
         ))}

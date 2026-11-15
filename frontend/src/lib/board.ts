@@ -1,4 +1,14 @@
-export type Card = { id: string; title: string; details: string };
+export type Priority = "low" | "medium" | "high";
+export type Label = "red" | "orange" | "yellow" | "green" | "blue" | "purple";
+export type Card = {
+  id: string;
+  title: string;
+  details: string;
+  due_date?: string | null; // "YYYY-MM-DD"
+  priority?: Priority | null;
+  label?: Label | null;
+  assignee?: string | null;
+};
 export type Column = { id: string; title: string; cardIds: string[] };
 export type BoardState = { columns: Column[]; cards: Record<string, Card> };
 
