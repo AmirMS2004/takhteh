@@ -203,6 +203,40 @@ def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> None:
     _write_order(conn, row["column_id"], _card_ids(conn, row["column_id"]))
 
 
+def restore_cards(
+    conn: sqlite3.Connection,
+    user_id: int,
+    board_id: int,
+    created: list[str],
+    cards: dict[str, dict],
+    columns: dict[str, list[str]],
+) -> None:
+    """Undoes a change: deletes the cards it created, puts back the earlier fields of the cards it changed,
+    and the earlier card order of the columns it touched. Cards deleted since then are skipped; cards added
+    to those columns since then stay, at the bottom."""
+
+    def exists(key: str) -> bool:
+        try:
+            _card(conn, user_id, key, board_id)
+            return True
+        except NotFound:
+            return False
+
+    for key in created:
+        if exists(key):
+            conn.execute("DELETE FROM cards WHERE id = ?", (parse_key(key, "card"),))
+    for key, fields in cards.items():
+        if exists(key):
+            update_card(conn, user_id, key, fields, board_id)
+    wanted = {
+        _column(conn, user_id, col, board_id)[0]: [parse_key(k, "card") for k in keys if exists(k)]
+        for col, keys in columns.items()
+    }
+    placed = {card_id for ids in wanted.values() for card_id in ids}
+    for column_id, ids in wanted.items():
+        _write_order(conn, column_id, ids + [i for i in _card_ids(conn, column_id) if i not in placed])
+
+
 def rename_column(conn: sqlite3.Connection, user_id: int, column: str, title: str) -> None:
     column_id, _ = _column(conn, user_id, column)
     conn.execute("UPDATE columns SET title = ? WHERE id = ?", (title, column_id))

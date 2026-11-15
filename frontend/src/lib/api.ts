@@ -1,4 +1,5 @@
 import type { BoardLabel, BoardState, BoardSummary, Card, Column } from "./board";
+import type { Operation, Undo } from "./proposal";
 
 /** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
 export const UNAUTHORIZED_EVENT = "pm:unauthorized";
@@ -145,7 +146,8 @@ export async function deleteLabel(labelId: string): Promise<void> {
 }
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
-export type ChatResponse = { reply: string; board: BoardState; applied: number; error: string | null };
+/** The assistant's reply and the changes it proposes; nothing is applied until `applyChanges`. */
+export type ChatResponse = { reply: string; operations: Operation[]; error: string | null };
 
 /**
  * Sends a chat message and reads the NDJSON stream: `onText` gets each piece of the reply as the model
@@ -190,6 +192,16 @@ export function getHistory(boardId: string): Promise<ChatMessage[]> {
 
 export async function clearHistory(boardId: string): Promise<void> {
   await request(`/api/ai/history/${boardId}`, { method: "DELETE" });
+}
+
+/** Applies a proposal, all or none (409 if the board changed so that it no longer fits). */
+export function applyChanges(boardId: string, operations: Operation[]): Promise<{ board: BoardState; undo: Undo }> {
+  return request("/api/ai/apply", { method: "POST", body: JSON.stringify({ board_id: boardId, operations }) });
+}
+
+/** Puts back what an applied proposal changed. */
+export function undoChanges(boardId: string, undo: Undo): Promise<BoardState> {
+  return request("/api/ai/undo", { method: "POST", body: JSON.stringify({ board_id: boardId, undo }) });
 }
 
 export function chat(boardId: string, message: string): Promise<ChatResponse> {

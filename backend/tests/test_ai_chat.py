@@ -48,6 +48,20 @@ def send(client, message="سلام"):
     return client.post("/api/ai/chat", json={"board_id": board_id, "message": message})
 
 
+def apply(client, operations):
+    board_id = client.get("/api/boards").json()[0]["id"]
+    return client.post("/api/ai/apply", json={"board_id": board_id, "operations": operations})
+
+
+def run(client, message="سلام") -> dict:
+    """Sends a message and applies the proposal it returns; the apply response."""
+    proposal = send(client, message).json()
+    assert proposal["error"] is None and proposal["operations"], proposal
+    response = apply(client, proposal["operations"])
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 # --- request to the model ---
 
 
@@ -96,26 +110,39 @@ def test_missing_key_is_503(auth_client, monkeypatch):
 def test_reply_without_operations_leaves_board_unchanged(auth_client, model):
     before = board(auth_client)
     response = send(auth_client).json()
-    assert response == {"reply": "باشه", "board": before, "applied": 0, "error": None}
+    assert response == {"reply": "باشه", "operations": [], "error": None}
+    assert board(auth_client) == before
 
 
-# --- each operation ---
+# --- proposals ---
+
+
+def test_changes_are_proposed_not_applied(auth_client, model):
+    before = board(auth_client)
+    todo = before["columns"][1]["id"]
+    model.reply["operations"] = [op("create_card", column_id=todo, title="نوشتن تست", details="")]
+    response = send(auth_client).json()
+    assert response["error"] is None
+    assert response["operations"] == [op("create_card", column_id=todo, title="نوشتن تست", details="")]
+    assert board(auth_client) == before
+
+
+# --- each operation, once applied ---
 
 
 def test_create_card(auth_client, model):
     todo = board(auth_client)["columns"][1]["id"]
     model.reply["operations"] = [op("create_card", column_id=todo, title=" نوشتن تست ", details="")]
-    response = send(auth_client).json()
-    assert response["applied"] == 1
-    assert titles(response["board"], 1)[-1] == "نوشتن تست"
-    assert response["board"] == board(auth_client)
+    result = run(auth_client)["board"]
+    assert titles(result, 1)[-1] == "نوشتن تست"
+    assert result == board(auth_client)
 
 
 def test_update_card_keeps_null_fields(auth_client, model):
     b = board(auth_client)
     card_id = b["columns"][0]["cardIds"][0]
     model.reply["operations"] = [op("update_card", card_id=card_id, title="عنوان تازه")]
-    card = send(auth_client).json()["board"]["cards"][card_id]
+    card = run(auth_client)["board"]["cards"][card_id]
     assert card["title"] == "عنوان تازه"
     assert card["details"] == b["cards"][card_id]["details"]
 
@@ -124,7 +151,7 @@ def test_move_card(auth_client, model):
     b = board(auth_client)
     card_id, done = b["columns"][0]["cardIds"][0], b["columns"][4]["id"]
     model.reply["operations"] = [op("move_card", card_id=card_id, column_id=done, index=0)]
-    result = send(auth_client).json()["board"]
+    result = run(auth_client)["board"]
     assert titles(result, 4)[0] == "پژوهش رقبا"
     assert "پژوهش رقبا" not in titles(result, 0)
 
@@ -133,7 +160,7 @@ def test_move_card_with_null_index_goes_to_bottom(auth_client, model):
     b = board(auth_client)
     card_id, done = b["columns"][0]["cardIds"][0], b["columns"][4]["id"]
     model.reply["operations"] = [op("move_card", card_id=card_id, column_id=done)]
-    assert titles(send(auth_client).json()["board"], 4)[-1] == "پژوهش رقبا"
+    assert titles(run(auth_client)["board"], 4)[-1] == "پژوهش رقبا"
 
 
 def test_several_operations_apply_in_order(auth_client, model):
@@ -146,9 +173,7 @@ def test_several_operations_apply_in_order(auth_client, model):
         op("move_card", card_id=first, column_id=cols[2], index=0),
         op("update_card", card_id=second, details="جزئیات نو"),
     ]
-    response = send(auth_client).json()
-    result = response["board"]
-    assert response["applied"] == 4 and response["error"] is None
+    result = run(auth_client)["board"]
     assert titles(result, 3) == ["بازنویسی متن‌های راهنما", "الف", "ب"]
     assert titles(result, 2)[0] == "پژوهش رقبا"
     assert result["cards"][second]["details"] == "جزئیات نو"
@@ -168,7 +193,7 @@ def test_create_and_update_card_details(auth_client, model):
         op("create_card", column_id=todo, title="گزارش", details="", due_date="2026-12-05", priority="high"),
         op("update_card", card_id=first, labels=[label_id(b, "red")], assignee="user"),
     ]
-    result = send(auth_client).json()["board"]
+    result = run(auth_client)["board"]
     created = result["cards"][result["columns"][1]["cardIds"][-1]]
     assert (created["title"], created["due_date"], created["priority"]) == ("گزارش", "2026-12-05", "high")
     assert (result["cards"][first]["labels"], result["cards"][first]["assignee"]) == ([label_id(b, "red")], "user")
@@ -185,7 +210,8 @@ def test_unknown_label_rolls_back(auth_client, model):
     before = board(auth_client)
     model.reply["operations"] = [op("update_card", card_id="card-1", labels=["label-999"])]
     response = send(auth_client).json()
-    assert response["error"].startswith("Changes were not applied") and response["board"] == before
+    assert response["error"].startswith("Changes cannot be applied") and response["operations"] == []
+    assert board(auth_client) == before
 
 
 def test_prompt_lists_the_board_labels(auth_client, model):
@@ -193,7 +219,7 @@ def test_prompt_lists_the_board_labels(auth_client, model):
     assert '"labels": [{"id": "label-1"' in model.calls[0]["messages"][0]["content"]
 
 
-# --- failures leave the board untouched ---
+# --- invalid changes are not proposed, and the board is untouched ---
 
 
 @pytest.mark.parametrize(
@@ -211,10 +237,10 @@ def test_invalid_operation_rolls_back_everything(auth_client, model, bad):
     before = board(auth_client)
     model.reply["operations"] = [op("create_card", column_id="col-1", title="معتبر", details=""), bad]
     response = send(auth_client).json()
-    assert response["applied"] == 0
-    assert response["error"].startswith("Changes were not applied")
+    assert response["operations"] == []
+    assert response["error"].startswith("Changes cannot be applied")
     assert response["reply"] == "باشه"
-    assert response["board"] == before == board(auth_client)
+    assert before == board(auth_client)
 
 
 @pytest.mark.parametrize(
@@ -239,7 +265,8 @@ def test_cannot_touch_another_users_board(client, model):
         db.create_user(conn, "other", "secret")
     client.post("/api/auth/login", json={"username": "other", "password": "secret"})
     model.reply["operations"] = [op("update_card", card_id="card-1", title="hacked")]
-    assert send(client).json()["error"].startswith("Changes were not applied")
+    assert send(client).json()["error"].startswith("Changes cannot be applied")
+    assert apply(client, [op("update_card", card_id="card-1", title="hacked")]).status_code == 409
     client.post("/api/auth/login", json={"username": "user", "password": "password"})
     assert board(client)["cards"]["card-1"]["title"] == "پژوهش رقبا"
 
@@ -254,28 +281,25 @@ def test_live_creates_card(auth_client):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["error"] is None, body
-    assert "تست زنده" in titles(body["board"], 1), body
     assert body["reply"]
+    assert "تست زنده" in titles(apply(auth_client, body["operations"]).json()["board"], 1), body
 
 
 @pytest.mark.live
 @pytest.mark.skipif(not AI_KEY_SET, reason="no AI provider key set")
 def test_live_moves_card_and_answers_questions(auth_client):
-    body = send(auth_client, "کارت «پژوهش رقبا» را به ستون «انجام‌شده» منتقل کن.").json()
-    assert body["error"] is None, body
+    body = run(auth_client, "کارت «پژوهش رقبا» را به ستون «انجام‌شده» منتقل کن.")
     assert "پژوهش رقبا" in titles(body["board"], 4), body
 
-    before = body["board"]
     body = send(auth_client, "ستون «در حال انجام» چند کارت دارد؟").json()
-    assert body["applied"] == 0 and body["board"] == before, body
+    assert body["operations"] == [] and body["error"] is None, body
     assert body["reply"]
 
 
 @pytest.mark.live
 @pytest.mark.skipif(not AI_KEY_SET, reason="no AI provider key set")
 def test_live_sets_card_details(auth_client):
-    body = send(auth_client, "برای کارت «پژوهش رقبا» اولویت را بالا و برچسب را قرمز بگذار و مسئولش را «user» کن.").json()
-    assert body["error"] is None, body
+    body = run(auth_client, "برای کارت «پژوهش رقبا» اولویت را بالا و برچسب را قرمز بگذار و مسئولش را «user» کن.")
     research = next(c for c in body["board"]["cards"].values() if c["title"] == "پژوهش رقبا")
     red = label_id(body["board"], "red")
     assert (research["priority"], research["labels"], research["assignee"]) == ("high", [red], "user"), body

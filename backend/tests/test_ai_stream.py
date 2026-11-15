@@ -82,19 +82,17 @@ def test_streams_the_reply_then_the_result(auth_client, stream):
     assert len(deltas) > 1
     assert "".join(d["text"] for d in deltas) == REPLY
     done = evs[-1]
-    assert done["type"] == "done" and done["reply"] == REPLY and done["applied"] == 0
-    assert done["board"]["id"] == board_path(auth_client).rsplit("/", 1)[1]
+    assert done == {"type": "done", "reply": REPLY, "operations": [], "error": None}
 
 
-def test_stream_applies_operations(auth_client, stream):
-    todo = auth_client.get(board_path(auth_client)).json()["columns"][1]["id"]
-    op = {"type": "create_card", "column_id": todo, "title": "از جریان", "details": ""}
+def test_stream_proposes_operations(auth_client, stream):
+    before = auth_client.get(board_path(auth_client)).json()
+    op = {"type": "create_card", "column_id": before["columns"][1]["id"], "title": "از جریان", "details": ""}
     op |= {k: None for k in ["card_id", "index", "due_date", "priority", "assignee", "labels"]}
     stream["pieces"] = pieces(model_json([op]))
     done = events(send(auth_client))[-1]
-    assert done["applied"] == 1
-    titles = [c["title"] for c in done["board"]["cards"].values()]
-    assert "از جریان" in titles
+    assert done["operations"] == [op] and done["error"] is None
+    assert auth_client.get(board_path(auth_client)).json() == before
 
 
 def test_stream_reports_malformed_output_and_keeps_the_board(auth_client, stream):

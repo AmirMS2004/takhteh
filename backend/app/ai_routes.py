@@ -33,8 +33,11 @@ Set every field an operation does not use to null. Only use ids that exist on th
 created, renamed or deleted, and cards cannot be deleted; if asked, say so.
 
 Only return operations when the user asks for a change; otherwise return an empty list. Operations are \
-applied in order. Always write a short "reply" for the user, in the user's language (usually Persian), \
-describing what you did or answering their question.
+applied in order. They are not applied right away: the user sees them as a proposal and applies or rejects \
+it, so the board below may not include changes you proposed earlier. Always write a short "reply" for the \
+user, in the user's language (usually Persian), answering their question or describing the changes you \
+propose; never say a change is done, because it is not applied until the user confirms it (for example \
+"I suggest creating ..." rather than "I created ...").
 
 Today is {today}. Current board:
 """
@@ -104,6 +107,34 @@ DETAIL_FIELDS = ("due_date", "priority", "assignee", "labels")
 class AssistantReply(BaseModel):
     reply: str
     operations: list[Operation]
+
+
+class ApplyRequest(BaseModel):
+    board_id: str
+    operations: list[Operation] = Field(min_length=1, max_length=50)
+
+
+class CardFields(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    details: str = Field(max_length=10000)
+    due_date: DueDate | None
+    priority: Priority | None
+    assignee: str | None
+    labels: list[str]
+
+
+class Undo(BaseModel):
+    """What a change replaced: the cards it created, the earlier fields of the cards it changed and the
+    earlier card order of the columns it touched."""
+
+    created: list[str]
+    cards: dict[str, CardFields]
+    columns: dict[str, list[str]]
+
+
+class UndoRequest(BaseModel):
+    board_id: str
+    undo: Undo
 
 
 class ChatMessage(BaseModel):
@@ -216,20 +247,30 @@ def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
     return messages, board_id
 
 
+def _apply_all(conn: sqlite3.Connection, user_id: int, board_id: int, operations: list[Operation]) -> None:
+    for op in operations:
+        apply_operation(conn, user_id, board_id, op)
+
+
+def _check_operations(user_id: int, board_id: int, operations: list[Operation]) -> str | None:
+    """Applies the operations and rolls them back: None if they all work, otherwise the reason."""
+    try:
+        with db.connect() as conn:
+            _apply_all(conn, user_id, board_id, operations)
+            conn.rollback()
+    except (InvalidOperation, service.NotFound) as e:
+        return f"Changes cannot be applied: {e}"
+    return None
+
+
 def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
-    """Validates the model's JSON and applies its operations, all or none."""
+    """Validates the model's JSON and its operations, which are returned as a proposal, not applied."""
     try:
         result = AssistantReply.model_validate_json(raw)
     except ValidationError as e:
         raise HTTPException(status_code=502, detail="AI returned an invalid response") from e
 
-    error = None
-    try:
-        with db.connect() as conn:
-            for op in result.operations:
-                apply_operation(conn, user.id, board_id, op)
-    except (InvalidOperation, service.NotFound) as e:
-        error = f"Changes were not applied: {e}"
+    error = _check_operations(user.id, board_id, result.operations) if result.operations else None
 
     with db.connect() as conn:
         # Only completed turns are stored, so failed ones never reach the model as history.
@@ -237,13 +278,61 @@ def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
             "INSERT INTO chat_messages (board_id, user_id, role, content) VALUES (?, ?, ?, ?)",
             [(board_id, user.id, "user", body.message), (board_id, user.id, "assistant", result.reply)],
         )
-        board = service.get_board(conn, user.id, body.board_id)
     return {
         "reply": result.reply,
-        "board": board,
-        "applied": 0 if error else len(result.operations),
+        "operations": [] if error else [op.model_dump(mode="json") for op in result.operations],
         "error": error,
     }
+
+
+CARD_FIELDS = ("title", "details", "due_date", "priority", "assignee", "labels")
+
+
+def _undo_for(before: dict, after: dict, operations: list[Operation]) -> Undo:
+    """The undo for a change, from the board before and after it."""
+    created = [key for key in after["cards"] if key not in before["cards"]]
+    changed = {op.card_id for op in operations if op.card_id in before["cards"]}
+    touched = set(created) | changed
+    after_order = {col["id"]: col["cardIds"] for col in after["columns"]}
+    columns = {
+        col["id"]: col["cardIds"]
+        for col in before["columns"]
+        if touched & (set(col["cardIds"]) | set(after_order[col["id"]]))
+    }
+    return Undo(
+        created=created,
+        cards={key: CardFields(**{f: before["cards"][key][f] for f in CARD_FIELDS}) for key in changed},
+        columns=columns,
+    )
+
+
+@router.post("/apply")
+def apply(body: ApplyRequest, user: Annotated[User, Depends(current_user)]) -> dict:
+    """Applies a proposal from the chat, all or none; 409 if the board has changed so that it no longer
+    fits. Returns the board and the undo for this change."""
+    with db.connect() as conn:
+        board_id = service.member_board(conn, user.id, body.board_id)
+        before = service.get_board(conn, user.id, body.board_id)
+    try:
+        with db.connect() as conn:
+            _apply_all(conn, user.id, board_id, body.operations)
+            after = service.get_board(conn, user.id, body.board_id)
+    except (InvalidOperation, service.NotFound) as e:
+        raise HTTPException(status_code=409, detail=f"Changes cannot be applied: {e}") from None
+    return {"board": after, "undo": _undo_for(before, after, body.operations).model_dump(mode="json")}
+
+
+@router.post("/undo")
+def undo(body: UndoRequest, user: Annotated[User, Depends(current_user)]) -> dict:
+    """Puts back what an applied proposal changed (see Undo)."""
+    with db.connect() as conn:
+        board_id = service.member_board(conn, user.id, body.board_id)
+        cards = {key: fields.model_dump() for key, fields in body.undo.cards.items()}
+        try:
+            service.restore_cards(conn, user.id, board_id, body.undo.created, cards, body.undo.columns)
+        except service.NotFound as e:
+            raise HTTPException(status_code=409, detail=f"Cannot undo: {e}") from None
+        return service.get_board(conn, user.id, body.board_id)
 
 
 @router.get("/history/{board_id}")

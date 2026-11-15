@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ApiError, chatStream, clearHistory, getHistory, type ChatMessage } from "@/lib/api";
+import { ApiError, applyChanges, chatStream, clearHistory, getHistory, undoChanges, type ChatMessage } from "@/lib/api";
 import type { BoardState } from "@/lib/board";
+import { describe, type Operation, type Undo } from "@/lib/proposal";
 
-type Message = ChatMessage & { error?: boolean; note?: string };
+/** Changes the assistant proposed with a reply; the user applies or rejects them, and can undo the last. */
+type Proposal = {
+  operations: Operation[];
+  changes: string[]; // the operations in words, as the board was when they were proposed
+  status: "pending" | "busy" | "applied" | "rejected" | "undone";
+  undo?: Undo;
+  problem?: string;
+};
+type Message = ChatMessage & { error?: boolean; note?: string; proposal?: Proposal };
 
 const SUGGESTIONS = [
   "یک کارت برای نوشتن مستندات API در ستون «برای انجام» بساز.",
@@ -20,13 +29,59 @@ function failureText(error: unknown) {
   return "ارتباط با دستیار برقرار نشد. دوباره تلاش کنید.";
 }
 
-export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (board: BoardState) => void }) {
+export function ChatSidebar({
+  boardId,
+  board,
+  onBoard,
+}: {
+  boardId: string;
+  board: BoardState | null;
+  onBoard: (board: BoardState) => void;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   // The reply as it streams in; shown in place of the waiting indicator.
   const [streaming, setStreaming] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+  // Only the latest applied proposal can be undone.
+  const lastApplied = messages.findLastIndex((m) => m.proposal?.status === "applied");
+
+  const setProposal = (i: number, change: Partial<Proposal>) =>
+    setMessages((all) => all.map((m, j) => (j === i ? { ...m, proposal: { ...m.proposal!, ...change } } : m)));
+
+  const applyProposal = async (i: number) => {
+    setProposal(i, { status: "busy", problem: undefined });
+    try {
+      const res = await applyChanges(boardId, messages[i].proposal!.operations);
+      onBoard(res.board);
+      setProposal(i, { status: "applied", undo: res.undo });
+    } catch (e) {
+      setProposal(i, {
+        status: "pending",
+        problem:
+          e instanceof ApiError && e.status === 409
+            ? "برد از زمان این پیشنهاد تغییر کرده و نمی‌توان آن را اعمال کرد. دوباره درخواست کنید."
+            : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
+      });
+    }
+  };
+
+  const undoProposal = async (i: number) => {
+    setProposal(i, { status: "busy", problem: undefined });
+    try {
+      onBoard(await undoChanges(boardId, messages[i].proposal!.undo!));
+      setProposal(i, { status: "undone" });
+    } catch (e) {
+      setProposal(i, {
+        status: "applied",
+        problem:
+          e instanceof ApiError && e.status === 409
+            ? "برد از آن زمان تغییر کرده و نمی‌توان این تغییرات را برگرداند."
+            : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
+      });
+    }
+  };
 
   // The conversation is stored on the server (per user and board); show it when the board opens.
   useEffect(() => {
@@ -47,10 +102,18 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
     setPending(true);
     try {
       const res = await chatStream(boardId, message, (text) => setStreaming((s) => s + text));
-      if (res.applied > 0) onBoard(res.board);
+      const proposal: Proposal | undefined =
+        res.operations.length && board
+          ? { operations: res.operations, changes: res.operations.map((op) => describe(op, board)), status: "pending" }
+          : undefined;
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: res.reply, note: res.error ? "تغییرات اعمال نشد؛ دوباره و دقیق‌تر درخواست کنید." : undefined },
+        {
+          role: "assistant",
+          content: res.reply,
+          note: res.error ? "این تغییرات با برد جور نبود و پیشنهاد نشد؛ دوباره و دقیق‌تر درخواست کنید." : undefined,
+          proposal,
+        },
       ]);
     } catch (e) {
       // A failed turn is shown as failed; the server did not store it.
@@ -122,6 +185,15 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
             >
               {m.content}
               {m.note && <p className="mt-1.5 text-xs text-red-700">{m.note}</p>}
+              {m.proposal && (
+                <ProposalBox
+                  proposal={m.proposal}
+                  canUndo={i === lastApplied}
+                  onApply={() => applyProposal(i)}
+                  onReject={() => setProposal(i, { status: "rejected", problem: undefined })}
+                  onUndo={() => undoProposal(i)}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -177,5 +249,73 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
         </button>
       </form>
     </aside>
+  );
+}
+
+const STATUS_TEXT = { applied: "اعمال شد.", rejected: "رد شد.", undone: "برگردانده شد." } as const;
+
+function ProposalBox({
+  proposal,
+  canUndo,
+  onApply,
+  onReject,
+  onUndo,
+}: {
+  proposal: Proposal;
+  canUndo: boolean;
+  onApply: () => void;
+  onReject: () => void;
+  onUndo: () => void;
+}) {
+  const { status, changes, problem } = proposal;
+  return (
+    <section aria-label="تغییرات پیشنهادی" className="mt-2.5 space-y-2 rounded-xl border border-accent/70 bg-white p-2.5">
+      <p className="text-xs font-semibold text-navy">تغییرات پیشنهادی</p>
+      <ul className="list-disc space-y-1 pr-4 text-xs leading-5 text-navy">
+        {changes.map((c, i) => (
+          <li key={i}>{c}</li>
+        ))}
+      </ul>
+      {problem && (
+        <p role="alert" className="text-xs text-red-700">
+          {problem}
+        </p>
+      )}
+      {status === "pending" || (status === "busy" && !proposal.undo) ? (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={status === "busy"}
+            onClick={onApply}
+            className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+          >
+            اعمال تغییرات
+          </button>
+          <button
+            type="button"
+            disabled={status === "busy"}
+            onClick={onReject}
+            className="rounded-lg px-3 py-1.5 text-xs text-gray-text transition hover:bg-slate-100 disabled:opacity-50"
+          >
+            رد کردن
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-xs">
+          <span role="status" className={status === "rejected" ? "text-gray-text" : "font-medium text-green-700"}>
+            {status === "busy" ? "در حال برگرداندن…" : STATUS_TEXT[status]}
+          </span>
+          {status === "applied" && canUndo && (
+            <button
+              type="button"
+              onClick={onUndo}
+              className="rounded-md px-2 py-1 font-medium text-primary transition hover:bg-sky-50"
+            >
+              برگرداندن
+            </button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

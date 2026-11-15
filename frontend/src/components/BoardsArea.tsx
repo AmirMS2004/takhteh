@@ -269,7 +269,7 @@ function Workspace({
         </div>
         {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
         <div hidden={!chatOpen} className="px-6 sm:px-10 lg:pr-0 lg:pl-6">
-          <ChatSidebar boardId={boardId} onBoard={store.apply} />
+          <ChatSidebar boardId={boardId} board={store.board} onBoard={store.apply} />
         </div>
       </div>
 

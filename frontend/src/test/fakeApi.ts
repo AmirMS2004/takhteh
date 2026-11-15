@@ -15,15 +15,19 @@ import {
   updateCard,
   type BoardState,
 } from "@/lib/board";
+import type { Operation } from "@/lib/proposal";
 
 type Override = { status: number; body?: unknown };
 type ChatBody = { board_id: string; message: string };
 type StoredMessage = { role: "user" | "assistant"; content: string };
-/** Scripted assistant: returns the reply and, optionally, the board after its changes. */
+/**
+ * Scripted assistant: returns the reply and, optionally, proposed `operations` with the `board` they lead to
+ * (what /api/ai/apply then puts in place).
+ */
 type ChatScript = (
   body: ChatBody,
   board: BoardState,
-) => { reply: string; board?: BoardState; error?: string; failWith?: number };
+) => { reply: string; operations?: Operation[]; board?: BoardState; error?: string; failWith?: number };
 
 /** An empty board like the backend creates: default columns and labels, no cards. */
 function emptyBoard(id: string, title: string, owner: string): BoardState {
@@ -61,6 +65,8 @@ export function fakeApi({
     // name, email and picture per username; missing means empty
     profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number }>>,
     chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
+    proposals: {} as Record<string, BoardState>, // board after each proposal, keyed by its operations as JSON
+    snapshots: [] as BoardState[], // boards before each applied proposal, for undo
     username: "user",
   };
 
@@ -82,6 +88,13 @@ export function fakeApi({
     my_cards: Object.values(b.cards).filter((c) => c.assignee === state.username).length,
   });
   const profile = () => ({ username: state.username, name: "", email: "", avatar: 0, ...state.profiles[state.username] });
+
+  /** The chat result the backend returns: invalid changes are not proposed. */
+  const propose = (result: ReturnType<ChatScript>) => {
+    const operations = !result.error && result.board && result.operations ? result.operations : [];
+    if (operations.length) state.proposals[JSON.stringify(operations)] = result.board!;
+    return { reply: result.reply, operations, error: result.error ?? null };
+  };
 
   const handle = (method: string, path: string, body: Record<string, unknown>): Response => {
     if (path === "/api/auth/me") return state.loggedIn ? json(profile()) : json({}, 401);
@@ -185,19 +198,24 @@ export function fakeApi({
       if (result.failWith) {
         lines.push({ type: "error", status: result.failWith } as never);
       } else {
-        if (result.board && !result.error) put(result.board);
-        const applied = result.board && !result.error ? 1 : 0;
-        lines.push({ type: "done", reply: result.reply, board: state.boards[b.id], applied, error: result.error ?? null } as never);
+        lines.push({ type: "done", ...propose(result) } as never);
         remember(b.id, body.message as string, result.reply);
       }
       return new Response(lines.map((l) => JSON.stringify(l)).join("\n") + "\n", { status: 200 });
     }
     if (method === "POST" && path === "/api/ai/chat") {
-      const b = state.boards[body.board_id as string];
-      const result = chat(body as unknown as ChatBody, b);
-      if (result.board && !result.error) put(result.board);
-      const applied = result.board && !result.error ? 1 : 0;
-      return json({ reply: result.reply, board: state.boards[b.id], applied, error: result.error ?? null });
+      return json(propose(chat(body as unknown as ChatBody, state.boards[body.board_id as string])));
+    }
+    if (method === "POST" && path === "/api/ai/apply") {
+      const after = state.proposals[JSON.stringify(body.operations)];
+      if (!after) return json({ detail: "Changes cannot be applied" }, 409);
+      state.snapshots.push(state.boards[after.id]);
+      put(after);
+      return json({ board: after, undo: { snapshot: state.snapshots.length - 1 } });
+    }
+    if (method === "POST" && path === "/api/ai/undo") {
+      const before = state.snapshots[(body.undo as { snapshot: number }).snapshot];
+      return json(put(before));
     }
 
     // --- labels, columns, cards (ids are unique across boards) ---
