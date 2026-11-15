@@ -5,7 +5,7 @@ import { BRAND, LogoMark } from "./Logo";
 import { ApiError, login, signup } from "@/lib/api";
 
 export const input =
-  "w-full rounded-lg border border-line px-3 py-2.5 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
+  "w-full rounded-lg border border-line px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 /** Same rules as the backend, checked first so the user gets a specific message. */
 export function signupProblem(username: string, password: string, repeat: string) {
@@ -59,17 +59,19 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-2xl border border-line bg-white p-8 shadow-[0_18px_40px_-24px_rgba(3,33,71,0.35)]"
+        className="w-full max-w-sm space-y-4 rounded-2xl border border-line bg-surface p-8 shadow-[0_18px_40px_-24px_rgba(3,33,71,0.35)]"
       >
-        <div className="flex items-center gap-3 pb-2">
+        {/* Brand band: navy with the inverted mark, like the app bar. */}
+        <div className="on-bar -mx-8 -mt-8 mb-6 flex items-center gap-3 rounded-t-2xl bg-bar px-8 py-6 text-white">
           <LogoMark size={48} />
           <div>
-            <p className="text-2xl leading-none font-black tracking-tight text-navy">{BRAND.name}</p>
-            <p className="mt-1.5 text-xs text-gray-text">{BRAND.tagline}</p>
+            <p className="text-2xl leading-none font-black tracking-tight">{BRAND.name}</p>
+            <p className="mt-1.5 text-xs text-white/70">{BRAND.tagline}</p>
           </div>
+          <span className="mr-auto h-10 w-1 rounded-full bg-accent" />
         </div>
-        <div className="border-t border-line/70 pt-4">
-          <h1 className="text-xl font-extrabold text-navy">{isSignup ? "ساخت حساب تازه" : "ورود به تخته"}</h1>
+        <div>
+          <h1 className="text-xl font-extrabold text-ink">{isSignup ? "ساخت حساب تازه" : "ورود به تخته"}</h1>
           <p className="mt-1 text-sm text-gray-text">
             {isSignup ? "یک تخته خالی برای پروژه‌تان ساخته می‌شود." : "برای دیدن تخته، وارد حساب خود شوید."}
           </p>

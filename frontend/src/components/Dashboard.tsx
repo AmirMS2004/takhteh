@@ -63,12 +63,12 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
   return (
     <section
       aria-labelledby="profile-title"
-      className="space-y-5 rounded-2xl border border-line bg-white p-6 shadow-sm"
+      className="space-y-5 overflow-hidden rounded-2xl border border-line bg-surface p-6 shadow-sm"
     >
-      <div className="flex items-center gap-4">
+      <div className="-mx-6 -mt-6 flex items-center gap-4 border-b border-line bg-lane px-6 py-5">
         <Avatar avatar={avatar} username={form.username || profile.username} size={64} />
         <div className="min-w-0">
-          <h2 id="profile-title" className="truncate text-lg font-bold text-navy">
+          <h2 id="profile-title" className="truncate text-lg font-bold text-ink">
             {profile.name || profile.username}
           </h2>
           <p dir="ltr" className="text-right text-sm text-gray-text">
@@ -166,11 +166,11 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
   return (
     <section
       aria-labelledby="boards-title"
-      className="space-y-4 rounded-2xl border border-line bg-white p-6 shadow-sm"
+      className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm"
     >
       <div className="flex items-center gap-2">
         <span className="h-5 w-1 rounded-full bg-accent" />
-        <h2 id="boards-title" className="font-bold text-navy">
+        <h2 id="boards-title" className="font-bold text-ink">
           تخته‌های من
         </h2>
         {boards && <span className="text-sm text-gray-text">({fa(boards.length)})</span>}
@@ -185,10 +185,10 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
             <li key={b.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-mist px-4 py-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate font-semibold text-navy">{b.title}</span>
+                  <span className="truncate font-semibold text-ink">{b.title}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
-                      b.role === "owner" ? "bg-accent/15 text-navy" : "bg-primary/10 text-primary"
+                      b.role === "owner" ? "bg-accent/15 text-ink" : "bg-primary/10 text-primary"
                     }`}
                   >
                     {b.role === "owner" ? "مالک" : "عضو"}
@@ -234,7 +234,7 @@ export function Dashboard({
       <div>
         <div className="flex items-center gap-2">
           <span className="h-6 w-1 rounded-full bg-accent" />
-          <h1 className="text-2xl font-extrabold text-navy">داشبورد من</h1>
+          <h1 className="text-2xl font-extrabold text-ink">داشبورد من</h1>
         </div>
         <p className="mt-1 pr-3 text-sm text-gray-text">پروفایل، عکس و رمز خود را تغییر دهید و تخته‌هایتان را ببینید.</p>
       </div>

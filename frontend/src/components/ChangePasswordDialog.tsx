@@ -42,11 +42,11 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="change-password-title"
-        className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-[0_18px_40px_-16px_rgba(3,33,71,0.45)]"
+        className="w-full max-w-sm space-y-4 rounded-2xl bg-surface p-6 shadow-[0_18px_40px_-16px_rgba(3,33,71,0.45)]"
       >
         <div className="flex items-center gap-2">
           <span className="h-5 w-1 rounded-full bg-accent" />
-          <h2 id="change-password-title" className="text-lg font-bold text-navy">
+          <h2 id="change-password-title" className="text-lg font-bold text-ink">
             تغییر رمز عبور
           </h2>
         </div>

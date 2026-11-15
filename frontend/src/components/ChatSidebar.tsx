@@ -152,12 +152,12 @@ export function ChatSidebar({
   return (
     <aside
       aria-label="دستیار هوش مصنوعی"
-      className="flex h-[32rem] w-full flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_18px_40px_-28px_rgba(3,33,71,0.35)] lg:sticky lg:top-20 lg:h-[calc(100vh-10rem)] lg:w-80 lg:shrink-0"
+      className="flex h-[32rem] w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_18px_40px_-28px_rgba(3,33,71,0.35)] lg:sticky lg:top-20 lg:h-[calc(100vh-10rem)] lg:w-80 lg:shrink-0"
     >
-      <header className="border-b border-line/70 px-4 py-3">
+      <header className="border-b border-line bg-lane px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="h-5 w-1 rounded-full bg-accent" />
-          <h2 className="font-bold text-navy">دستیار هوش مصنوعی</h2>
+          <h2 className="font-bold text-ink">دستیار هوش مصنوعی</h2>
           {messages.length > 0 && (
             <button
               type="button"
@@ -201,7 +201,7 @@ export function ChatSidebar({
                   ? "rounded-br-md bg-primary text-white"
                   : m.error
                     ? "rounded-bl-md bg-danger-50 text-danger"
-                    : "rounded-bl-md bg-mist text-navy"
+                    : "rounded-bl-md bg-mist text-ink"
               }`}
             >
               {m.content}
@@ -224,7 +224,7 @@ export function ChatSidebar({
               <div
                 aria-live="polite"
                 data-role="assistant"
-                className="max-w-[85%] rounded-2xl rounded-bl-md bg-mist px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-navy"
+                className="max-w-[85%] rounded-2xl rounded-bl-md bg-mist px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-ink"
               >
                 {streaming}
                 <span className="mr-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-primary/60 align-middle" aria-hidden />
@@ -243,7 +243,7 @@ export function ChatSidebar({
           type="button"
           disabled={pending}
           onClick={() => send(WEEKLY_REPORT)}
-          className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-navy transition hover:bg-accent-50 disabled:opacity-50"
+          className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-ink transition hover:bg-accent-50 disabled:opacity-50"
         >
           گزارش هفتگی
         </button>
@@ -269,7 +269,7 @@ export function ChatSidebar({
               send(input);
             }
           }}
-          className="flex-1 resize-none rounded-xl border border-line px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:bg-mist"
+          className="flex-1 resize-none rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:bg-mist"
         />
         <button
           type="submit"
@@ -300,9 +300,9 @@ function ProposalBox({
 }) {
   const { status, changes, problem } = proposal;
   return (
-    <section aria-label="تغییرات پیشنهادی" className="mt-2.5 space-y-2 rounded-xl border border-accent/70 bg-white p-2.5">
-      <p className="text-xs font-semibold text-navy">تغییرات پیشنهادی</p>
-      <ul className="list-disc space-y-1 pr-4 text-xs leading-5 text-navy">
+    <section aria-label="تغییرات پیشنهادی" className="mt-2.5 space-y-2 rounded-xl border border-accent/70 bg-surface p-2.5">
+      <p className="text-xs font-semibold text-ink">تغییرات پیشنهادی</p>
+      <ul className="list-disc space-y-1 pr-4 text-xs leading-5 text-ink">
         {changes.map((c, i) => (
           <li key={i}>{c}</li>
         ))}

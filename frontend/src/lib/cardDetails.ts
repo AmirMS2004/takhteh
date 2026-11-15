@@ -4,7 +4,7 @@ import type { LabelColor, Priority } from "./board";
 export const PRIORITIES: { value: Priority; name: string; chip: string }[] = [
   { value: "high", name: "اولویت بالا", chip: "bg-danger-50 text-danger" },
   { value: "medium", name: "اولویت متوسط", chip: "bg-accent-50 text-accent-700" },
-  { value: "low", name: "اولویت پایین", chip: "bg-mist text-navy/70" },
+  { value: "low", name: "اولویت پایین", chip: "bg-mist text-ink/70" },
 ];
 
 /**

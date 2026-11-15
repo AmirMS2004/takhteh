@@ -21,7 +21,7 @@ export type CardChanges = Omit<Card, "id">;
 const iconButton =
   "rounded-md p-1 text-gray-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 const field =
-  "w-full rounded-lg border border-line px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
+  "w-full rounded-lg border border-line px-3 py-2 text-sm text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 function CardMeta({ card }: { card: Card }) {
   const priority = PRIORITIES.find((p) => p.value === card.priority);
@@ -77,14 +77,14 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
   const ask = useContext(AskAssistant);
   return (
     <div
-      className={`group relative rounded-xl border border-line bg-white p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
+      className={`group relative rounded-xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
         overlay ? "rotate-2 cursor-grabbing shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)] ring-2 ring-primary/40" : "cursor-grab"
       }`}
     >
       <span className="absolute inset-y-3 right-0 w-1 rounded-l-full bg-accent opacity-0 transition-opacity group-hover:opacity-100" />
       <CardLabels card={card} labels={labels} />
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-[15px] font-semibold leading-6 text-navy">{card.title}</h3>
+        <h3 className="text-[15px] font-semibold leading-6 text-ink">{card.title}</h3>
         <div className="-mt-1 -ml-1 flex shrink-0">
           {ask && !overlay && (
             <button
@@ -93,7 +93,7 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
               title="تقسیم به کارت‌های کوچک‌تر با دستیار"
               onClick={() => ask(splitRequest(card.title))}
               onPointerDown={(e) => e.stopPropagation()}
-              className={`${iconButton} hover:bg-accent-50 hover:text-navy`}
+              className={`${iconButton} hover:bg-accent-50 hover:text-ink`}
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M4 10h5m0 0l7-5M9 10l7 5M14 5h2v2M14 15h2v-2" strokeLinecap="round" strokeLinejoin="round" />
@@ -175,7 +175,7 @@ export function CardEditForm({
         });
       }}
       onKeyDown={(e) => e.key === "Escape" && onCancel()}
-      className="space-y-2 rounded-xl border border-primary/40 bg-white p-3 shadow-sm"
+      className="space-y-2 rounded-xl border border-primary/40 bg-surface p-3 shadow-sm"
     >
       <input
         autoFocus
@@ -241,7 +241,7 @@ export function CardEditForm({
                 aria-pressed={on}
                 onClick={() => toggle(l.id)}
                 className={`flex h-6 min-w-8 items-center rounded px-2 text-[11px] font-semibold transition ${colorOf(l.color).pill} ${
-                  on ? "ring-2 ring-navy ring-offset-1" : "opacity-40 hover:opacity-70"
+                  on ? "ring-2 ring-ink ring-offset-1 ring-offset-surface" : "opacity-40 hover:opacity-70"
                 }`}
               >
                 {l.name}

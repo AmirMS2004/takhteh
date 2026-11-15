@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/vazirmatn";
+import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,7 +10,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fa" dir="rtl" className="h-full antialiased">
+    // The theme script sets class="dark" before React loads, so the server markup differs on purpose.
+    <html lang="fa" dir="rtl" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

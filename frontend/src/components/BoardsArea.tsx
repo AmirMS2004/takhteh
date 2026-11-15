@@ -145,12 +145,12 @@ function BoardSettingsDialog({
       )}
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-navy">اعضا</h3>
+        <h3 className="text-sm font-semibold text-ink">اعضا</h3>
         <ul className="space-y-1.5">
           {board.members.map((m) => (
             <li key={m.username} className="flex items-center gap-2 rounded-lg bg-mist px-3 py-2 text-sm">
               <Avatar avatar={m.avatar} username={m.username} />
-              <span dir="ltr" className="text-navy">
+              <span dir="ltr" className="text-ink">
                 {m.username}
               </span>
               <span className="text-xs text-gray-text">{m.role === "owner" ? "مالک" : "عضو"}</span>
@@ -199,7 +199,7 @@ function BoardSettingsDialog({
           type="button"
           autoFocus
           onClick={onClose}
-          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
         >
           بستن
         </button>
@@ -244,7 +244,7 @@ function Workspace({
           aria-label="انتخاب تخته"
           value={boardId}
           onChange={(e) => onSelect(e.target.value)}
-          className="max-w-64 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-semibold text-navy outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+          className="max-w-64 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
         >
           {boards.map((b) => (
             <option key={b.id} value={b.id}>
@@ -256,7 +256,7 @@ function Workspace({
           type="button"
           onClick={() => setSettingsOpen(true)}
           disabled={!store.board}
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <circle cx="7.5" cy="7" r="2.5" />
@@ -360,7 +360,7 @@ export function BoardsArea({
           onBoardsChanged={(removed) => load(removed ? null : current)}
         />
       ) : (
-        <div className="mx-6 rounded-2xl border border-dashed border-navy/20 px-6 py-12 text-center sm:mx-10">
+        <div className="mx-6 rounded-2xl border border-dashed border-ink/20 px-6 py-12 text-center sm:mx-10">
           <p className="text-sm text-gray-text">هنوز تخته‌ای ندارید.</p>
           <button type="button" onClick={() => setNewOpen(true)} className={`${purpleButton} mt-4`}>
             ساخت اولین تخته

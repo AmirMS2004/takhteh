@@ -188,7 +188,7 @@ export function Board({ store }: { store: BoardStore }) {
         <button
           type="button"
           onClick={() => setLabelsOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M3 10.5V4a1 1 0 011-1h6.5L17 9.5 10.5 16 3 10.5z" strokeLinejoin="round" />

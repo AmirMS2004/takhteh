@@ -55,7 +55,7 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
             aria-checked={label.color === c.value}
             aria-label={c.name}
             onClick={() => label.color !== c.value && onUpdate(label.id, { color: c.value })}
-            className={`h-6 w-6 rounded-full ${c.swatch} ${label.color === c.value ? "ring-2 ring-navy ring-offset-2" : ""}`}
+            className={`h-6 w-6 rounded-full ${c.swatch} ${label.color === c.value ? "ring-2 ring-ink ring-offset-2 ring-offset-surface" : ""}`}
           />
         ))}
       </div>
@@ -74,10 +74,10 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby="labels-title"
-        className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 rounded-2xl bg-white p-6 shadow-[0_18px_40px_-16px_rgba(3,33,71,0.45)]"
+        className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 rounded-2xl bg-surface p-6 shadow-[0_18px_40px_-16px_rgba(3,33,71,0.45)]"
       >
         <div>
-          <h2 id="labels-title" className="text-lg font-bold text-navy">
+          <h2 id="labels-title" className="text-lg font-bold text-ink">
             برچسب‌های تخته
           </h2>
           <p className="mt-1 text-xs text-gray-text">نام اختیاری است؛ تغییرها روی همه کارت‌های دارای این برچسب اعمال می‌شود.</p>
@@ -91,7 +91,7 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
           <button
             type="button"
             onClick={() => onCreate("green")}
-            className="flex-1 rounded-lg border border-dashed border-navy/20 py-2 text-sm font-medium text-primary hover:border-primary hover:bg-primary-50"
+            className="flex-1 rounded-lg border border-dashed border-ink/20 py-2 text-sm font-medium text-primary hover:border-primary hover:bg-primary-50"
           >
             + برچسب تازه
           </button>

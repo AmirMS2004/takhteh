@@ -1,55 +1,120 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
- * The تخته brand palette (docs/BRAND.md). Only these colors are used in the UI: the five brand colors,
- * their tints and shades, navy-tinted neutrals, one functional red for destructive actions, and the
- * three extra label hues tuned to sit with the brand colors.
+ * The تخته brand palette (docs/BRAND.md). Only these tokens are used in the UI. Brand fills (navy, accent,
+ * primary, secondary, label hues) keep their value in both themes; text (ink), surfaces and neutrals, the
+ * tints (-50) and the text shades (-700) change with the theme.
  */
 @theme {
-  /* Brand */
+  /* Brand fills */
   --color-navy: #032147;
-  --color-navy-700: #163a66;
-  --color-navy-50: #eef1f6;
   --color-accent: #ecad0a;
-  --color-accent-700: #8a6400;
-  --color-accent-50: #fdf5df;
   --color-primary: #209dd7;
-  --color-primary-700: #136f99;
-  --color-primary-50: #e8f5fc;
   --color-secondary: #753991;
-  --color-secondary-700: #5b2a71;
-  --color-secondary-50: #f4edf7;
-  --color-gray-text: #888888;
-
-  /* Neutrals, tinted with navy */
-  --color-canvas: #f6f8fb;
-  --color-mist: #f0f3f8;
-  --color-line: #dfe5ee;
-
-  /* Function */
-  --color-danger: #c4413a;
-  --color-danger-50: #fcefee;
-
-  /* Label hues besides accent, primary and secondary */
   --color-label-green: #2f9a72;
   --color-label-orange: #e07b39;
   --color-label-red: #d04a4a;
 
+  /* Text */
+  --color-ink: #032147;
+  --color-gray-text: #888888;
+
+  /* Surfaces and neutrals, tinted with navy */
+  --color-canvas: #eaf0f7;
+  --color-surface: #ffffff;
+  --color-lane: #dfe7f1;
+  --color-mist: #edf2f8;
+  --color-line: #d3dce8;
+  --color-bar: #032147;
+
+  /* Tints and text shades */
+  --color-navy-50: #e6ecf4;
+  --color-accent-50: #fdf3d6;
+  --color-accent-700: #8a6400;
+  --color-primary-50: #e3f2fb;
+  --color-primary-700: #136f99;
+  --color-secondary-50: #f2e9f6;
+  --color-secondary-700: #5b2a71;
+  --color-danger: #c4413a;
+  --color-danger-50: #fcecea;
+
   --font-sans: "Vazirmatn Variable", system-ui, sans-serif;
+}
+
+/* Dark theme: deep navy surfaces, light ink; the brand fills stay as they are. */
+.dark {
+  color-scheme: dark;
+  --color-ink: #e8eef7;
+  --color-gray-text: #93a1b5;
+
+  --color-canvas: #021631;
+  --color-surface: #072a52;
+  --color-lane: #04203f;
+  --color-mist: #0c3462;
+  --color-line: #18436f;
+  --color-bar: #010f24;
+
+  --color-navy-50: #0c3462;
+  --color-accent-50: #2e3d3c;
+  --color-accent-700: #f3c64d;
+  --color-primary-50: #0a3a63;
+  --color-primary-700: #8ccff0;
+  --color-secondary-50: #1d2c5c;
+  --color-secondary-700: #d0a6e2;
+  --color-danger: #f2786f;
+  --color-danger-50: #33294a;
+}
+
+/*
+ * The mark's colors; on dark surfaces it is drawn inverted (white board, navy cards). The letter avatar is
+ * navy, and brand blue on dark surfaces so it does not disappear.
+ */
+:root {
+  --logo-board: #032147;
+  --logo-card: #ffffff;
+  --avatar-letter: #032147;
+}
+.dark,
+.on-bar {
+  --logo-board: #ffffff;
+  --logo-card: #032147;
+  --avatar-letter: #209dd7;
+}
+
+@layer base {
+  input,
+  textarea,
+  select {
+    background-color: var(--color-surface);
+    color: inherit;
+  }
 }
 
 body {
   font-family: var(--font-sans);
-  color: var(--color-navy);
+  color: var(--color-ink);
   background:
-    radial-gradient(1200px 500px at 100% -10%, rgb(32 157 215 / 0.08), transparent 60%),
-    radial-gradient(900px 500px at 0% 0%, rgb(236 173 10 / 0.07), transparent 60%),
+    radial-gradient(1100px 520px at 100% -10%, rgb(32 157 215 / 0.16), transparent 60%),
+    radial-gradient(900px 520px at 0% 0%, rgb(236 173 10 / 0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 120%, rgb(117 57 145 / 0.08), transparent 60%),
     var(--color-canvas);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background:
+    radial-gradient(1100px 520px at 100% -10%, rgb(32 157 215 / 0.18), transparent 60%),
+    radial-gradient(900px 520px at 0% 0%, rgb(236 173 10 / 0.07), transparent 60%),
+    radial-gradient(900px 600px at 50% 120%, rgb(117 57 145 / 0.16), transparent 60%),
+    var(--color-canvas);
+  background-attachment: fixed;
 }
 
 ::selection {
   background: rgb(236 173 10 / 0.35);
-  color: var(--color-navy);
+  color: var(--color-ink);
 }
 
 :focus-visible {

@@ -5,7 +5,7 @@ import { PRIORITIES, colorOf, labelTitle } from "@/lib/cardDetails";
 import { emptyFilter, isActive, type DueFilter, type Filter } from "@/lib/filter";
 
 const control =
-  "rounded-lg border border-line bg-white px-2.5 py-1.5 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
+  "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 type Props = {
   filter: Filter;
@@ -57,7 +57,7 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
               title={labelTitle(l)}
               onClick={() => toggleLabel(l.id)}
               className={`flex h-6 min-w-6 items-center rounded px-1.5 text-[11px] font-semibold transition ${colorOf(l.color).pill} ${
-                on ? "ring-2 ring-navy ring-offset-1" : "opacity-35 hover:opacity-70"
+                on ? "ring-2 ring-ink ring-offset-1 ring-offset-surface" : "opacity-35 hover:opacity-70"
               }`}
             >
               {l.name}
