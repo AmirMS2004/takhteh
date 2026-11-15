@@ -1,10 +1,11 @@
 import pytest
 
 from app import db
+from tests.conftest import board_path
 
 
 def board(client) -> dict:
-    response = client.get("/api/board")
+    response = client.get(board_path(client))
     assert response.status_code == 200
     return response.json()
 
@@ -47,7 +48,7 @@ def test_board_has_seeded_shape(auth_client):
 @pytest.mark.parametrize(
     "method,path,body",
     [
-        ("get", "/api/board", None),
+        ("get", "/api/boards", None),
         ("patch", "/api/columns/col-1", {"title": "x"}),
         ("post", "/api/cards", {"column_id": "col-1", "title": "x"}),
         ("patch", "/api/cards/card-1", {"title": "x"}),

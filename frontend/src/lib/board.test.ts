@@ -14,6 +14,10 @@ import {
 } from "./board";
 
 const board: BoardState = {
+  id: "b1",
+  title: "b",
+  role: "owner",
+  members: [],
   columns: [
     { id: "a", title: "A", cardIds: ["1", "2", "3"] },
     { id: "b", title: "B", cardIds: ["4"] },

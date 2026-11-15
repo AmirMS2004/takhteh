@@ -14,13 +14,26 @@ import {
 } from "@/lib/board";
 
 type Override = { status: number; body?: unknown };
-type ChatBody = { message: string; history: { role: string; content: string }[] };
+type ChatBody = { board_id: string; message: string; history: { role: string; content: string }[] };
 /** Scripted assistant: returns the reply and, optionally, the board after its changes. */
 type ChatScript = (body: ChatBody, board: BoardState) => { reply: string; board?: BoardState; error?: string };
 
+/** An empty board like the backend creates: default columns and labels, no cards. */
+function emptyBoard(id: string, title: string, owner: string): BoardState {
+  return {
+    id,
+    title,
+    role: "owner",
+    members: [{ username: owner, role: "owner" }],
+    columns: initialBoard.columns.map((c) => ({ ...c, id: `${id}-${c.id}`, cardIds: [] })),
+    cards: {},
+    labels: initialBoard.labels.map((l) => ({ ...l, id: `${id}-${l.id}` })),
+  };
+}
+
 /**
- * Stubs global fetch with an in-memory version of the backend, seeded with initialBoard.
- * `overrides` force a response for "METHOD /path" (e.g. to simulate errors or 401s).
+ * Stubs global fetch with an in-memory version of the backend. "board-1" is seeded with initialBoard and is
+ * also reachable as `state.board`. `overrides` force a response for "METHOD /path" (e.g. errors or 401s).
  */
 export function fakeApi({
   loggedIn = true,
@@ -28,7 +41,13 @@ export function fakeApi({
   chat = ((body) => ({ reply: `پاسخ به: ${body.message}` })) as ChatScript,
 } = {}) {
   const state = {
-    board: structuredClone(initialBoard) as BoardState,
+    boards: { "board-1": structuredClone(initialBoard) as BoardState } as Record<string, BoardState>,
+    get board() {
+      return this.boards["board-1"];
+    },
+    set board(b: BoardState) {
+      this.boards["board-1"] = b;
+    },
     loggedIn,
     nextId: 1,
     users: { user: "password" } as Record<string, string>,
@@ -36,6 +55,19 @@ export function fakeApi({
   };
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+
+  /** The board holding a column, card or label id. */
+  const boardOf = (id: string) =>
+    Object.values(state.boards).find(
+      (b) => b.columns.some((c) => c.id === id) || id in b.cards || b.labels.some((l) => l.id === id),
+    )!;
+  const put = (b: BoardState) => (state.boards[b.id] = b);
+  const summary = (b: BoardState) => ({
+    id: b.id,
+    title: b.title,
+    role: b.role,
+    owner: b.members.find((m) => m.role === "owner")!.username,
+  });
 
   const handle = (method: string, path: string, body: Record<string, unknown>): Response => {
     if (path === "/api/auth/me") return state.loggedIn ? json({ username: state.username }) : json({}, 401);
@@ -64,47 +96,85 @@ export function fakeApi({
     }
     if (!state.loggedIn) return json({}, 401);
 
-    const b = state.board;
     let m: RegExpMatchArray | null;
-    if (method === "GET" && path === "/api/board") return json(b);
-    if (method === "POST" && path === "/api/ai/chat") {
-      const result = chat(body as unknown as ChatBody, b);
-      if (result.board && !result.error) state.board = result.board;
-      const applied = result.board && !result.error ? 1 : 0;
-      return json({ reply: result.reply, board: state.board, applied, error: result.error ?? null });
+
+    // --- boards and members ---
+    if (method === "GET" && path === "/api/boards") return json(Object.values(state.boards).map(summary));
+    if (method === "POST" && path === "/api/boards") {
+      const b = put(emptyBoard(`board-new-${state.nextId++}`, body.title as string, state.username));
+      return json(summary(b), 201);
     }
-    if (method === "POST" && path === "/api/labels") {
+    if ((m = path.match(/^\/api\/boards\/([^/]+)$/))) {
+      const b = state.boards[m[1]];
+      if (!b) return json({}, 404);
+      if (method === "GET") return json(b);
+      if (method === "PATCH") put({ ...b, title: body.title as string });
+      if (method === "DELETE") delete state.boards[b.id];
+      return json({ ok: true });
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/boards\/([^/]+)\/members$/))) {
+      const b = state.boards[m[1]];
+      const name = String(body.username).toLowerCase();
+      if (!(name in state.users)) return json({}, 404);
+      if (b.members.some((x) => x.username === name)) return json({}, 409);
+      put({ ...b, members: [...b.members, { username: name, role: "member" }] });
+      return json({ ok: true }, 201);
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/boards\/([^/]+)\/members\/(.+)$/))) {
+      const b = state.boards[m[1]];
+      const name = decodeURIComponent(m[2]);
+      if (name === state.username) delete state.boards[b.id]; // leaving: the board is gone for this user
+      else {
+        const cards = Object.fromEntries(
+          Object.entries(b.cards).map(([k, c]) => [k, c.assignee === name ? { ...c, assignee: null } : c]),
+        );
+        put({ ...b, cards, members: b.members.filter((x) => x.username !== name) });
+      }
+      return json({ ok: true });
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/boards\/([^/]+)\/labels$/))) {
       const label = { id: `label-new-${state.nextId++}`, name: (body.name as string) ?? "", color: body.color as LabelColor };
-      state.board = addLabel(b, label);
+      put(addLabel(state.boards[m[1]], label));
       return json(label, 201);
     }
+
+    // --- chat ---
+    if (method === "POST" && path === "/api/ai/chat") {
+      const b = state.boards[body.board_id as string];
+      const result = chat(body as unknown as ChatBody, b);
+      if (result.board && !result.error) put(result.board);
+      const applied = result.board && !result.error ? 1 : 0;
+      return json({ reply: result.reply, board: state.boards[b.id], applied, error: result.error ?? null });
+    }
+
+    // --- labels, columns, cards (ids are unique across boards) ---
     if (method === "PATCH" && (m = path.match(/^\/api\/labels\/(.+)$/))) {
-      state.board = updateLabel(b, m[1], body);
-      return json(state.board.labels.find((l) => l.id === m![1]));
+      const b = put(updateLabel(boardOf(m[1]), m[1], body));
+      return json(b.labels.find((l) => l.id === m![1]));
     }
     if (method === "DELETE" && (m = path.match(/^\/api\/labels\/(.+)$/))) {
-      state.board = removeLabel(b, m[1]);
+      put(removeLabel(boardOf(m[1]), m[1]));
       return json({ ok: true });
     }
     if (method === "PATCH" && (m = path.match(/^\/api\/columns\/(.+)$/))) {
-      state.board = renameColumn(b, m[1], body.title as string);
+      put(renameColumn(boardOf(m[1]), m[1], body.title as string));
       return json({ ok: true });
     }
     if (method === "POST" && path === "/api/cards") {
       const card = { id: `new-${state.nextId++}`, title: body.title as string, details: body.details as string };
-      state.board = addCard(b, body.column_id as string, card);
+      put(addCard(boardOf(body.column_id as string), body.column_id as string, card));
       return json(card, 201);
     }
     if (method === "POST" && (m = path.match(/^\/api\/cards\/(.+)\/move$/))) {
-      state.board = moveCard(b, m[1], body.column_id as string, body.index as number);
+      put(moveCard(boardOf(m[1]), m[1], body.column_id as string, body.index as number));
       return json({ ok: true });
     }
     if (method === "PATCH" && (m = path.match(/^\/api\/cards\/(.+)$/))) {
-      state.board = updateCard(b, m[1], body);
-      return json(state.board.cards[m[1]]);
+      const b = put(updateCard(boardOf(m[1]), m[1], body));
+      return json(b.cards[m[1]]);
     }
     if (method === "DELETE" && (m = path.match(/^\/api\/cards\/(.+)$/))) {
-      state.board = deleteCard(b, m[1]);
+      put(deleteCard(boardOf(m[1]), m[1]));
       return json({ ok: true });
     }
     throw new Error(`Unexpected request ${method} ${path}`);

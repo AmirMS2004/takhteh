@@ -17,8 +17,14 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE TABLE IF NOT EXISTS boards (
     id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS board_members (
+    board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    PRIMARY KEY (board_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS columns (
     id INTEGER PRIMARY KEY,
@@ -34,7 +40,7 @@ CREATE TABLE IF NOT EXISTS cards (
     position INTEGER NOT NULL,
     due_date TEXT,
     priority TEXT,
-    assignee TEXT
+    assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position);
 CREATE TABLE IF NOT EXISTS labels (
@@ -51,7 +57,7 @@ CREATE TABLE IF NOT EXISTS card_labels (
 """
 
 # Card fields added after the first release; init_db adds them to older databases.
-CARD_DETAIL_COLUMNS = ["due_date", "priority", "assignee"]
+CARD_DETAIL_COLUMNS = ["due_date", "priority"]
 
 # Like Trello, every board starts with one unnamed label per color.
 LABEL_COLORS = ["green", "yellow", "orange", "red", "purple", "blue"]
@@ -106,28 +112,59 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 def create_user(conn: sqlite3.Connection, username: str, password: str) -> int:
-    """Creates a user with a board of the five default columns."""
+    """Creates a user with a first board."""
     user_id = conn.execute(
         "INSERT INTO users (username, password_hash) VALUES (?, ?)",
         (username, hash_password(password)),
     ).lastrowid
-    board_id = conn.execute(
-        "INSERT INTO boards (user_id, title) VALUES (?, ?)", (user_id, "تخته پروژه")
-    ).lastrowid
+    create_board(conn, user_id, "تخته پروژه")
+    return user_id
+
+
+def create_board(conn: sqlite3.Connection, owner_id: int, title: str) -> int:
+    """A board with the five default columns and labels, owned by `owner_id`."""
+    board_id = conn.execute("INSERT INTO boards (owner_id, title) VALUES (?, ?)", (owner_id, title)).lastrowid
+    conn.execute("INSERT INTO board_members (board_id, user_id, role) VALUES (?, ?, 'owner')", (board_id, owner_id))
     conn.executemany(
         "INSERT INTO columns (board_id, title, position) VALUES (?, ?, ?)",
         [(board_id, title, i) for i, title in enumerate(DEFAULT_COLUMNS)],
     )
     add_default_labels(conn, board_id)
-    return user_id
+    return board_id
 
 
 def add_default_labels(conn: sqlite3.Connection, board_id: int) -> None:
     conn.executemany("INSERT INTO labels (board_id, color) VALUES (?, ?)", [(board_id, c) for c in LABEL_COLORS])
 
 
+def _rebuild_boards(conn: sqlite3.Connection) -> None:
+    """Boards used to have user_id UNIQUE (one board per user). SQLite cannot drop that constraint, so the
+    table is rebuilt (sqlite.org/lang_altertable.html). Foreign keys must be off meanwhile, or dropping the
+    old table would cascade-delete every column, card and label."""
+    conn.commit()
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+        BEGIN;
+        CREATE TABLE boards_new (
+            id INTEGER PRIMARY KEY,
+            owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL
+        );
+        INSERT INTO boards_new (id, owner_id, title) SELECT id, user_id, title FROM boards;
+        INSERT OR IGNORE INTO board_members (board_id, user_id, role) SELECT id, user_id, 'owner' FROM boards;
+        DROP TABLE boards;
+        ALTER TABLE boards_new RENAME TO boards;
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        """
+    )
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Brings databases from earlier versions up to date; does nothing on a current one."""
+    if "user_id" in {row["name"] for row in conn.execute("PRAGMA table_info(boards)")}:
+        _rebuild_boards(conn)
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(cards)")}
     for name in CARD_DETAIL_COLUMNS:
         if name not in existing:
@@ -146,6 +183,19 @@ def _migrate(conn: sqlite3.Connection) -> None:
                WHERE k.label IS NOT NULL"""
         )
         conn.execute("ALTER TABLE cards DROP COLUMN label")
+    if "assignee_id" not in existing:
+        conn.execute("ALTER TABLE cards ADD COLUMN assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+    if "assignee" in existing:
+        # Free-text assignees become the board member with that username; anything else is cleared.
+        conn.execute(
+            """UPDATE cards SET assignee_id = (
+                   SELECT m.user_id FROM board_members m
+                   JOIN users u ON u.id = m.user_id
+                   JOIN columns c ON c.board_id = m.board_id
+                   WHERE c.id = cards.column_id AND u.username = lower(trim(cards.assignee)))
+               WHERE assignee IS NOT NULL"""
+        )
+        conn.execute("ALTER TABLE cards DROP COLUMN assignee")
 
 
 def init_db() -> None:
@@ -161,7 +211,7 @@ def init_db() -> None:
             row["id"]
             for row in conn.execute(
                 "SELECT c.id FROM columns c JOIN boards b ON b.id = c.board_id"
-                " WHERE b.user_id = ? ORDER BY c.position",
+                " WHERE b.owner_id = ? ORDER BY c.position",
                 (user_id,),
             )
         ]

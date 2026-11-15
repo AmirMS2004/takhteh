@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { BoardLabel, Card, Column } from "@/lib/board";
+import type { BoardLabel, Card, Column, Member } from "@/lib/board";
 import { CardItem, type CardChanges } from "./CardItem";
 
 type Props = {
@@ -14,6 +14,7 @@ type Props = {
   onDelete: (cardId: string) => void;
   onUpdate: (cardId: string, changes: CardChanges) => void;
   labels: BoardLabel[];
+  members: Member[];
   onManageLabels: () => void;
   filtering?: boolean;
 };
@@ -143,6 +144,7 @@ export function ColumnView({
   onDelete,
   onUpdate,
   labels,
+  members,
   onManageLabels,
   filtering = false,
 }: Props) {
@@ -180,6 +182,7 @@ export function ColumnView({
               onDelete={onDelete}
               onUpdate={(changes) => onUpdate(card.id, changes)}
               labels={labels}
+              members={members}
               onManageLabels={onManageLabels}
               dragDisabled={filtering}
             />

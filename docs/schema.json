@@ -15,10 +15,22 @@
     "boards": {
       "columns": {
         "id": "INTEGER PRIMARY KEY",
-        "user_id": "INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE",
+        "owner_id": "INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE",
         "title": "TEXT NOT NULL"
       },
-      "notes": "UNIQUE on user_id enforces one board per user in the MVP; drop it to allow several."
+      "notes": "A user can own any number of boards. Access is through board_members."
+    },
+    "board_members": {
+      "columns": {
+        "board_id": "INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE",
+        "user_id": "INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE",
+        "role": "TEXT NOT NULL"
+      },
+      "primary_key": [
+        "board_id",
+        "user_id"
+      ],
+      "notes": "role is owner|member. The owner manages the board and its members; members edit cards, columns and labels."
     },
     "columns": {
       "columns": {
@@ -38,12 +50,12 @@
         "position": "INTEGER NOT NULL",
         "due_date": "TEXT",
         "priority": "TEXT",
-        "assignee": "TEXT"
+        "assignee_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL"
       },
       "indexes": [
         "CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"
       ],
-      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee is free text (max 50). These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels."
+      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee_id must be a member of the card's board. These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels."
     },
     "labels": {
       "columns": {
@@ -67,8 +79,21 @@
     }
   },
   "api_board_shape": {
-    "description": "GET /api/board and the AI prompt use the frontend BoardState shape. Database ids are exposed as prefixed strings so column and card ids never collide.",
+    "description": "GET /api/boards/{id} and the AI prompt use the frontend BoardState shape. Database ids are exposed as prefixed strings (board-, col-, card-, label-) so ids of different kinds never collide. assignee is a member's username.",
     "example": {
+      "id": "board-1",
+      "title": "تخته پروژه",
+      "role": "owner",
+      "members": [
+        {
+          "username": "user",
+          "role": "owner"
+        },
+        {
+          "username": "sara",
+          "role": "member"
+        }
+      ],
       "columns": [
         {
           "id": "col-1",
@@ -91,7 +116,7 @@
           "details": "...",
           "due_date": null,
           "priority": null,
-          "assignee": null,
+          "assignee": "sara",
           "labels": [
             "label-4"
           ]

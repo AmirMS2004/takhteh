@@ -6,7 +6,7 @@ import { useBoard } from "@/lib/useBoard";
 import { Board } from "./Board";
 
 function Harness() {
-  return <Board store={useBoard()} />;
+  return <Board store={useBoard("board-1")} />;
 }
 
 async function setup() {

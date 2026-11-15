@@ -37,12 +37,19 @@ export async function loginAndWaitForBoard(page: Page) {
 /** Restores the signed-in user's board to the seed data through the normal API. */
 export async function resetBoard(page: Page) {
   const api = page.request;
-  const board = await (await api.get("/api/board")).json();
+  // Only the first board stays, with only its owner, renamed back to the default.
+  const [first, ...others] = await (await api.get("/api/boards")).json();
+  for (const other of others) expect((await api.delete(`/api/boards/${other.id}`)).ok()).toBe(true);
+  expect((await api.patch(`/api/boards/${first.id}`, { data: { title: "تخته پروژه" } })).ok()).toBe(true);
+  const board = await (await api.get(`/api/boards/${first.id}`)).json();
+  for (const member of board.members.filter((m: { role: string }) => m.role !== "owner")) {
+    expect((await api.delete(`/api/boards/${first.id}/members/${member.username}`)).ok()).toBe(true);
+  }
   for (const id of Object.keys(board.cards)) expect((await api.delete(`/api/cards/${id}`)).ok()).toBe(true);
   // Labels too: back to one unnamed label per color.
   for (const label of board.labels) expect((await api.delete(`/api/labels/${label.id}`)).ok()).toBe(true);
   for (const color of ["green", "yellow", "orange", "red", "purple", "blue"]) {
-    expect((await api.post("/api/labels", { data: { color } })).ok()).toBe(true);
+    expect((await api.post(`/api/boards/${first.id}/labels`, { data: { color } })).ok()).toBe(true);
   }
   for (const [i, [title, cards]] of SEED.entries()) {
     const columnId = board.columns[i].id;

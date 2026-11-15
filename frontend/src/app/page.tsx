@@ -1,30 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Board } from "@/components/Board";
+import { BoardsArea } from "@/components/BoardsArea";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
-import { ChatSidebar } from "@/components/ChatSidebar";
 import { LoginForm } from "@/components/LoginForm";
 import { UNAUTHORIZED_EVENT, getMe, logout } from "@/lib/api";
-import { useBoard } from "@/lib/useBoard";
 
 type Session = { status: "loading" } | { status: "anonymous" } | { status: "user"; username: string };
-
-/** The board and the AI chat share one board store, so AI changes show up on the board immediately. */
-function Workspace({ chatOpen }: { chatOpen: boolean }) {
-  const store = useBoard();
-  return (
-    <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        <Board store={store} />
-      </div>
-      {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
-      <div hidden={!chatOpen} className="px-6 sm:px-10 lg:pr-0 lg:pl-6">
-        <ChatSidebar onBoard={store.apply} />
-      </div>
-    </div>
-  );
-}
 
 export default function Home() {
   const [session, setSession] = useState<Session>({ status: "loading" });
@@ -96,7 +78,7 @@ export default function Home() {
           </button>
         </div>
       </header>
-      <Workspace chatOpen={chatOpen} />
+      <BoardsArea username={session.username} chatOpen={chatOpen} />
       {passwordOpen && <ChangePasswordDialog onClose={() => setPasswordOpen(false)} />}
     </main>
   );

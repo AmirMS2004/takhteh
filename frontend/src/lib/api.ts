@@ -1,4 +1,4 @@
-import type { BoardLabel, BoardState, Card } from "./board";
+import type { BoardLabel, BoardState, BoardSummary, Card } from "./board";
 
 /** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
 export const UNAUTHORIZED_EVENT = "pm:unauthorized";
@@ -55,8 +55,32 @@ export async function logout(): Promise<void> {
   await request("/api/auth/logout", { method: "POST" });
 }
 
-export function getBoard(): Promise<BoardState> {
-  return request<BoardState>("/api/board");
+export function listBoards(): Promise<BoardSummary[]> {
+  return request<BoardSummary[]>("/api/boards");
+}
+
+export function getBoard(boardId: string): Promise<BoardState> {
+  return request<BoardState>(`/api/boards/${boardId}`);
+}
+
+export function createBoard(title: string): Promise<BoardSummary> {
+  return request<BoardSummary>("/api/boards", { method: "POST", body: JSON.stringify({ title }) });
+}
+
+export async function renameBoard(boardId: string, title: string): Promise<void> {
+  await request(`/api/boards/${boardId}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  await request(`/api/boards/${boardId}`, { method: "DELETE" });
+}
+
+export async function addMember(boardId: string, username: string): Promise<void> {
+  await request(`/api/boards/${boardId}/members`, { method: "POST", body: JSON.stringify({ username }) });
+}
+
+export async function removeMember(boardId: string, username: string): Promise<void> {
+  await request(`/api/boards/${boardId}/members/${encodeURIComponent(username)}`, { method: "DELETE" });
 }
 
 export async function renameColumn(columnId: string, title: string): Promise<void> {
@@ -85,8 +109,11 @@ export async function deleteCard(cardId: string): Promise<void> {
   await request(`/api/cards/${cardId}`, { method: "DELETE" });
 }
 
-export function createLabel(name: string, color: BoardLabel["color"]): Promise<BoardLabel> {
-  return request<BoardLabel>("/api/labels", { method: "POST", body: JSON.stringify({ name, color }) });
+export function createLabel(boardId: string, name: string, color: BoardLabel["color"]): Promise<BoardLabel> {
+  return request<BoardLabel>(`/api/boards/${boardId}/labels`, {
+    method: "POST",
+    body: JSON.stringify({ name, color }),
+  });
 }
 
 export async function updateLabel(labelId: string, changes: Partial<Omit<BoardLabel, "id">>): Promise<void> {
@@ -100,9 +127,9 @@ export async function deleteLabel(labelId: string): Promise<void> {
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 export type ChatResponse = { reply: string; board: BoardState; applied: number; error: string | null };
 
-export function chat(message: string, history: ChatMessage[]): Promise<ChatResponse> {
+export function chat(boardId: string, message: string, history: ChatMessage[]): Promise<ChatResponse> {
   return request<ChatResponse>("/api/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ board_id: boardId, message, history }),
   });
 }

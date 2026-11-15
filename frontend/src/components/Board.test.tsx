@@ -6,7 +6,7 @@ import { useBoard } from "@/lib/useBoard";
 import { Board } from "./Board";
 
 function Harness() {
-  return <Board store={useBoard()} />;
+  return <Board store={useBoard("board-1")} />;
 }
 
 const column = (id: string) => screen.getByTestId(`column-${id}`);
@@ -23,11 +23,11 @@ describe("Board", () => {
     const { api } = await renderBoard();
     expect(screen.getAllByTestId(/^column-/)).toHaveLength(5);
     expect(within(column("backlog")).getByText("پژوهش رقبا")).toBeInTheDocument();
-    expect(api.calls()).toEqual([{ route: "GET /api/board", body: undefined }]);
+    expect(api.calls()).toEqual([{ route: "GET /api/boards/board-1", body: undefined }]);
   });
 
   it("shows an error when the board cannot be loaded", async () => {
-    fakeApi({ overrides: { "GET /api/board": { status: 500 } } });
+    fakeApi({ overrides: { "GET /api/boards/board-1": { status: 500 } } });
     render(<Harness />);
     expect(await screen.findByText(/بارگذاری برد ناموفق بود/)).toBeInTheDocument();
   });
@@ -132,7 +132,7 @@ describe("Board", () => {
     const form = column("backlog");
     await user.type(within(form).getByLabelText("سررسید"), "2099-03-21");
     await user.selectOptions(within(form).getByLabelText("اولویت"), "high");
-    await user.type(within(form).getByLabelText("مسئول"), "سارا");
+    await user.selectOptions(within(form).getByLabelText("مسئول"), "user");
     await user.click(within(form).getByRole("button", { name: "برچسب سبز" }));
     await user.click(screen.getByRole("button", { name: "ذخیره" }));
 
@@ -140,11 +140,11 @@ describe("Board", () => {
       due_date: "2099-03-21",
       priority: "high",
       labels: ["label-1"],
-      assignee: "سارا",
+      assignee: "user",
     });
     const card = screen.getByTestId("card-c2");
     expect(within(card).getByText("اولویت بالا")).toBeInTheDocument();
-    expect(within(card).getByText("سارا")).toBeInTheDocument();
+    expect(within(card).getByTitle("مسئول")).toHaveTextContent("user");
     expect(within(card).getByTitle("برچسب سبز")).toBeInTheDocument();
     expect(within(card).getByTitle("سررسید")).toHaveTextContent(/فروردین ۱۴۷۸/);
   });

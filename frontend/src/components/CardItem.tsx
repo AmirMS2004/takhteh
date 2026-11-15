@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { BoardLabel, Card, Priority } from "@/lib/board";
+import type { BoardLabel, Card, Member, Priority } from "@/lib/board";
 import { PRIORITIES, colorOf, formatDue, labelTitle, today } from "@/lib/cardDetails";
 
 type Props = {
@@ -121,12 +121,14 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
 function CardEditForm({
   card,
   labels,
+  members,
   onSave,
   onCancel,
   onManageLabels,
 }: {
   card: Card;
   labels: BoardLabel[];
+  members: Member[];
   onSave: (changes: CardChanges) => void;
   onCancel: () => void;
   onManageLabels: () => void;
@@ -150,7 +152,7 @@ function CardEditForm({
           due_date: dueDate || null,
           priority: priority || null,
           labels: labels.filter((l) => selected.includes(l.id)).map((l) => l.id),
-          assignee: assignee.trim() || null,
+          assignee: assignee || null,
         });
       }}
       onKeyDown={(e) => e.key === "Escape" && onCancel()}
@@ -191,7 +193,14 @@ function CardEditForm({
       </div>
       <label className="block space-y-1">
         <span className="text-xs text-gray-text">مسئول</span>
-        <input maxLength={50} value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field} />
+        <select dir="ltr" value={assignee} onChange={(e) => setAssignee(e.target.value)} className={`${field} px-2`}>
+          <option value="">بدون مسئول</option>
+          {members.map((m) => (
+            <option key={m.username} value={m.username}>
+              {m.username}
+            </option>
+          ))}
+        </select>
       </label>
       <fieldset className="space-y-1">
         <legend className="flex w-full items-center justify-between text-xs text-gray-text">
@@ -243,6 +252,7 @@ function CardEditForm({
 export function CardItem({
   card,
   labels,
+  members,
   onDelete,
   onUpdate,
   onManageLabels,
@@ -250,6 +260,7 @@ export function CardItem({
 }: {
   card: Card;
   labels: BoardLabel[];
+  members: Member[];
   onDelete: (id: string) => void;
   onUpdate: (changes: CardChanges) => void;
   onManageLabels: () => void;
@@ -275,6 +286,7 @@ export function CardItem({
         <CardEditForm
           card={card}
           labels={labels}
+          members={members}
           onManageLabels={onManageLabels}
           onSave={(changes) => {
             onUpdate(changes);

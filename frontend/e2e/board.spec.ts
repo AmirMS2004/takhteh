@@ -100,14 +100,14 @@ test("sets card details and keeps them after reload", async ({ page }) => {
   const form = column(page, "todo");
   await form.getByLabel("سررسید").fill("2099-03-21");
   await form.getByLabel("اولویت").selectOption("medium");
-  await form.getByLabel("مسئول").fill("نگار");
+  await form.getByLabel("مسئول").selectOption("user");
   await form.getByRole("button", { name: "برچسب بنفش" }).click();
   await form.getByRole("button", { name: "ذخیره" }).click();
 
   await reloadAfterSave(page);
   const saved = card(page, "تعریف شاخص‌ها");
   await expect(saved.getByText("اولویت متوسط")).toBeVisible();
-  await expect(saved.getByText("نگار")).toBeVisible();
+  await expect(saved.getByTitle("مسئول")).toHaveText(/user/);
   await expect(saved.getByTitle("برچسب بنفش")).toBeVisible();
   await expect(saved.getByTitle("سررسید")).toContainText("فروردین");
 });

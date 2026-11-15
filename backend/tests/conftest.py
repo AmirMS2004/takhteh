@@ -31,3 +31,9 @@ def auth_client(client):
     response = client.post("/api/auth/login", json={"username": "user", "password": "password"})
     assert response.status_code == 200
     return client
+
+
+def board_path(client) -> str:
+    """API path of the signed-in user's first board."""
+    return f"/api/boards/{client.get('/api/boards').json()[0]['id']}"
+

@@ -1,6 +1,7 @@
 import pytest
 
 from app import db
+from tests.conftest import board_path
 
 
 def signup(client, username="alice", password="secret123"):
@@ -20,7 +21,7 @@ def test_signup_creates_account_signs_in_and_gives_empty_board(client):
     assert response.json() == {"username": "alice"}
     assert client.get("/api/auth/me").json() == {"username": "alice"}
 
-    board = client.get("/api/board").json()
+    board = client.get(board_path(client)).json()
     assert [c["title"] for c in board["columns"]] == db.DEFAULT_COLUMNS
     assert board["cards"] == {}
 
@@ -70,10 +71,10 @@ def test_signup_validation(client, username, password):
 
 def test_users_only_see_their_own_board(client):
     signup(client)
-    client.post("/api/cards", json={"column_id": client.get("/api/board").json()["columns"][0]["id"], "title": "x"})
+    client.post("/api/cards", json={"column_id": client.get(board_path(client)).json()["columns"][0]["id"], "title": "x"})
     client.post("/api/auth/logout")
     login(client, "user", "password")
-    titles = [c["title"] for c in client.get("/api/board").json()["cards"].values()]
+    titles = [c["title"] for c in client.get(board_path(client)).json()["cards"].values()]
     assert "x" not in titles and len(titles) == len(db.DEMO_CARDS)
 
 

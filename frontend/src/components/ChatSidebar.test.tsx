@@ -25,7 +25,7 @@ describe("ChatSidebar", () => {
     await say(user, "سلام");
     expect(await within(chatPanel()).findByText("پاسخ به: سلام")).toBeInTheDocument();
     expect(within(chatPanel()).getByText("سلام")).toHaveAttribute("data-role", "user");
-    expect(api.calls().find((c) => c.route === "POST /api/ai/chat")?.body).toEqual({ message: "سلام", history: [] });
+    expect(api.calls().find((c) => c.route === "POST /api/ai/chat")?.body).toEqual({ board_id: "board-1", message: "سلام", history: [] });
   });
 
   it("sends the conversation history with the next message", async () => {
@@ -36,6 +36,7 @@ describe("ChatSidebar", () => {
     await within(chatPanel()).findByText("پاسخ به: دوم");
     const chats = api.calls().filter((c) => c.route === "POST /api/ai/chat");
     expect(chats[1].body).toEqual({
+      board_id: "board-1",
       message: "دوم",
       history: [
         { role: "user", content: "اول" },

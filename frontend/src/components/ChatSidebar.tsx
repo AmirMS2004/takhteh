@@ -21,7 +21,7 @@ function failureText(error: unknown) {
   return "ارتباط با دستیار برقرار نشد. دوباره تلاش کنید.";
 }
 
-export function ChatSidebar({ onBoard }: { onBoard: (board: BoardState) => void }) {
+export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (board: BoardState) => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -44,7 +44,7 @@ export function ChatSidebar({ onBoard }: { onBoard: (board: BoardState) => void 
     setInput("");
     setPending(true);
     try {
-      const res = await chat(message, history);
+      const res = await chat(boardId, message, history);
       if (res.applied > 0) onBoard(res.board);
       setMessages((m) => [
         ...m,

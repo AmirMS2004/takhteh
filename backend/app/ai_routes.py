@@ -17,7 +17,9 @@ SYSTEM_PROMPT = """You are the assistant inside a kanban project-management app.
 talks to you in a sidebar.
 
 The current board is given below as JSON: "columns" in display order, each with "id", "title" and "cardIds" \
-(top to bottom), and "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), "priority" ("low", "medium" or "high"), "assignee" (a person's name) and "labels" (a list of label ids); the first three may be null. The board's labels are in "labels", each with "id", "name" (may be empty) and "color".
+(top to bottom), and "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), "priority" ("low", "medium" or "high"), "assignee" (the username of a board member) and "labels" (a list of label ids); the first three may be null. \
+The board's labels are in "labels", each with "id", "name" (may be empty) and "color". The board's members are in \
+"members"; only their usernames can be an assignee.
 
 You can change the board by returning operations:
 - create_card: column_id, title, details (use "" when there are no details), and optionally due_date, priority, assignee, labels
@@ -107,6 +109,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    board_id: str
     message: str = Field(min_length=1, max_length=4000)
     history: list[ChatMessage] = Field(default=[], max_length=50)
 
@@ -117,33 +120,40 @@ def _require(value: str | None, field: str, op: Operation) -> str:
     return value.strip()
 
 
-def apply_operation(conn: sqlite3.Connection, user_id: int, op: Operation) -> None:
+def apply_operation(conn: sqlite3.Connection, user_id: int, board_id: int, op: Operation) -> None:
+    """Applies one operation; every id must belong to `board_id`."""
     # The model cannot clear a detail field: null always means "leave as is".
     dumped = op.model_dump()
     details = {f: dumped[f] for f in DETAIL_FIELDS if dumped[f] is not None}
     if op.type == "create_card":
         fields = {"title": _require(op.title, "title", op), "details": (op.details or "").strip()} | details
-        service.create_card(conn, user_id, _require(op.column_id, "column_id", op), fields)
+        service.create_card(conn, user_id, _require(op.column_id, "column_id", op), fields, board_id)
     elif op.type == "update_card":
         changes = dict(details)
         if op.title is not None:
             changes["title"] = _require(op.title, "title", op)
         if op.details is not None:
             changes["details"] = op.details.strip()
-        service.update_card(conn, user_id, _require(op.card_id, "card_id", op), changes)
+        service.update_card(conn, user_id, _require(op.card_id, "card_id", op), changes, board_id)
     else:
         index = op.index if op.index is not None else 10**9  # null means "at the bottom"
         if index < 0:
             raise InvalidOperation("move_card index cannot be negative")
         service.move_card(
-            conn, user_id, _require(op.card_id, "card_id", op), _require(op.column_id, "column_id", op), index
+            conn,
+            user_id,
+            _require(op.card_id, "card_id", op),
+            _require(op.column_id, "column_id", op),
+            index,
+            board_id,
         )
 
 
 @router.post("/chat")
 def chat(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> dict:
     with db.connect() as conn:
-        board = service.get_board(conn, user.id)
+        board = service.get_board(conn, user.id, body.board_id)
+        board_id = service.member_board(conn, user.id, body.board_id)
 
     messages = [
         {
@@ -165,12 +175,12 @@ def chat(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> dic
     try:
         with db.connect() as conn:
             for op in result.operations:
-                apply_operation(conn, user.id, op)
+                apply_operation(conn, user.id, board_id, op)
     except (InvalidOperation, service.NotFound) as e:
         error = f"Changes were not applied: {e}"
 
     with db.connect() as conn:
-        board = service.get_board(conn, user.id)
+        board = service.get_board(conn, user.id, body.board_id)
     return {
         "reply": result.reply,
         "board": board,

@@ -9,10 +9,22 @@ export type Card = {
   due_date?: string | null; // "YYYY-MM-DD"
   priority?: Priority | null;
   labels?: string[];
-  assignee?: string | null;
+  assignee?: string | null; // username of a board member
 };
 export type Column = { id: string; title: string; cardIds: string[] };
-export type BoardState = { columns: Column[]; cards: Record<string, Card>; labels: BoardLabel[] };
+export type Role = "owner" | "member";
+export type Member = { username: string; role: Role };
+/** A board in the user's board list. */
+export type BoardSummary = { id: string; title: string; role: Role; owner: string };
+export type BoardState = {
+  id: string;
+  title: string;
+  role: Role; // the signed-in user's role
+  members: Member[];
+  columns: Column[];
+  cards: Record<string, Card>;
+  labels: BoardLabel[];
+};
 
 export function renameColumn(board: BoardState, columnId: string, title: string): BoardState {
   return {
@@ -93,6 +105,10 @@ export function moveCard(
 }
 
 export const initialBoard: BoardState = {
+  id: "board-1",
+  title: "تخته پروژه",
+  role: "owner",
+  members: [{ username: "user", role: "owner" }],
   labels: (["green", "yellow", "orange", "red", "purple", "blue"] as const).map((color, i) => ({
     id: `label-${i + 1}`,
     name: "",

@@ -14,13 +14,14 @@ test.beforeEach(async ({ page }) => {
 test("the assistant's change appears on the board and survives reload", async ({ page }) => {
   const sent: unknown[] = [];
   await page.route("**/api/ai/chat", async (route) => {
-    sent.push(route.request().postDataJSON());
+    const body = route.request().postDataJSON();
+    sent.push(body);
     // Do what the backend would do: apply the change, then return the new board.
-    const board = await (await page.request.get("/api/board")).json();
+    const board = await (await page.request.get(`/api/boards/${body.board_id}`)).json();
     await page.request.post("/api/cards", {
       data: { column_id: board.columns[1].id, title: "کارت از دستیار", details: "ساخته در چت" },
     });
-    const after = await (await page.request.get("/api/board")).json();
+    const after = await (await page.request.get(`/api/boards/${body.board_id}`)).json();
     await route.fulfill({ json: { reply: "کارت را در «برای انجام» ساختم.", board: after, applied: 1, error: null } });
   });
 
@@ -29,7 +30,7 @@ test("the assistant's change appears on the board and survives reload", async ({
 
   await expect(panel(page).getByText("کارت را در «برای انجام» ساختم.")).toBeVisible();
   await expect(column(page, "todo").getByText("کارت از دستیار")).toBeVisible();
-  expect(sent).toEqual([{ message: "یک کارت بساز", history: [] }]);
+  expect(sent).toEqual([{ board_id: expect.stringMatching(/^board-/), message: "یک کارت بساز", history: [] }]);
 
   await page.reload();
   await expect(column(page, "todo").getByText("کارت از دستیار")).toBeVisible();

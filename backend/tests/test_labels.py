@@ -3,10 +3,11 @@ import sqlite3
 import pytest
 
 from app import db
+from tests.conftest import board_path
 
 
 def board(client) -> dict:
-    return client.get("/api/board").json()
+    return client.get(board_path(client)).json()
 
 
 def first_card(client) -> str:
@@ -25,7 +26,7 @@ def test_board_starts_with_one_unnamed_label_per_color(auth_client):
 
 
 def test_create_rename_recolor_and_delete_a_label(auth_client):
-    created = auth_client.post("/api/labels", json={"name": "  فوری  ", "color": "red"})
+    created = auth_client.post(board_path(auth_client) + "/labels", json={"name": "  فوری  ", "color": "red"})
     assert created.status_code == 201
     label = created.json()
     assert (label["name"], label["color"]) == ("فوری", "red")
@@ -41,7 +42,7 @@ def test_create_rename_recolor_and_delete_a_label(auth_client):
 
 @pytest.mark.parametrize("body", [{"color": "pink"}, {"name": "x"}, {"name": "x" * 31, "color": "red"}])
 def test_label_validation(auth_client, body):
-    assert auth_client.post("/api/labels", json=body).status_code == 422
+    assert auth_client.post(board_path(auth_client) + "/labels", json=body).status_code == 422
 
 
 def test_cards_take_several_labels_and_updates_replace_them(auth_client):
@@ -88,7 +89,7 @@ def test_labels_belong_to_one_board(client):
 
 
 def test_routes_require_login(client):
-    assert client.post("/api/labels", json={"color": "red"}).status_code == 401
+    assert client.post("/api/boards/board-1/labels", json={"color": "red"}).status_code == 401
 
 
 def test_single_color_labels_from_the_previous_version_are_migrated(db_file):

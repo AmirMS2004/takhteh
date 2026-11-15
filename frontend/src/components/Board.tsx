@@ -205,6 +205,7 @@ export function Board({ store }: { store: BoardStore }) {
               persist(api.updateCard(cardId, changes));
             }}
             labels={board.labels}
+            members={board.members}
             onManageLabels={() => setLabelsOpen(true)}
           />
         ))}
@@ -213,7 +214,7 @@ export function Board({ store }: { store: BoardStore }) {
       {labelsOpen && (
         <LabelsDialog
           labels={board.labels}
-          onCreate={(color) => persist(api.createLabel("", color).then((label) => apply(addLabel(current(), label))))}
+          onCreate={(color) => persist(api.createLabel(current().id, "", color).then((label) => apply(addLabel(current(), label))))}
           onUpdate={(id, changes) => {
             apply(updateLabel(current(), id, changes));
             persist(api.updateLabel(id, changes));

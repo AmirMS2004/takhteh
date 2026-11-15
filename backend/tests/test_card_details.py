@@ -3,16 +3,17 @@ import sqlite3
 import pytest
 
 from app import db
+from tests.conftest import board_path
 
-DETAILS = {"due_date": "2026-12-01", "priority": "high", "assignee": "سارا"}
+DETAILS = {"due_date": "2026-12-01", "priority": "high", "assignee": "user"}
 
 
 def first_card(client) -> str:
-    return client.get("/api/board").json()["columns"][0]["cardIds"][0]
+    return client.get(board_path(client)).json()["columns"][0]["cardIds"][0]
 
 
 def card(client, card_id) -> dict:
-    return client.get("/api/board").json()["cards"][card_id]
+    return client.get(board_path(client)).json()["cards"][card_id]
 
 
 def test_cards_have_empty_details_by_default(auth_client):
@@ -21,7 +22,7 @@ def test_cards_have_empty_details_by_default(auth_client):
 
 
 def test_create_card_with_details(auth_client):
-    column = auth_client.get("/api/board").json()["columns"][1]["id"]
+    column = auth_client.get(board_path(auth_client)).json()["columns"][1]["id"]
     response = auth_client.post("/api/cards", json={"column_id": column, "title": "x"} | DETAILS)
     assert response.status_code == 201
     created = response.json()
@@ -39,7 +40,7 @@ def test_update_sets_and_clears_only_sent_fields(auth_client):
     assert response.status_code == 200
     c = card(auth_client, card_id)
     assert c["priority"] is None
-    assert (c["due_date"], c["assignee"], c["title"]) == ("2026-12-01", "سارا", "پژوهش رقبا")
+    assert (c["due_date"], c["assignee"], c["title"]) == ("2026-12-01", "user", "پژوهش رقبا")
 
 
 def test_blank_assignee_means_nobody(auth_client):
@@ -55,7 +56,7 @@ def test_blank_assignee_means_nobody(auth_client):
         {"due_date": "tomorrow"},
         {"priority": "urgent"},
         {"labels": None},
-        {"assignee": "x" * 51},
+        {"assignee": "x" * 33},
         {"title": None},
     ],
 )
