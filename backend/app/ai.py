@@ -21,7 +21,10 @@ def client() -> OpenAI:
 
 def chat(messages: list[dict], response_format: dict | None = None) -> str:
     """Sends the messages to the model and returns the reply text."""
-    extra = {"response_format": response_format} if response_format else {}
+    extra = {}
+    if response_format:
+        # Route only to OpenRouter providers that honour response_format.
+        extra = {"response_format": response_format, "extra_body": {"provider": {"require_parameters": True}}}
     try:
         response = client().chat.completions.create(model=MODEL, messages=messages, **extra)
     except OpenAIError as e:

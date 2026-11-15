@@ -50,6 +50,7 @@ def test_chat_passes_response_format(fake):
     fmt = {"type": "json_object"}
     ai.chat([{"role": "user", "content": "hi"}], response_format=fmt)
     assert fake.calls[0]["response_format"] == fmt
+    assert fake.calls[0]["extra_body"] == {"provider": {"require_parameters": True}}
 
 
 def test_chat_wraps_api_errors(fake):
@@ -58,32 +59,7 @@ def test_chat_wraps_api_errors(fake):
         ai.chat([{"role": "user", "content": "hi"}])
 
 
-def test_ping_requires_login(client):
-    assert client.post("/api/ai/ping").status_code == 401
-
-
-def test_ping_returns_answer(auth_client, fake):
-    response = auth_client.post("/api/ai/ping")
-    assert response.status_code == 200
-    assert response.json() == {"answer": "4"}
-    assert "2+2" in fake.calls[0]["messages"][0]["content"]
-
-
-def test_ping_without_key_is_503(auth_client, monkeypatch):
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    response = auth_client.post("/api/ai/ping")
-    assert response.status_code == 503
-    assert "OPENROUTER_API_KEY" in response.json()["detail"]
-
-
-def test_ping_api_error_is_503(auth_client, fake):
-    fake.error = openai.APIConnectionError(request=None)
-    assert auth_client.post("/api/ai/ping").status_code == 503
-
-
 @pytest.mark.live
 @pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="OPENROUTER_API_KEY not set")
-def test_live_two_plus_two(auth_client):
-    response = auth_client.post("/api/ai/ping")
-    assert response.status_code == 200, response.text
-    assert "4" in response.json()["answer"]
+def test_live_two_plus_two():
+    assert "4" in ai.chat([{"role": "user", "content": "What is 2+2? Reply with only the number."}])

@@ -7,8 +7,8 @@ FastAPI روی Python 3.13، مدیریت پکیج با `uv`.
 - `app/board_service.py` — همه خواندن و نوشتن‌های برد، محدود به کاربر؛ شناسه‌های API به شکل `col-N` و `card-N`؛ شناسه ناموجود یا متعلق به کاربر دیگر خطای `NotFound` (پاسخ 404) می‌دهد. AI در بخش نهم هم از همین ماژول استفاده می‌کند.
 - `app/board.py` — مسیرهای `GET /api/board`، `PATCH /api/columns/{id}`، `POST /api/cards`، `PATCH /api/cards/{id}`، `POST /api/cards/{id}/move`، `DELETE /api/cards/{id}`.
 - `app/auth.py` — `POST /api/auth/login`، `POST /api/auth/logout`، `GET /api/auth/me` و dependency به نام `current_user` برای محافظت از مسیرها. سشن در کوکی امضاشده `SessionMiddleware`؛ کلید از `SESSION_SECRET` (در نبودش تصادفی و با هر راه‌اندازی مجدد، کاربران خارج می‌شوند).
-- `app/ai.py` — کلاینت OpenAI روی OpenRouter (`openai/gpt-oss-120b`) و تابع `chat(messages, response_format=None)`. نبود `OPENROUTER_API_KEY` یا خطای OpenRouter خطای `AIUnavailable` (پاسخ 503) می‌دهد.
-- `app/ai_routes.py` — `POST /api/ai/ping` (موقت، تا بخش نهم): پرسش «2+2» برای بررسی اتصال.
+- `app/ai.py` — کلاینت OpenAI روی OpenRouter (`openai/gpt-oss-120b`) و تابع `chat(messages, response_format=None)`؛ با `response_format`، فقط providerهایی از OpenRouter انتخاب می‌شوند که آن را پشتیبانی کنند. نبود `OPENROUTER_API_KEY` یا خطای OpenRouter خطای `AIUnavailable` (پاسخ 503) می‌دهد.
+- `app/ai_routes.py` — `POST /api/ai/chat` با بدنه `{message, history}`: برد کاربر به‌صورت JSON در پیام سیستمی، به‌همراه تاریخچه و پیام جدید، به مدل فرستاده می‌شود. مدل با خروجی ساختاریافته `{reply, operations}` پاسخ می‌دهد. عملیات (`create_card`، `update_card`، `move_card`) با `board_service` در یک تراکنش اعمال می‌شوند؛ اگر یکی نامعتبر باشد هیچ‌کدام اعمال نمی‌شود و `error` پر می‌شود. پاسخ: `{reply, board, applied, error}`. خروجی خراب مدل خطای 502 می‌دهد.
 - `static/` — خروجی ایستای Next.js که در Docker از `frontend/out` کپی می‌شود (در git نیست؛ در اجرای محلی بدون آن، `/` خطای 404 می‌دهد).
 - `tests/` — آزمون‌های pytest؛ `conftest.py` برای هر آزمون یک پایگاه داده موقت می‌سازد و فیکسچرهای `client` و `auth_client` (واردشده) دارد.
 
