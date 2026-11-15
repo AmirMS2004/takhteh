@@ -112,6 +112,44 @@ body {
   background-attachment: fixed;
 }
 
+/*
+ * Scrollbars: a slim navy thumb (light ink in the dark theme) on a clear track, brand blue on hover; the
+ * board's horizontal bar and every panel use the same style. Chromium and Safari get the rounded
+ * ::-webkit-scrollbar version; Firefox, which has no such selector, gets the standard properties.
+ */
+:root {
+  --scroll-thumb: rgb(3 33 71 / 0.28);
+  --scroll-thumb-hover: var(--color-primary);
+}
+.dark {
+  --scroll-thumb: rgb(232 238 247 / 0.24);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+  }
+}
+
 ::selection {
   background: rgb(236 173 10 / 0.35);
   color: var(--color-ink);
