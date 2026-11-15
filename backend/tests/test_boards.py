@@ -41,10 +41,11 @@ def shared(client):
 
 def test_first_board_and_listing(auth_client):
     listed = boards(auth_client)
-    assert listed == [{"id": listed[0]["id"], "title": "تخته پروژه", "role": "owner", "owner": "user"}]
+    assert listed == [{"id": listed[0]["id"], "title": "تخته پروژه", "role": "owner", "owner": "user",
+                       "members": 1, "cards": 10, "my_cards": 0}]
     b = board(auth_client, listed[0]["id"])
     assert (b["title"], b["role"]) == ("تخته پروژه", "owner")
-    assert b["members"] == [{"username": "user", "role": "owner"}]
+    assert b["members"] == [{"username": "user", "role": "owner", "avatar": 0}]
 
 
 def test_create_rename_and_delete_boards(auth_client):
@@ -94,7 +95,7 @@ def test_cards_and_labels_stay_on_their_own_board(auth_client):
 
 def test_member_sees_and_edits_a_shared_board(client, shared):
     b = board(client, shared)
-    assert b["members"] == [{"username": "alice", "role": "owner"}, {"username": "bob", "role": "member"}]
+    assert b["members"] == [{"username": "alice", "role": "owner", "avatar": 0}, {"username": "bob", "role": "member", "avatar": 0}]
 
     login(client, "bob")
     listed = {x["id"]: x for x in boards(client)}

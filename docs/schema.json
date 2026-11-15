@@ -9,8 +9,12 @@
       "columns": {
         "id": "INTEGER PRIMARY KEY",
         "username": "TEXT NOT NULL UNIQUE",
-        "password_hash": "TEXT NOT NULL"
-      }
+        "password_hash": "TEXT NOT NULL",
+        "name": "TEXT NOT NULL DEFAULT ''",
+        "email": "TEXT NOT NULL DEFAULT ''",
+        "avatar": "INTEGER NOT NULL DEFAULT 0"
+      },
+      "notes": "name and email are optional (empty). avatar is 0 (first letter of the username) or a preset picture 1..8 drawn by the frontend. The three profile columns are added to older databases at startup."
     },
     "boards": {
       "columns": {

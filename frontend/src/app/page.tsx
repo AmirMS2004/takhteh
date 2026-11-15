@@ -1,22 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BoardsArea } from "@/components/BoardsArea";
-import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { Avatar } from "@/components/Avatar";
+import { BoardsArea, rememberBoard } from "@/components/BoardsArea";
+import { Dashboard } from "@/components/Dashboard";
 import { LoginForm } from "@/components/LoginForm";
-import { UNAUTHORIZED_EVENT, getMe, logout } from "@/lib/api";
+import { UNAUTHORIZED_EVENT, getMe, logout, type Profile } from "@/lib/api";
 
-type Session = { status: "loading" } | { status: "anonymous" } | { status: "user"; username: string };
+type Session = { status: "loading" } | { status: "anonymous" } | { status: "user"; profile: Profile };
 
 export default function Home() {
   const [session, setSession] = useState<Session>({ status: "loading" });
   const [chatOpen, setChatOpen] = useState(true);
-  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [view, setView] = useState<"board" | "dashboard">("board");
+
+  const loadMe = () =>
+    getMe()
+      .then((profile) => setSession(profile ? { status: "user", profile } : { status: "anonymous" }))
+      .catch(() => setSession({ status: "anonymous" }));
 
   useEffect(() => {
-    getMe()
-      .then((username) => setSession(username ? { status: "user", username } : { status: "anonymous" }))
-      .catch(() => setSession({ status: "anonymous" }));
+    loadMe();
     const signOut = () => setSession({ status: "anonymous" });
     window.addEventListener(UNAUTHORIZED_EVENT, signOut);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, signOut);
@@ -24,8 +28,17 @@ export default function Home() {
 
   if (session.status === "loading") return null;
   if (session.status === "anonymous") {
-    return <LoginForm onLogin={(username) => setSession({ status: "user", username })} />;
+    return (
+      <LoginForm
+        onLogin={() => {
+          setView("board");
+          loadMe();
+        }}
+      />
+    );
   }
+  const { profile } = session;
+  const dashboard = view === "dashboard";
 
   return (
     <main className="flex min-h-full flex-1 flex-col">
@@ -33,38 +46,61 @@ export default function Home() {
         <div>
           <div className="flex items-center gap-3">
             <span className="h-8 w-1.5 rounded-full bg-accent" />
-            <h1 className="text-2xl font-extrabold tracking-tight text-navy sm:text-3xl">تخته پروژه</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-navy sm:text-3xl">
+              {dashboard ? "داشبورد من" : "تخته پروژه"}
+            </h1>
           </div>
           <p className="mt-2 hidden pr-4.5 text-sm text-gray-text sm:block">
-            کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید.
+            {dashboard
+              ? "پروفایل، عکس و رمز خود را تغییر دهید و بردهایتان را ببینید."
+              : "کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید."}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
+          {dashboard ? (
+            <button
+              type="button"
+              onClick={() => setView("board")}
+              className="rounded-lg bg-primary px-3 py-1.5 font-medium whitespace-nowrap text-white transition hover:brightness-110"
+            >
+              بازگشت به برد
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-pressed={chatOpen}
+              onClick={() => setChatOpen((o) => !o)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
+                chatOpen
+                  ? "bg-primary text-white hover:brightness-110"
+                  : "bg-primary/10 text-primary hover:bg-primary/15"
+              }`}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden
+              >
+                <path d="M4 5h12v8H8l-4 3V5z" strokeLinejoin="round" />
+              </svg>
+              {chatOpen ? "بستن دستیار" : "دستیار هوش مصنوعی"}
+            </button>
+          )}
           <button
             type="button"
-            aria-pressed={chatOpen}
-            onClick={() => setChatOpen((o) => !o)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
-              chatOpen ? "bg-primary text-white hover:brightness-110" : "bg-primary/10 text-primary hover:bg-primary/15"
+            title="داشبورد من"
+            aria-label={`داشبورد من (${profile.username})`}
+            aria-pressed={dashboard}
+            onClick={() => setView("dashboard")}
+            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium transition ${
+              dashboard ? "bg-slate-100 text-navy" : "text-gray-text hover:bg-slate-100 hover:text-navy"
             }`}
           >
-            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-              <path d="M4 5h12v8H8l-4 3V5z" strokeLinejoin="round" />
-            </svg>
-            {chatOpen ? "بستن دستیار" : "دستیار هوش مصنوعی"}
-          </button>
-          <span className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-gray-text" dir="ltr">
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-navy text-xs font-bold text-white uppercase" aria-hidden>
-              {session.username[0]}
-            </span>
-            {session.username}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPasswordOpen(true)}
-            className="rounded-lg px-3 py-1.5 font-medium whitespace-nowrap text-gray-text transition hover:bg-slate-100 hover:text-navy"
-          >
-            تغییر رمز
+            <Avatar avatar={profile.avatar} username={profile.username} />
+            <span dir={profile.name ? undefined : "ltr"}>{profile.name || profile.username}</span>
           </button>
           <button
             type="button"
@@ -78,8 +114,18 @@ export default function Home() {
           </button>
         </div>
       </header>
-      <BoardsArea username={session.username} chatOpen={chatOpen} />
-      {passwordOpen && <ChangePasswordDialog onClose={() => setPasswordOpen(false)} />}
+      {dashboard ? (
+        <Dashboard
+          profile={profile}
+          onProfile={(p) => setSession({ status: "user", profile: p })}
+          onOpenBoard={(id) => {
+            rememberBoard(id);
+            setView("board");
+          }}
+        />
+      ) : (
+        <BoardsArea username={profile.username} chatOpen={chatOpen} />
+      )}
     </main>
   );
 }

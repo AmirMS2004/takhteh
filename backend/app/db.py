@@ -13,7 +13,10 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    avatar INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS boards (
     id INTEGER PRIMARY KEY,
@@ -169,10 +172,17 @@ def _rebuild_boards(conn: sqlite3.Connection) -> None:
     )
 
 
+PROFILE_COLUMNS = {"name": "TEXT NOT NULL DEFAULT ''", "email": "TEXT NOT NULL DEFAULT ''", "avatar": "INTEGER NOT NULL DEFAULT 0"}
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Brings databases from earlier versions up to date; does nothing on a current one."""
     if "user_id" in {row["name"] for row in conn.execute("PRAGMA table_info(boards)")}:
         _rebuild_boards(conn)
+    user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+    for name, definition in PROFILE_COLUMNS.items():
+        if name not in user_columns:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
     existing = {row["name"] for row in conn.execute("PRAGMA table_info(cards)")}
     for name in CARD_DETAIL_COLUMNS:
         if name not in existing:

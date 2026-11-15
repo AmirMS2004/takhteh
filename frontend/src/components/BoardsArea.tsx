@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import * as api from "@/lib/api";
 import type { BoardSummary } from "@/lib/board";
 import { useBoard, type BoardStore } from "@/lib/useBoard";
+import { Avatar } from "./Avatar";
 import { Board } from "./Board";
 import { ChatSidebar } from "./ChatSidebar";
 import { input } from "./LoginForm";
@@ -21,7 +22,8 @@ function readSaved() {
     return null;
   }
 }
-function save(id: string) {
+/** Makes `id` the board that opens next (used by the dashboard). */
+export function rememberBoard(id: string) {
   try {
     localStorage.setItem(SAVED_BOARD, id);
   } catch {}
@@ -146,9 +148,7 @@ function BoardSettingsDialog({
         <ul className="space-y-1.5">
           {board.members.map((m) => (
             <li key={m.username} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-navy text-xs font-bold text-white uppercase" aria-hidden>
-                {m.username[0]}
-              </span>
+              <Avatar avatar={m.avatar} username={m.username} />
               <span dir="ltr" className="text-navy">
                 {m.username}
               </span>
@@ -300,7 +300,7 @@ export function BoardsArea({ username, chatOpen }: { username: string; chatOpen:
     const next = list.find((b) => b.id === wanted)?.id ?? list[0]?.id ?? null;
     setBoards(list);
     setCurrent(next);
-    if (next) save(next);
+    if (next) rememberBoard(next);
   };
   const load = (prefer?: string | null) => api.listBoards().then((list) => show(list, prefer));
 
@@ -327,7 +327,7 @@ export function BoardsArea({ username, chatOpen }: { username: string; chatOpen:
           chatOpen={chatOpen}
           onSelect={(id) => {
             setCurrent(id);
-            save(id);
+            rememberBoard(id);
           }}
           onNew={() => setNewOpen(true)}
           onBoardsChanged={(removed) => load(removed ? null : current)}

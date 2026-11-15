@@ -68,6 +68,7 @@ describe("change password", () => {
     const api = fakeApi();
     const user = userEvent.setup();
     render(<Home />);
+    await user.click(await screen.findByRole("button", { name: /داشبورد من/ }));
     await user.click(await screen.findByRole("button", { name: "تغییر رمز" }));
     return { api, user, dialog: screen.getByRole("dialog", { name: "تغییر رمز عبور" }) };
   }

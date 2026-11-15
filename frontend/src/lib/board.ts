@@ -13,9 +13,17 @@ export type Card = {
 };
 export type Column = { id: string; title: string; cardIds: string[] };
 export type Role = "owner" | "member";
-export type Member = { username: string; role: Role };
+export type Member = { username: string; role: Role; avatar?: number };
 /** A board in the user's board list. */
-export type BoardSummary = { id: string; title: string; role: Role; owner: string };
+export type BoardSummary = {
+  id: string;
+  title: string;
+  role: Role;
+  owner: string;
+  members: number;
+  cards: number;
+  my_cards: number; // cards assigned to the signed-in user
+};
 export type BoardState = {
   id: string;
   title: string;

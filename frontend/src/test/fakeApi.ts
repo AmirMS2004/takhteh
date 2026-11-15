@@ -58,6 +58,8 @@ export function fakeApi({
     loggedIn,
     nextId: 1,
     users: { user: "password" } as Record<string, string>,
+    // name, email and picture per username; missing means empty
+    profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number }>>,
     chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
     username: "user",
   };
@@ -75,10 +77,27 @@ export function fakeApi({
     title: b.title,
     role: b.role,
     owner: b.members.find((m) => m.role === "owner")!.username,
+    members: b.members.length,
+    cards: Object.keys(b.cards).length,
+    my_cards: Object.values(b.cards).filter((c) => c.assignee === state.username).length,
   });
+  const profile = () => ({ username: state.username, name: "", email: "", avatar: 0, ...state.profiles[state.username] });
 
   const handle = (method: string, path: string, body: Record<string, unknown>): Response => {
-    if (path === "/api/auth/me") return state.loggedIn ? json({ username: state.username }) : json({}, 401);
+    if (path === "/api/auth/me") return state.loggedIn ? json(profile()) : json({}, 401);
+    if (path === "/api/auth/profile") {
+      if (!state.loggedIn) return json({}, 401);
+      const { username, ...rest } = body as Record<string, string>;
+      if (username !== undefined && username !== state.username) {
+        if (username in state.users) return json({}, 409);
+        state.users[username] = state.users[state.username];
+        delete state.users[state.username];
+        state.profiles[username] = state.profiles[state.username];
+        state.username = username;
+      }
+      state.profiles[state.username] = { ...profile(), ...rest };
+      return json(profile());
+    }
     if (path === "/api/auth/login") {
       const name = String(body.username).toLowerCase();
       if (state.users[name] !== body.password) return json({}, 401);

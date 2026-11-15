@@ -278,12 +278,17 @@ def delete_label(conn: sqlite3.Connection, user_id: int, label: str) -> None:
 
 def list_boards(conn: sqlite3.Connection, user_id: int) -> list[dict]:
     rows = conn.execute(
-        "SELECT b.id, b.title, m.role, u.username AS owner FROM boards b"
+        "SELECT b.id, b.title, m.role, u.username AS owner,"
+        " (SELECT COUNT(*) FROM board_members WHERE board_id = b.id) AS members,"
+        " (SELECT COUNT(*) FROM cards k JOIN columns c ON c.id = k.column_id WHERE c.board_id = b.id) AS cards,"
+        " (SELECT COUNT(*) FROM cards k JOIN columns c ON c.id = k.column_id"
+        "  WHERE c.board_id = b.id AND k.assignee_id = m.user_id) AS my_cards"
+        " FROM boards b"
         " JOIN board_members m ON m.board_id = b.id AND m.user_id = ?"
         " JOIN users u ON u.id = b.owner_id ORDER BY b.id",
         (user_id,),
     )
-    return [{"id": board_key(r["id"]), "title": r["title"], "role": r["role"], "owner": r["owner"]} for r in rows]
+    return [dict(r) | {"id": board_key(r["id"])} for r in rows]
 
 
 def create_board(conn: sqlite3.Connection, user_id: int, title: str) -> dict:
@@ -311,7 +316,7 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
     ):
         card_labels.setdefault(card_id, []).append(label_id)
     members = conn.execute(
-        "SELECT u.username, m.role FROM board_members m JOIN users u ON u.id = m.user_id"
+        "SELECT u.username, u.avatar, m.role FROM board_members m JOIN users u ON u.id = m.user_id"
         " WHERE m.board_id = ? ORDER BY m.role = 'owner' DESC, u.username",
         (board_id,),
     )
@@ -319,7 +324,7 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
         "id": board_key(board_id),
         "title": info["title"],
         "role": _role(conn, user_id, board_id),
-        "members": [{"username": m["username"], "role": m["role"]} for m in members],
+        "members": [{"username": m["username"], "role": m["role"], "avatar": m["avatar"]} for m in members],
         "columns": [
             {
                 "id": column_key(col["id"]),

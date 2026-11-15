@@ -19,9 +19,12 @@ export class ApiError extends Error {
   }
 }
 
-export async function getMe(): Promise<string | null> {
+/** The signed-in user's account. avatar is 0 (first letter of the username) or a preset picture 1..8. */
+export type Profile = { username: string; name: string; email: string; avatar: number };
+
+export async function getMe(): Promise<Profile | null> {
   try {
-    return (await request<{ username: string }>("/api/auth/me")).username;
+    return await request<Profile>("/api/auth/me");
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) return null;
     throw e;
@@ -42,6 +45,11 @@ export async function signup(username: string, password: string): Promise<string
     body: JSON.stringify({ username, password }),
   });
   return data.username;
+}
+
+/** Changes only the given fields; 409 means the username is taken. */
+export function updateProfile(changes: Partial<Profile>): Promise<Profile> {
+  return request<Profile>("/api/auth/profile", { method: "PATCH", body: JSON.stringify(changes) });
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
