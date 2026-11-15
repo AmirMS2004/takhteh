@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -17,11 +17,11 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import * as api from "@/lib/api";
 import {
   addCard,
   deleteCard,
   findColumn,
-  initialBoard,
   moveCard,
   renameColumn,
   updateCard,
@@ -30,20 +30,60 @@ import {
 import { ColumnView } from "./ColumnView";
 import { CardView } from "./CardItem";
 
+function position(board: BoardState, cardId: string) {
+  const column = findColumn(board, cardId)!;
+  return { columnId: column.id, index: column.cardIds.indexOf(cardId) };
+}
+
 export function Board() {
-  const [board, setBoard] = useState<BoardState>(initialBoard);
+  const [board, setBoard] = useState<BoardState | null>(null);
+  const [failed, setFailed] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Latest board, updated synchronously so drag handlers never read a stale render.
+  const boardRef = useRef<BoardState | null>(null);
+  const dragStart = useRef<BoardState | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  const apply = (next: BoardState) => {
+    boardRef.current = next;
+    setBoard(next);
+  };
+
+  // The server is the source of truth: after any failed write, reload what it has.
+  const reload = () =>
+    api.getBoard().then(
+      (b) => {
+        apply(b);
+        setFailed(false);
+      },
+      () => setFailed(true),
+    );
+  const persist = (call: Promise<unknown>) => call.catch(reload);
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (failed && !board) {
+    return <p className="px-6 text-sm text-red-700 sm:px-10">بارگذاری برد ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
+  }
+  if (!board) {
+    return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;
+  }
+
+  const current = () => boardRef.current!;
+
   // Target the column under the pointer; inside it, snap to the nearest card (or the column if empty).
   const collisionDetection: CollisionDetection = (args) => {
-    const column = pointerWithin(args).find((hit) => board.columns.some((c) => c.id === hit.id));
+    const b = current();
+    const column = pointerWithin(args).find((hit) => b.columns.some((c) => c.id === hit.id));
     if (!column) return closestCorners(args);
-    const cardIds = findColumn(board, String(column.id))!.cardIds;
+    const cardIds = findColumn(b, String(column.id))!.cardIds;
     if (cardIds.length === 0) return [column];
     return closestCenter({
       ...args,
@@ -51,33 +91,53 @@ export function Board() {
     });
   };
 
-  const onDragStart =({ active }: DragStartEvent) => setActiveId(String(active.id));
+  const onDragStart = ({ active }: DragStartEvent) => {
+    dragStart.current = current();
+    setActiveId(String(active.id));
+  };
 
   // Move the card into another column while hovering, so the target list makes room for it.
   const onDragOver = ({ active, over }: DragOverEvent) => {
     if (!over) return;
+    const b = current();
     const cardId = String(active.id);
     const overId = String(over.id);
-    setBoard((b) => {
-      const from = findColumn(b, cardId);
-      const to = findColumn(b, overId);
-      if (!from || !to || from.id === to.id) return b;
-      const index = to.id === overId ? to.cardIds.length : to.cardIds.indexOf(overId);
-      return moveCard(b, cardId, to.id, index);
-    });
+    const from = findColumn(b, cardId);
+    const to = findColumn(b, overId);
+    if (!from || !to || from.id === to.id) return;
+    const index = to.id === overId ? to.cardIds.length : to.cardIds.indexOf(overId);
+    apply(moveCard(b, cardId, to.id, index));
   };
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null);
-    if (!over) return;
+    const start = dragStart.current;
+    dragStart.current = null;
+    if (!start) return;
+    if (!over) {
+      apply(start);
+      return;
+    }
     const cardId = String(active.id);
     const overId = String(over.id);
-    setBoard((b) => {
-      const column = findColumn(b, cardId);
-      if (!column || column.id !== findColumn(b, overId)?.id || cardId === overId) return b;
+    let next = current();
+    const column = findColumn(next, cardId);
+    if (column && column.id === findColumn(next, overId)?.id && cardId !== overId) {
       const index = column.id === overId ? column.cardIds.length - 1 : column.cardIds.indexOf(overId);
-      return moveCard(b, cardId, column.id, index);
-    });
+      next = moveCard(next, cardId, column.id, index);
+      apply(next);
+    }
+    const before = position(start, cardId);
+    const after = position(next, cardId);
+    if (before.columnId !== after.columnId || before.index !== after.index) {
+      persist(api.moveCard(cardId, after.columnId, after.index));
+    }
+  };
+
+  const onDragCancel = () => {
+    setActiveId(null);
+    if (dragStart.current) apply(dragStart.current);
+    dragStart.current = null;
   };
 
   const activeCard = activeId ? board.cards[activeId] : null;
@@ -90,7 +150,7 @@ export function Board() {
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setActiveId(null)}
+      onDragCancel={onDragCancel}
     >
       <div className="flex gap-5 overflow-x-auto px-6 pb-8 sm:px-10">
         {board.columns.map((column) => (
@@ -98,14 +158,23 @@ export function Board() {
             key={column.id}
             column={column}
             cards={column.cardIds.map((id) => board.cards[id])}
-            onRename={(title) => setBoard((b) => renameColumn(b, column.id, title))}
+            onRename={(title) => {
+              apply(renameColumn(current(), column.id, title));
+              persist(api.renameColumn(column.id, title));
+            }}
             onAdd={(title, details) =>
-              setBoard((b) => addCard(b, column.id, { id: crypto.randomUUID(), title, details }))
+              persist(
+                api.createCard(column.id, title, details).then((card) => apply(addCard(current(), column.id, card))),
+              )
             }
-            onDelete={(cardId) => setBoard((b) => deleteCard(b, cardId))}
-            onUpdate={(cardId, title, details) =>
-              setBoard((b) => updateCard(b, cardId, { title, details }))
-            }
+            onDelete={(cardId) => {
+              apply(deleteCard(current(), cardId));
+              persist(api.deleteCard(cardId));
+            }}
+            onUpdate={(cardId, title, details) => {
+              apply(updateCard(current(), cardId, { title, details }));
+              persist(api.updateCard(cardId, { title, details }));
+            }}
           />
         ))}
       </div>

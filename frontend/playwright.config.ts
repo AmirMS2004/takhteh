@@ -1,7 +1,11 @@
 import { defineConfig } from "@playwright/test";
+import { BASE_URL } from "./e2e/container";
 
-// Tests need the backend, so they run against the container started by scripts/start.*.
+// Tests share one throwaway container and reset its board before each test, so they run serially.
 export default defineConfig({
   testDir: "./e2e",
-  use: { baseURL: process.env.BASE_URL ?? "http://localhost:8000", channel: "chrome" },
+  workers: 1,
+  globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
+  use: { baseURL: BASE_URL, channel: "chrome" },
 });

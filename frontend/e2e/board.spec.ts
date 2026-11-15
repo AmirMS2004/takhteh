@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { loginAndWaitForBoard } from "./helpers";
+import { card, column, freshBoard, loginAndWaitForBoard } from "./helpers";
+import { restartContainer } from "./container";
 
-const column = (page: Page, id: string) => page.getByTestId(`column-${id}`);
 const titles = (col: Locator) => col.locator("li h3").allTextContents();
 
 async function drag(page: Page, source: Locator, target: Locator, offsetY = 0) {
@@ -15,25 +15,28 @@ async function drag(page: Page, source: Locator, target: Locator, offsetY = 0) {
   await page.mouse.up();
 }
 
+/** Reloads once the last write has reached the server. */
+async function reloadAfterSave(page: Page) {
+  await page.waitForLoadState("networkidle");
+  await page.reload();
+  await expect(page.getByTestId(/^column-/)).toHaveCount(5);
+}
+
 test.beforeEach(async ({ page }) => {
-  await loginAndWaitForBoard(page);
+  await freshBoard(page);
 });
 
-test("loads five columns with dummy data and no console errors", async ({ page }) => {
+test("loads five columns from the server with no console errors", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.reload();
   await expect(page.getByTestId(/^column-/)).toHaveCount(5);
-  expect(await titles(column(page, "backlog"))).toEqual([
-    "پژوهش رقبا",
-    "حالت تاریک",
-    "اعلان‌های ایمیلی",
-  ]);
+  expect(await titles(column(page, "backlog"))).toEqual(["پژوهش رقبا", "حالت تاریک", "اعلان‌های ایمیلی"]);
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   expect(errors).toEqual([]);
 });
 
-test("renames a column with Enter and cancels with Escape", async ({ page }) => {
+test("renames a column, cancels with Escape, and keeps the name after reload", async ({ page }) => {
   const col = column(page, "doing");
   await col.getByRole("button", { name: "در حال انجام" }).click();
   await page.getByLabel("نام ستون").fill("در جریان");
@@ -44,9 +47,12 @@ test("renames a column with Enter and cancels with Escape", async ({ page }) => 
   await page.getByLabel("نام ستون").fill("نه");
   await page.keyboard.press("Escape");
   await expect(col.getByRole("button", { name: "در جریان" })).toBeVisible();
+
+  await reloadAfterSave(page);
+  await expect(column(page, "doing").getByRole("button", { name: "در جریان" })).toBeVisible();
 });
 
-test("adds and deletes a card", async ({ page }) => {
+test("adds a card and deletes it, both persisted", async ({ page }) => {
   const col = column(page, "review");
   await col.getByRole("button", { name: /افزودن کارت/ }).click();
   await col.getByLabel("عنوان کارت").fill("آزمون یکپارچه");
@@ -55,21 +61,32 @@ test("adds and deletes a card", async ({ page }) => {
   await expect(col.getByText("آزمون یکپارچه")).toBeVisible();
   await expect(col.getByTestId("card-count")).toHaveText("۲");
 
-  const card = col.locator("li", { hasText: "آزمون یکپارچه" });
-  await card.hover();
-  await card.getByRole("button", { name: "حذف آزمون یکپارچه" }).click();
-  await expect(col.getByText("آزمون یکپارچه")).toHaveCount(0);
-  await expect(col.getByTestId("card-count")).toHaveText("۱");
+  await reloadAfterSave(page);
+  await expect(column(page, "review").getByText("ساخته‌شده با Playwright")).toBeVisible();
+
+  const added = card(page, "آزمون یکپارچه");
+  await added.hover();
+  await added.getByRole("button", { name: "حذف آزمون یکپارچه" }).click();
+  await expect(column(page, "review").getByText("آزمون یکپارچه")).toHaveCount(0);
+
+  await reloadAfterSave(page);
+  await expect(column(page, "review").getByText("آزمون یکپارچه")).toHaveCount(0);
+  await expect(column(page, "review").getByTestId("card-count")).toHaveText("۱");
 });
 
-test("edits a card", async ({ page }) => {
+test("edits a card and keeps the edit after reload", async ({ page }) => {
+  const target = card(page, "طراحی صفحه ورود");
+  await target.hover();
+  await target.getByRole("button", { name: "ویرایش طراحی صفحه ورود" }).click();
+  // The form replaces the card's heading, so `target` no longer matches; use the column.
+  const form = column(page, "todo");
+  await form.getByLabel("ویرایش عنوان").fill("طراحی ورود و ثبت‌نام");
+  await form.getByLabel("ویرایش جزئیات").fill("نسخه موبایل هم اضافه شود.");
+  await form.getByRole("button", { name: "ذخیره" }).click();
+  await expect(column(page, "todo").getByText("طراحی ورود و ثبت‌نام")).toBeVisible();
+
+  await reloadAfterSave(page);
   const col = column(page, "todo");
-  const card = page.getByTestId("card-c4");
-  await card.hover();
-  await card.getByRole("button", { name: "ویرایش طراحی صفحه ورود" }).click();
-  await card.getByLabel("ویرایش عنوان").fill("طراحی ورود و ثبت‌نام");
-  await card.getByLabel("ویرایش جزئیات").fill("نسخه موبایل هم اضافه شود.");
-  await card.getByRole("button", { name: "ذخیره" }).click();
   await expect(col.getByText("طراحی ورود و ثبت‌نام")).toBeVisible();
   await expect(col.getByText("نسخه موبایل هم اضافه شود.")).toBeVisible();
   await expect(col.getByText("طراحی صفحه ورود")).toHaveCount(0);
@@ -84,25 +101,48 @@ test("cancels adding a card", async ({ page }) => {
   await expect(col.getByRole("button", { name: /افزودن کارت/ })).toBeVisible();
 });
 
-test("drags a card to another column", async ({ page }) => {
-  const card = page.getByTestId("card-c1");
-  await drag(page, card, column(page, "review").locator("li").first());
+test("drags a card to another column and keeps it there after reload", async ({ page }) => {
+  await drag(page, card(page, "پژوهش رقبا"), column(page, "review").locator("li").first());
   await expect(column(page, "review").getByText("پژوهش رقبا")).toBeVisible();
   await expect(column(page, "backlog").getByText("پژوهش رقبا")).toHaveCount(0);
+
+  await reloadAfterSave(page);
+  expect(await titles(column(page, "review"))).toContain("پژوهش رقبا");
   expect(await titles(column(page, "review"))).toHaveLength(2);
+  expect(await titles(column(page, "backlog"))).toEqual(["حالت تاریک", "اعلان‌های ایمیلی"]);
 });
 
-test("drags a card into an empty column", async ({ page }) => {
+test("drags a card into an empty column and keeps it there after reload", async ({ page }) => {
   const review = column(page, "review");
   await review.locator("li").first().hover();
   await review.getByRole("button", { name: /^حذف/ }).click();
   await expect(review.locator("li")).toHaveCount(0);
-  await drag(page, page.getByTestId("card-c6"), review.locator("ul"));
+  await drag(page, card(page, "پیاده‌سازی API کاربران"), review.locator("ul"));
   expect(await titles(review)).toEqual(["پیاده‌سازی API کاربران"]);
+
+  await reloadAfterSave(page);
+  expect(await titles(column(page, "review"))).toEqual(["پیاده‌سازی API کاربران"]);
+  expect(await titles(column(page, "doing"))).toEqual(["بهبود سرعت بارگذاری"]);
 });
 
-test("reorders cards within a column", async ({ page }) => {
-  const backlog = column(page, "backlog");
-  await drag(page, page.getByTestId("card-c1"), page.getByTestId("card-c3"), 20);
-  expect(await titles(backlog)).toEqual(["حالت تاریک", "اعلان‌های ایمیلی", "پژوهش رقبا"]);
+test("reorders cards within a column and keeps the order after reload", async ({ page }) => {
+  await drag(page, card(page, "پژوهش رقبا"), card(page, "اعلان‌های ایمیلی"), 20);
+  const expected = ["حالت تاریک", "اعلان‌های ایمیلی", "پژوهش رقبا"];
+  expect(await titles(column(page, "backlog"))).toEqual(expected);
+
+  await reloadAfterSave(page);
+  expect(await titles(column(page, "backlog"))).toEqual(expected);
+});
+
+test("keeps changes after the container restarts", async ({ page }) => {
+  const col = column(page, "done");
+  await col.getByRole("button", { name: "انجام‌شده" }).click();
+  await page.getByLabel("نام ستون").fill("تحویل‌شده");
+  await page.keyboard.press("Enter");
+  await page.waitForLoadState("networkidle");
+
+  await restartContainer();
+  // The session key is random per start, so sign in again.
+  await loginAndWaitForBoard(page);
+  await expect(column(page, "done").getByRole("button", { name: "تحویل‌شده" })).toBeVisible();
 });

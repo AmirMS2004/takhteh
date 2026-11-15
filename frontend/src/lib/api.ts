@@ -1,3 +1,5 @@
+import type { BoardState, Card } from "./board";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -32,4 +34,34 @@ export async function login(username: string, password: string): Promise<string>
 
 export async function logout(): Promise<void> {
   await request("/api/auth/logout", { method: "POST" });
+}
+
+export function getBoard(): Promise<BoardState> {
+  return request<BoardState>("/api/board");
+}
+
+export async function renameColumn(columnId: string, title: string): Promise<void> {
+  await request(`/api/columns/${columnId}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+export function createCard(columnId: string, title: string, details: string): Promise<Card> {
+  return request<Card>("/api/cards", {
+    method: "POST",
+    body: JSON.stringify({ column_id: columnId, title, details }),
+  });
+}
+
+export async function updateCard(cardId: string, changes: Partial<Omit<Card, "id">>): Promise<void> {
+  await request(`/api/cards/${cardId}`, { method: "PATCH", body: JSON.stringify(changes) });
+}
+
+export async function moveCard(cardId: string, columnId: string, index: number): Promise<void> {
+  await request(`/api/cards/${cardId}/move`, {
+    method: "POST",
+    body: JSON.stringify({ column_id: columnId, index }),
+  });
+}
+
+export async function deleteCard(cardId: string): Promise<void> {
+  await request(`/api/cards/${cardId}`, { method: "DELETE" });
 }

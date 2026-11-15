@@ -10,27 +10,28 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # فرانت‌اند
 
-دموی برد کانبان فارسی (RTL) با Next.js 16، React 19، Tailwind 4 و dnd-kit. با `output: "export"` به‌صورت ایستا در `out/` ساخته می‌شود و FastAPI آن را از `/` ارائه می‌کند (در Docker). داده‌ها فعلاً در state حافظه نگه‌داری می‌شوند.
+دموی برد کانبان فارسی (RTL) با Next.js 16، React 19، Tailwind 4 و dnd-kit. با `output: "export"` به‌صورت ایستا در `out/` ساخته می‌شود و FastAPI آن را از `/` ارائه می‌کند (در Docker). برد از API بک‌اند خوانده و هر تغییر فوراً ذخیره می‌شود.
 
 ## فایل‌ها
 
 - `src/app/layout.tsx` — ریشه HTML با `lang="fa" dir="rtl"` و فونت Vazirmatn.
 - `src/app/page.tsx` — صفحه اصلی: با `GET /api/auth/me` وضعیت ورود را می‌خواند؛ فرم ورود یا برد (با نام کاربر و دکمه خروج) را نشان می‌دهد.
-- `src/lib/api.ts` — فراخوانی‌های API (`getMe`، `login`، `logout`) و `ApiError`.
+- `src/lib/api.ts` — فراخوانی‌های API (ورود و خروج، `getBoard`، `renameColumn`، `createCard`، `updateCard`، `moveCard`، `deleteCard`) و `ApiError`.
 - `src/components/LoginForm.tsx` — فرم ورود با پیام خطای فارسی.
 - `src/app/globals.css` — Tailwind و رنگ‌های پروژه (`accent`، `primary`، `secondary`، `navy`، `gray-text`).
-- `src/lib/board.ts` — نوع‌ها (`Card`، `Column`، `BoardState`)، توابع خالص تغییر برد (`renameColumn`، `addCard`، `updateCard`، `deleteCard`، `moveCard`، `findColumn`) و داده دموی `initialBoard` با پنج ستون.
-- `src/components/Board.tsx` — نگه‌داری state برد و منطق کشیدن و رها کردن (`DndContext`، تشخیص برخورد سفارشی، جابه‌جایی بین ستون‌ها در `onDragOver` و مرتب‌سازی داخل ستون در `onDragEnd`).
+- `src/lib/board.ts` — نوع‌ها (`Card`، `Column`، `BoardState`)، توابع خالص تغییر برد (`renameColumn`، `addCard`، `updateCard`، `deleteCard`، `moveCard`، `findColumn`) و `initialBoard` که فقط در آزمون‌ها استفاده می‌شود.
+- `src/components/Board.tsx` — بارگذاری برد از سرور و ذخیره هر تغییر. تغییرات ابتدا در صفحه اعمال می‌شوند و اگر ذخیره شکست بخورد، برد از سرور دوباره خوانده می‌شود. کارت جدید پس از پاسخ سرور (با شناسه سرور) اضافه می‌شود. در کشیدن و رها کردن، فقط هنگام رها کردن یک درخواست `move` با ستون و اندیس نهایی فرستاده می‌شود؛ handlerها برد را از `boardRef` می‌خوانند تا هیچ‌وقت نسخه قدیمی را نبینند، و لغو کشیدن برد را به حالت پیش از کشیدن برمی‌گرداند.
 - `src/components/ColumnView.tsx` — یک ستون: تغییر نام درون‌خطی (Enter ذخیره، Escape لغو)، شمارنده کارت‌ها، فرم افزودن کارت.
 - `src/components/CardItem.tsx` — `CardView` (ظاهر کارت، دکمه‌های ویرایش و حذف)، `CardEditForm` (ویرایش درون‌خطی) و `CardItem` (پوشش sortable؛ هنگام ویرایش، کشیدن غیرفعال است).
 
 ## آزمون‌ها
 
-- `npm test` — Vitest با jsdom: `src/lib/board.test.ts`، `src/components/Board.test.tsx` و `src/app/page.test.tsx` (ورود و خروج با `fetch` ساختگی).
-- `npm run test:e2e` — Playwright (`e2e/board.spec.ts`، `e2e/auth.spec.ts`) روی کانتینر در `http://localhost:8000`؛ ابتدا `scripts/start.*` را اجرا کن. آدرس دیگر با `BASE_URL`.
+- `npm test` — Vitest با jsdom: `src/lib/board.test.ts`، `src/components/Board.test.tsx` و `src/app/page.test.tsx`. `src/test/fakeApi.ts` یک نسخه درون‌حافظه‌ای از بک‌اند است که `fetch` را جایگزین می‌کند.
+- `npm run test:e2e` — Playwright (`e2e/board.spec.ts`، `e2e/auth.spec.ts`). `e2e/global-setup.ts` ایمیج را می‌سازد و یک کانتینر جداگانه `pm-kanban-e2e` روی پورت 8001 بدون volume اجرا می‌کند و در پایان حذفش می‌کند، پس برد واقعی روی پورت 8000 دست نمی‌خورد. آزمون‌ها پشت‌سرهم اجرا می‌شوند و `freshBoard` در `e2e/helpers.ts` پیش از هر آزمون برد را از طریق API به داده اولیه برمی‌گرداند. فقط Docker Desktop باید روشن باشد.
 - `npm run dev` — درخواست‌های `/api` را به کانتینر روی پورت 8000 می‌فرستد (rewrite فقط در حالت توسعه).
 
 ## نکات
 
-- `data-testid`های `column-<id>` و `card-<id>` در آزمون‌ها استفاده می‌شوند؛ حفظ شوند.
+- `data-testid`های `column-<id>` و `card-<id>` در آزمون‌ها استفاده می‌شوند؛ حفظ شوند. شناسه‌های سرور `col-N` و `card-N` هستند.
+- کارت‌ها عنصر `li` هستند ولی dnd-kit به آن‌ها `role="button"` می‌دهد؛ در آزمون‌ها با تگ `li` پیدا شوند، نه با نقش listitem.
 - `cacheComponents` و `partialPrefetching` با خروجی ایستا سازگار نیستند؛ اضافه نشوند.

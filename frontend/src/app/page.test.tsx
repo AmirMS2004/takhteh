@@ -1,27 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { fakeApi } from "@/test/fakeApi";
 import Home from "./page";
 
-type Route = { status: number; body?: unknown };
-
-/** Stubs fetch with responses keyed by "METHOD path" and returns the mock for call assertions. */
-function mockApi(routes: Record<string, Route | Route[]>) {
-  const queues = Object.fromEntries(
-    Object.entries(routes).map(([k, v]) => [k, Array.isArray(v) ? [...v] : [v]]),
-  );
-  const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
-    const key = `${init?.method ?? "GET"} ${path}`;
-    const queue = queues[key];
-    if (!queue) throw new Error(`Unexpected request ${key}`);
-    const route = queue.length > 1 ? queue.shift()! : queue[0];
-    return new Response(JSON.stringify(route.body ?? {}), { status: route.status });
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
-}
-
-afterEach(() => vi.unstubAllGlobals());
+const loginHeading = { name: "ورود به تخته پروژه" };
+const boardHeading = { name: "تخته پروژه" };
 
 async function fillLogin(username: string, password: string) {
   const user = userEvent.setup();
@@ -33,36 +17,32 @@ async function fillLogin(username: string, password: string) {
 
 describe("Home", () => {
   it("shows the login form when not signed in", async () => {
-    mockApi({ "GET /api/auth/me": { status: 401 } });
+    fakeApi({ loggedIn: false });
     render(<Home />);
-    expect(await screen.findByRole("heading", { name: "ورود به تخته پروژه" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", loginHeading)).toBeInTheDocument();
     expect(screen.queryByTestId("column-backlog")).not.toBeInTheDocument();
   });
 
   it("shows the board directly for an existing session", async () => {
-    mockApi({ "GET /api/auth/me": { status: 200, body: { username: "user" } } });
+    fakeApi();
     render(<Home />);
-    expect(await screen.findByRole("heading", { name: "تخته پروژه" })).toBeInTheDocument();
-    expect(screen.getByTestId("column-backlog")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", boardHeading)).toBeInTheDocument();
+    expect(await screen.findByTestId("column-backlog")).toBeInTheDocument();
   });
 
-  it("signs in with valid credentials", async () => {
-    const fetchMock = mockApi({
-      "GET /api/auth/me": { status: 401 },
-      "POST /api/auth/login": { status: 200, body: { username: "user" } },
-    });
+  it("signs in with valid credentials and loads the board", async () => {
+    const api = fakeApi({ loggedIn: false });
     render(<Home />);
     await fillLogin("user", "password");
-    expect(await screen.findByRole("heading", { name: "تخته پروژه" })).toBeInTheDocument();
-    const [, init] = fetchMock.mock.calls.find(([p]) => p === "/api/auth/login")!;
-    expect(JSON.parse(init!.body as string)).toEqual({ username: "user", password: "password" });
+    expect(await screen.findByTestId("column-backlog")).toBeInTheDocument();
+    expect(api.calls().find((c) => c.route === "POST /api/auth/login")?.body).toEqual({
+      username: "user",
+      password: "password",
+    });
   });
 
   it("shows an error for wrong credentials and stays on the form", async () => {
-    mockApi({
-      "GET /api/auth/me": { status: 401 },
-      "POST /api/auth/login": { status: 401 },
-    });
+    fakeApi({ loggedIn: false });
     render(<Home />);
     await fillLogin("user", "wrong");
     expect(await screen.findByRole("alert")).toHaveTextContent("نام کاربری یا رمز عبور نادرست است.");
@@ -70,17 +50,14 @@ describe("Home", () => {
   });
 
   it("shows a connection error when the server fails", async () => {
-    mockApi({
-      "GET /api/auth/me": { status: 401 },
-      "POST /api/auth/login": { status: 500 },
-    });
+    fakeApi({ loggedIn: false, overrides: { "POST /api/auth/login": { status: 500 } } });
     render(<Home />);
     await fillLogin("user", "password");
     expect(await screen.findByRole("alert")).toHaveTextContent("ارتباط با سرور برقرار نشد");
   });
 
   it("disables submit until both fields are filled", async () => {
-    mockApi({ "GET /api/auth/me": { status: 401 } });
+    fakeApi({ loggedIn: false });
     render(<Home />);
     const user = userEvent.setup();
     const submit = await screen.findByRole("button", { name: "ورود" });
@@ -90,13 +67,10 @@ describe("Home", () => {
   });
 
   it("logs out and returns to the login form", async () => {
-    const fetchMock = mockApi({
-      "GET /api/auth/me": { status: 200, body: { username: "user" } },
-      "POST /api/auth/logout": { status: 200, body: { ok: true } },
-    });
+    const api = fakeApi();
     render(<Home />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "خروج" }));
-    expect(await screen.findByRole("heading", { name: "ورود به تخته پروژه" })).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([p]) => p === "/api/auth/logout")).toBe(true);
+    expect(await screen.findByRole("heading", loginHeading)).toBeInTheDocument();
+    expect(api.state.loggedIn).toBe(false);
   });
 });
