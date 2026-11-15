@@ -96,6 +96,25 @@
         "idx_chat_messages (board_id, user_id, id)"
       ],
       "notes": "Each user's conversation with the assistant on a board, oldest first by id. role is user|assistant. Only completed turns are stored. Leaving a board deletes that user's messages on it. proposal (JSON, assistant replies only): operations, changes (Persian descriptions), status pending|applied|rejected|undone; once applied also before (the board's rows before the change) and after (a fingerprint), for undo. Added to older databases at startup."
+    },
+    "activity": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "board_id": "INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE",
+        "user_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
+        "action": "TEXT NOT NULL",
+        "summary": "TEXT NOT NULL",
+        "card_id": "INTEGER",
+        "via": "TEXT",
+        "data": "TEXT",
+        "restored": "INTEGER NOT NULL DEFAULT 0",
+        "created_at": "TEXT NOT NULL DEFAULT (datetime('now'))"
+      },
+      "indexes": [
+        "idx_activity (board_id, id)",
+        "idx_activity_card (card_id)"
+      ],
+      "notes": "Every change to a board with who, a Persian summary and when. via is 'assistant' for applied proposals. Deletions of cards, columns (with their cards) and labels keep the removed rows in data (JSON) so they can be restored once (restored = 1)."
     }
   },
   "api_board_shape": {

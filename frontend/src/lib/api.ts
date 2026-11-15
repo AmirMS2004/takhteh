@@ -101,8 +101,9 @@ export function createColumn(boardId: string, title: string): Promise<Column> {
   return request<Column>(`/api/boards/${boardId}/columns`, { method: "POST", body: JSON.stringify({ title }) });
 }
 
-export async function deleteColumn(columnId: string): Promise<void> {
-  await request(`/api/columns/${columnId}`, { method: "DELETE" });
+/** Deletes the column with its cards; returns the activity entry that can restore it. */
+export async function deleteColumn(columnId: string): Promise<string> {
+  return (await request<{ activity: string }>(`/api/columns/${columnId}`, { method: "DELETE" })).activity;
 }
 
 export async function moveColumn(columnId: string, index: number): Promise<void> {
@@ -128,8 +129,9 @@ export async function moveCard(cardId: string, columnId: string, index: number):
   });
 }
 
-export async function deleteCard(cardId: string): Promise<void> {
-  await request(`/api/cards/${cardId}`, { method: "DELETE" });
+/** Deletes the card; returns the activity entry that can restore it. */
+export async function deleteCard(cardId: string): Promise<string> {
+  return (await request<{ activity: string }>(`/api/cards/${cardId}`, { method: "DELETE" })).activity;
 }
 
 export function createLabel(boardId: string, name: string, color: BoardLabel["color"]): Promise<BoardLabel> {
@@ -143,8 +145,35 @@ export async function updateLabel(labelId: string, changes: Partial<Omit<BoardLa
   await request(`/api/labels/${labelId}`, { method: "PATCH", body: JSON.stringify(changes) });
 }
 
-export async function deleteLabel(labelId: string): Promise<void> {
-  await request(`/api/labels/${labelId}`, { method: "DELETE" });
+/** Deletes the label from the board and its cards; returns the activity entry that can restore it. */
+export async function deleteLabel(labelId: string): Promise<string> {
+  return (await request<{ activity: string }>(`/api/labels/${labelId}`, { method: "DELETE" })).activity;
+}
+
+/** One change in a board's activity log. `via` is "assistant" for applied proposals. */
+export type ActivityEntry = {
+  id: string;
+  user: string | null;
+  avatar: number;
+  action: string;
+  summary: string;
+  via: string | null;
+  created_at: string; // UTC "YYYY-MM-DD HH:MM:SS"
+  restorable: boolean;
+};
+
+/** Newest first; `card` keeps one card's entries, `deleted` the deletions that can still be restored. */
+export function getActivity(boardId: string, { card, deleted }: { card?: string; deleted?: boolean } = {}) {
+  const params = new URLSearchParams();
+  if (card) params.set("card", card);
+  if (deleted) params.set("deleted", "true");
+  const query = params.size ? `?${params}` : "";
+  return request<ActivityEntry[]>(`/api/boards/${boardId}/activity${query}`);
+}
+
+/** Brings back what a deletion removed; returns the board. */
+export async function restoreActivity(boardId: string, entry: string): Promise<BoardState> {
+  return (await request<{ board: BoardState }>(`/api/boards/${boardId}/activity/${entry}/restore`, { method: "POST" })).board;
 }
 
 /** A message of the stored conversation; replies may carry a proposal. */

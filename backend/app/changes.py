@@ -21,6 +21,23 @@ def touch(board_id: int) -> None:
         changed.add(board_id)
 
 
+_via: ContextVar[str | None] = ContextVar("changed_via", default=None)
+
+
+def via() -> str | None:
+    """How the current changes are being made: "assistant" for an applied proposal, otherwise None."""
+    return _via.get()
+
+
+@contextmanager
+def by_assistant() -> Iterator[None]:
+    token = _via.set("assistant")
+    try:
+        yield
+    finally:
+        _via.reset(token)
+
+
 @contextmanager
 def quiet() -> Iterator[None]:
     """Writes inside are not announced (e.g. the assistant's dry run, which is rolled back)."""

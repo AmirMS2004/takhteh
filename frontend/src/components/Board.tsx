@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -35,7 +35,7 @@ import {
   updateLabel,
   type BoardState,
 } from "@/lib/board";
-import { today } from "@/lib/cardDetails";
+import { labelTitle, today } from "@/lib/cardDetails";
 import { emptyFilter, isActive, matches, type Filter } from "@/lib/filter";
 import { AddColumn, ColumnPreview, ColumnView } from "./ColumnView";
 import { FilterBar } from "./FilterBar";
@@ -51,6 +51,14 @@ export function Board({ store }: { store: BoardStore }) {
   const { board, failed, apply, current, persist, notice, dismissNotice } = store;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [labelsOpen, setLabelsOpen] = useState(false);
+  // The latest deletion, offered for restoring for a few seconds.
+  const [deleted, setDeleted] = useState<{ entry: string; text: string } | null>(null);
+  useEffect(() => {
+    if (!deleted) return;
+    const timer = setTimeout(() => setDeleted(null), 10000);
+    return () => clearTimeout(timer);
+  }, [deleted]);
+  const offerRestore = (text: string) => (entry: string) => setDeleted({ entry, text });
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const dragStart = useRef<BoardState | null>(null);
 
@@ -221,8 +229,9 @@ export function Board({ store }: { store: BoardStore }) {
                 persist(api.createCard(column.id, fields).then((card) => apply(addCard(current(), column.id, card))))
               }
               onDelete={(cardId) => {
+                const title = current().cards[cardId].title;
                 apply(deleteCard(current(), cardId));
-                persist(api.deleteCard(cardId));
+                persist(api.deleteCard(cardId).then(offerRestore(`کارت «${title}» حذف شد.`)));
               }}
               onUpdate={(cardId, changes) => {
                 apply(updateCard(current(), cardId, changes));
@@ -233,7 +242,7 @@ export function Board({ store }: { store: BoardStore }) {
               onManageLabels={() => setLabelsOpen(true)}
               onDeleteColumn={() => {
                 apply(removeColumn(current(), column.id));
-                persist(api.deleteColumn(column.id));
+                persist(api.deleteColumn(column.id).then(offerRestore(`ستون «${column.title}» حذف شد.`)));
               }}
             />
           ))}
@@ -244,6 +253,28 @@ export function Board({ store }: { store: BoardStore }) {
           }
         />
       </div>
+      {deleted && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-xl bg-bar px-4 py-3 text-sm text-white shadow-[0_18px_40px_-12px_rgba(3,33,71,0.55)]"
+        >
+          <span>{deleted.text}</span>
+          <button
+            type="button"
+            onClick={async () => {
+              const { entry } = deleted;
+              setDeleted(null);
+              await persist(api.restoreActivity(current().id, entry).then(apply));
+            }}
+            className="rounded-md px-2 py-1 font-semibold text-accent transition hover:bg-white/10"
+          >
+            بازگرداندن
+          </button>
+          <button type="button" aria-label="بستن" onClick={() => setDeleted(null)} className="rounded-md px-1.5 text-white/60 hover:text-white">
+            ×
+          </button>
+        </div>
+      )}
       <DragOverlay>
         {activeCard && <CardView card={activeCard} labels={board.labels} overlay />}
         {activeColumn && <ColumnPreview title={activeColumn.title} count={activeColumn.cardIds.length} />}
@@ -257,8 +288,9 @@ export function Board({ store }: { store: BoardStore }) {
             persist(api.updateLabel(id, changes));
           }}
           onDelete={(id) => {
+            const label = current().labels.find((l) => l.id === id)!;
             apply(removeLabel(current(), id));
-            persist(api.deleteLabel(id));
+            persist(api.deleteLabel(id).then(offerRestore(`${labelTitle(label)} حذف شد.`)));
           }}
           onClose={() => setLabelsOpen(false)}
         />

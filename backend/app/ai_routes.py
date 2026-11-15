@@ -552,7 +552,8 @@ def apply_proposal(key: str, user: Annotated[User, Depends(current_user)]) -> di
         _status_conflict(proposal, "pending")
         before = service.snapshot(conn, board_id)
         try:
-            Applier(conn, user.id, board_id).apply_all([Operation(**op) for op in proposal["operations"]])
+            with changes.by_assistant():
+                Applier(conn, user.id, board_id).apply_all([Operation(**op) for op in proposal["operations"]])
         except CHANGE_ERRORS as e:
             raise HTTPException(status_code=409, detail=f"Changes cannot be applied: {e}") from None
         proposal |= {"status": "applied", "before": before, "after": service.fingerprint(service.snapshot(conn, board_id))}
@@ -586,7 +587,7 @@ def undo_proposal(key: str, user: Annotated[User, Depends(current_user)]) -> dic
         if service.fingerprint(service.snapshot(conn, board_id)) != proposal["after"]:
             raise HTTPException(status_code=409, detail="The board has changed since")
         try:
-            service.restore_snapshot(conn, board_id, proposal["before"])
+            service.restore_snapshot(conn, board_id, proposal["before"], user.id)
         except sqlite3.IntegrityError:
             raise HTTPException(status_code=409, detail="The board cannot be put back") from None
         _save(conn, message_id, {k: v for k, v in proposal.items() if k not in ("before", "after")} | {"status": "undone"})

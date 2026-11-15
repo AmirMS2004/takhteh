@@ -16,6 +16,7 @@ import {
   type BoardState,
   type Card,
 } from "@/lib/board";
+import type { ActivityEntry } from "@/lib/api";
 import type { Proposal } from "@/lib/proposal";
 
 type Override = { status: number; body?: unknown };
@@ -66,6 +67,8 @@ export function fakeApi({
     // name, email and picture per username; missing means empty
     profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number }>>,
     chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
+    // Activity log, oldest first. Deletions keep the board as it was, which restoring puts back.
+    activity: [] as (ActivityEntry & { boardId: string; card?: string; before?: BoardState })[],
     // Per proposal (by message id): the board it leads to, and the board before it once applied.
     proposals: {} as Record<string, { boardId: string; after: BoardState; before?: BoardState }>,
     username: "user",
@@ -107,6 +110,24 @@ export function fakeApi({
     Object.values(state.chats)
       .flat()
       .find((m) => m.id === id)!;
+
+  /** Logs a change like the backend; deletions can be restored. Returns the entry id. */
+  const log = (b: BoardState, summary: string, extra: { card?: string; before?: BoardState } = {}) => {
+    const id = `act-${state.nextId++}`;
+    state.activity.push({
+      id,
+      boardId: b.id,
+      user: state.username,
+      avatar: 0,
+      action: extra.before ? "delete" : "change",
+      summary,
+      via: null,
+      created_at: "2026-11-15 10:00:00",
+      restorable: !!extra.before,
+      ...extra,
+    });
+    return id;
+  };
 
   const handle = (method: string, path: string, body: Record<string, unknown>): Response => {
     if (path === "/api/auth/me") return state.loggedIn ? json(profile()) : json({}, 401);
@@ -240,8 +261,10 @@ export function fakeApi({
       return json(b.labels.find((l) => l.id === m![1]));
     }
     if (method === "DELETE" && (m = path.match(/^\/api\/labels\/(.+)$/))) {
-      put(removeLabel(boardOf(m[1]), m[1]));
-      return json({ ok: true });
+      const b = boardOf(m[1]);
+      const activity = log(b, "برچسب را حذف کرد", { before: b });
+      put(removeLabel(b, m[1]));
+      return json({ ok: true, activity });
     }
     if (method === "POST" && (m = path.match(/^\/api\/boards\/([^/]+)\/columns$/))) {
       const column = { id: `col-new-${state.nextId++}`, title: body.title as string, cardIds: [] };
@@ -255,8 +278,10 @@ export function fakeApi({
     if (method === "DELETE" && (m = path.match(/^\/api\/columns\/(.+)$/))) {
       const b = boardOf(m[1]);
       if (b.columns.length === 1) return json({}, 409);
+      const title = b.columns.find((c) => c.id === m![1])!.title;
+      const activity = log(b, `ستون «${title}» را حذف کرد`, { before: b });
       put(removeColumn(b, m[1]));
-      return json({ ok: true });
+      return json({ ok: true, activity });
     }
     if (method === "PATCH" && (m = path.match(/^\/api\/columns\/(.+)$/))) {
       put(renameColumn(boardOf(m[1]), m[1], body.title as string));
@@ -278,8 +303,32 @@ export function fakeApi({
       return json(b.cards[m[1]]);
     }
     if (method === "DELETE" && (m = path.match(/^\/api\/cards\/(.+)$/))) {
-      put(deleteCard(boardOf(m[1]), m[1]));
-      return json({ ok: true });
+      const b = boardOf(m[1]);
+      const activity = log(b, `کارت «${b.cards[m[1]].title}» را حذف کرد`, { card: m[1], before: b });
+      put(deleteCard(b, m[1]));
+      return json({ ok: true, activity });
+    }
+
+    // --- activity ---
+    if (method === "GET" && (m = path.match(/^\/api\/boards\/([^/?]+)\/activity(?:\?(.*))?$/))) {
+      const query = new URLSearchParams(m[2] ?? "");
+      const entries = state.activity
+        .filter((e) => e.boardId === m![1])
+        .filter((e) => !query.get("card") || e.card === query.get("card"))
+        .filter((e) => query.get("deleted") !== "true" || e.restorable)
+        .reverse()
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .map(({ boardId, card, before, ...entry }) => entry);
+      return json(entries);
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/boards\/([^/]+)\/activity\/([^/]+)\/restore$/))) {
+      const entry = state.activity.find((e) => e.id === m![2] && e.boardId === m![1]);
+      if (!entry?.before) return json({}, 404);
+      if (!entry.restorable) return json({}, 409);
+      entry.restorable = false;
+      put(entry.before);
+      log(entry.before, "را بازگرداند");
+      return json({ board: entry.before });
     }
     throw new Error(`Unexpected request ${method} ${path}`);
   };

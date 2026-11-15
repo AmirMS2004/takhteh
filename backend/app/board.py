@@ -144,10 +144,11 @@ def create_column(board_id: str, body: ColumnUpdate, user: CurrentUser) -> dict:
 
 
 @router.delete("/columns/{column_id}")
-def delete_column(column_id: str, user: CurrentUser) -> dict[str, bool]:
+def delete_column(column_id: str, user: CurrentUser) -> dict:
+    """`activity` is the log entry that can restore what was deleted."""
     with db.connect() as conn:
-        service.delete_column(conn, user.id, column_id)
-    return {"ok": True}
+        entry = service.delete_column(conn, user.id, column_id)
+    return {"ok": True, "activity": f"act-{entry}"}
 
 
 @router.post("/columns/{column_id}/move")
@@ -179,10 +180,11 @@ def move_card(card_id: str, body: CardMove, user: CurrentUser) -> dict[str, bool
 
 
 @router.delete("/cards/{card_id}")
-def delete_card(card_id: str, user: CurrentUser) -> dict[str, bool]:
+def delete_card(card_id: str, user: CurrentUser) -> dict:
+    """`activity` is the log entry that can restore what was deleted."""
     with db.connect() as conn:
-        service.delete_card(conn, user.id, card_id)
-    return {"ok": True}
+        entry = service.delete_card(conn, user.id, card_id)
+    return {"ok": True, "activity": f"act-{entry}"}
 
 
 @router.post("/boards/{board_id}/labels", status_code=201)
@@ -198,8 +200,9 @@ def update_label(label_id: str, body: LabelUpdate, user: CurrentUser) -> dict:
 
 
 @router.delete("/labels/{label_id}")
-def delete_label(label_id: str, user: CurrentUser) -> dict[str, bool]:
+def delete_label(label_id: str, user: CurrentUser) -> dict:
+    """`activity` is the log entry that can restore what was deleted."""
     with db.connect() as conn:
-        service.delete_label(conn, user.id, label_id)
-    return {"ok": True}
+        entry = service.delete_label(conn, user.id, label_id)
+    return {"ok": True, "activity": f"act-{entry}"}
 

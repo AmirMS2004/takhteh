@@ -7,6 +7,7 @@ import json
 import sqlite3
 
 from app import db
+from app import changes as change_context
 from app.changes import touch
 
 
@@ -101,6 +102,69 @@ def _label(conn: sqlite3.Connection, user_id: int, key: str, board_id: int | Non
     return label_id
 
 
+# --- activity log ---
+
+FIELD_NAMES = {
+    "title": "عنوان",
+    "details": "توضیحات",
+    "due_date": "سررسید",
+    "priority": "اولویت",
+    "assignee": "مسئول",
+    "labels": "برچسب‌ها",
+}
+FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+COLOR_NAMES = {"red": "قرمز", "orange": "نارنجی", "yellow": "زرد", "green": "سبز", "blue": "آبی", "purple": "بنفش"}
+
+
+def log(
+    conn: sqlite3.Connection,
+    user_id: int,
+    board_id: int,
+    action: str,
+    summary: str,
+    card_id: int | None = None,
+    data: dict | None = None,
+) -> int:
+    """Records a change in the board's activity log; `data` keeps what a deletion removed, for restoring."""
+    return conn.execute(
+        "INSERT INTO activity (board_id, user_id, action, summary, card_id, via, data) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            board_id,
+            user_id,
+            action,
+            summary,
+            card_id,
+            change_context.via(),
+            json.dumps(data, ensure_ascii=False) if data is not None else None,
+        ),
+    ).lastrowid
+
+
+def _column_title(conn: sqlite3.Connection, column_id: int) -> str:
+    return conn.execute("SELECT title FROM columns WHERE id = ?", (column_id,)).fetchone()["title"]
+
+
+def _label_name(row: sqlite3.Row | dict) -> str:
+    return row["name"] or COLOR_NAMES.get(row["color"], row["color"])
+
+
+def _username(conn: sqlite3.Connection, user_id: int) -> str:
+    return conn.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()["username"]
+
+
+def _card_rows(conn: sqlite3.Connection, where: str, args: tuple) -> dict:
+    """Card rows and their label links, as kept in the log for restoring."""
+    cards = [dict(r) for r in conn.execute(f"SELECT * FROM cards WHERE {where} ORDER BY position", args)]
+    ids = [c["id"] for c in cards]
+    links = [
+        dict(r)
+        for r in conn.execute(
+            f"SELECT * FROM card_labels WHERE card_id IN ({', '.join('?' * len(ids))})", tuple(ids)
+        )
+    ] if ids else []
+    return {"cards": cards, "card_labels": links}
+
+
 # --- cards ---
 
 
@@ -178,6 +242,7 @@ def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dic
         (column_id, position, fields["title"]),
     ).lastrowid
     _write_card(conn, user_id, board, card_id, {"details": ""} | fields)
+    log(conn, user_id, board, "create_card", f"کارت «{fields['title']}» را در «{_column_title(conn, column_id)}» ساخت", card_id)
     touch(board)
     return _load_card(conn, card_id)
 
@@ -185,9 +250,17 @@ def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dic
 def update_card(conn: sqlite3.Connection, user_id: int, card: str, changes: dict, board_id: int | None = None) -> dict:
     """Sets the given fields (None clears an optional one); "labels" replaces the card's labels."""
     row, board = _card(conn, user_id, card, board_id)
+    before = _load_card(conn, row["id"])
     _write_card(conn, user_id, board, row["id"], changes)
+    after = _load_card(conn, row["id"])
+    changed = [FIELD_NAMES[f] for f in FIELD_NAMES if before[f] != after[f]]
+    if changed:
+        what = f"کارت «{after['title']}» را ویرایش کرد: {'، '.join(changed)}"
+        if before["title"] != after["title"]:
+            what = f"کارت «{before['title']}» را ویرایش کرد: {'، '.join(changed)} (عنوان تازه «{after['title']}»)"
+        log(conn, user_id, board, "update_card", what, row["id"])
     touch(board)
-    return _load_card(conn, row["id"])
+    return after
 
 
 def move_card(
@@ -203,14 +276,27 @@ def move_card(
     if source != target:
         _write_order(conn, source, _card_ids(conn, source))
         conn.execute("UPDATE cards SET moved_at = datetime('now') WHERE id = ?", (row["id"],))
+        log(
+            conn, user_id, board, "move_card",
+            f"کارت «{row['title']}» را از «{_column_title(conn, source)}» به «{_column_title(conn, target)}» برد",
+            row["id"],
+        )
     touch(board)
 
 
-def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> None:
+def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> int:
+    """Deletes the card; returns the id of the log entry that can restore it."""
     row, board = _card(conn, user_id, card)
+    kept = _card_rows(conn, "id = ?", (row["id"],))
+    entry = log(
+        conn, user_id, board, "delete_card",
+        f"کارت «{row['title']}» را از «{_column_title(conn, row['column_id'])}» حذف کرد",
+        row["id"], kept,
+    )
     conn.execute("DELETE FROM cards WHERE id = ?", (row["id"],))
     touch(board)
     _write_order(conn, row["column_id"], _card_ids(conn, row["column_id"]))
+    return entry
 
 
 # --- snapshots (undo of the assistant's changes) ---
@@ -237,7 +323,7 @@ def fingerprint(snap: dict) -> str:
     return hashlib.sha256(json.dumps(snap, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict) -> None:
+def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict, user_id: int) -> None:
     """Puts the board back exactly as in `snap`, keeping ids. Members who left are added back if their
     account still exists; members added since are removed (never the owner)."""
 
@@ -266,12 +352,16 @@ def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict) -> Non
             " SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM users WHERE id = ?)",
             (board_id, m["user_id"], m["role"], m["user_id"]),
         )
+    log(conn, user_id, board_id, "undo_assistant", "تغییرات دستیار را برگرداند")
     touch(board_id)
 
 
 def rename_column(conn: sqlite3.Connection, user_id: int, column: str, title: str) -> None:
     column_id, board_id = _column(conn, user_id, column)
+    old = _column_title(conn, column_id)
     conn.execute("UPDATE columns SET title = ? WHERE id = ?", (title, column_id))
+    if old != title:
+        log(conn, user_id, board_id, "rename_column", f"نام ستون «{old}» را به «{title}» تغییر داد")
     touch(board_id)
 
 
@@ -291,27 +381,41 @@ def create_column(conn: sqlite3.Connection, user_id: int, board: str, title: str
         "INSERT INTO columns (board_id, title, position) VALUES (?, ?, ?)",
         (board_id, title, len(_column_ids(conn, board_id))),
     ).lastrowid
+    log(conn, user_id, board_id, "create_column", f"ستون «{title}» را ساخت")
     touch(board_id)
     return {"id": column_key(column_id), "title": title, "cardIds": []}
 
 
-def delete_column(conn: sqlite3.Connection, user_id: int, column: str) -> None:
-    """Deletes the column with its cards (ON DELETE CASCADE). A board keeps at least one column."""
+def delete_column(conn: sqlite3.Connection, user_id: int, column: str) -> int:
+    """Deletes the column with its cards (ON DELETE CASCADE). A board keeps at least one column. Returns the
+    id of the log entry that can restore it."""
     column_id, board_id = _column(conn, user_id, column)
     remaining = [c for c in _column_ids(conn, board_id) if c != column_id]
     if not remaining:
         raise Conflict("a board needs at least one column")
+    col = dict(conn.execute("SELECT * FROM columns WHERE id = ?", (column_id,)).fetchone())
+    kept = {"column": col} | _card_rows(conn, "column_id = ?", (column_id,))
+    count = len(kept["cards"])
+    entry = log(
+        conn, user_id, board_id, "delete_column",
+        f"ستون «{col['title']}» را" + (f" با {str(count).translate(FA_DIGITS)} کارت" if count else "") + " حذف کرد",
+        data=kept,
+    )
     conn.execute("DELETE FROM columns WHERE id = ?", (column_id,))
     _write_column_order(conn, remaining)
     touch(board_id)
+    return entry
 
 
 def move_column(conn: sqlite3.Connection, user_id: int, column: str, index: int) -> None:
     """Moves the column to `index` (clamped) among its board's columns."""
     column_id, board_id = _column(conn, user_id, column)
     ids = [c for c in _column_ids(conn, board_id) if c != column_id]
+    before = _column_ids(conn, board_id)
     ids.insert(min(max(index, 0), len(ids)), column_id)
     _write_column_order(conn, ids)
+    if ids != before:
+        log(conn, user_id, board_id, "move_column", f"ستون «{_column_title(conn, column_id)}» را جابه‌جا کرد")
     touch(board_id)
 
 
@@ -331,6 +435,7 @@ def create_label(conn: sqlite3.Connection, user_id: int, board: str, name: str, 
     label_id = conn.execute(
         "INSERT INTO labels (board_id, name, color) VALUES (?, ?, ?)", (board_id, name, color)
     ).lastrowid
+    log(conn, user_id, board_id, "create_label", f"برچسب «{_label_name({'name': name, 'color': color})}» را ساخت")
     touch(board_id)
     return _label_dict(conn.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone())
 
@@ -338,17 +443,28 @@ def create_label(conn: sqlite3.Connection, user_id: int, board: str, name: str, 
 def update_label(conn: sqlite3.Connection, user_id: int, label: str, changes: dict) -> dict:
     label_id = _label(conn, user_id, label)
     _touch_label(conn, label_id)
+    before = conn.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone()
     for field in ("name", "color"):
         if field in changes:
             conn.execute(f"UPDATE labels SET {field} = ? WHERE id = ?", (changes[field], label_id))
+    after = conn.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone()
+    if dict(before) != dict(after):
+        log(conn, user_id, after["board_id"], "update_label", f"برچسب «{_label_name(before)}» را ویرایش کرد")
     return _label_dict(conn.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone())
 
 
-def delete_label(conn: sqlite3.Connection, user_id: int, label: str) -> None:
+def delete_label(conn: sqlite3.Connection, user_id: int, label: str) -> int:
     """Also removes the label from every card (ON DELETE CASCADE)."""
     label_id = _label(conn, user_id, label)
     _touch_label(conn, label_id)
+    row = dict(conn.execute("SELECT * FROM labels WHERE id = ?", (label_id,)).fetchone())
+    links = [dict(r) for r in conn.execute("SELECT * FROM card_labels WHERE label_id = ?", (label_id,))]
+    entry = log(
+        conn, user_id, row["board_id"], "delete_label", f"برچسب «{_label_name(row)}» را حذف کرد",
+        data={"label": row, "card_labels": links},
+    )
     conn.execute("DELETE FROM labels WHERE id = ?", (label_id,))
+    return entry
 
 
 # --- boards ---
@@ -418,7 +534,10 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
 
 def rename_board(conn: sqlite3.Connection, user_id: int, board: str, title: str) -> None:
     board_id = _owner_board(conn, user_id, board)
+    old = conn.execute("SELECT title FROM boards WHERE id = ?", (board_id,)).fetchone()["title"]
     conn.execute("UPDATE boards SET title = ? WHERE id = ?", (title, board_id))
+    if old != title:
+        log(conn, user_id, board_id, "rename_board", f"نام تخته را از «{old}» به «{title}» تغییر داد")
     touch(board_id)
 
 
@@ -438,6 +557,7 @@ def add_member(conn: sqlite3.Connection, user_id: int, board: str, username: str
         conn.execute(
             "INSERT INTO board_members (board_id, user_id, role) VALUES (?, ?, 'member')", (board_id, row["id"])
         )
+        log(conn, user_id, board_id, "add_member", f"{username.strip().lower()} را به اعضا افزود")
         touch(board_id)
     except sqlite3.IntegrityError:
         raise Conflict(f"{username} is already a member") from None
@@ -458,6 +578,8 @@ def remove_member(conn: sqlite3.Connection, user_id: int, board: str, username: 
     if row["user_id"] != user_id and _role(conn, user_id, board_id) != "owner":
         raise Forbidden("only the board owner can remove other members")
     conn.execute("DELETE FROM board_members WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))
+    name = username.strip().lower()
+    log(conn, user_id, board_id, "remove_member", "از تخته بیرون رفت" if row["user_id"] == user_id else f"{name} را از اعضا حذف کرد")
     touch(board_id)
     # Their AI conversation on this board goes too.
     conn.execute("DELETE FROM chat_messages WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))

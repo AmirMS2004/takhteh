@@ -8,6 +8,8 @@ import { useBoard, type BoardStore } from "@/lib/useBoard";
 import { Avatar } from "./Avatar";
 import { Board } from "./Board";
 import { AskAssistant } from "@/lib/assistant";
+import { ShowHistory } from "@/lib/workspace";
+import { HistoryDialog } from "./HistoryDialog";
 import { ChatSidebar, type ChatHandle } from "./ChatSidebar";
 import { input } from "./LoginForm";
 import { Modal } from "./Modal";
@@ -231,6 +233,8 @@ function Workspace({
 }) {
   const store = useBoard(boardId);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The history dialog: the whole board, or one card.
+  const [history, setHistory] = useState<{ card?: { id: string; title: string } } | null>(null);
   const members = store.board?.members.length ?? 0;
   const chat = useRef<ChatHandle>(null);
   const ask = (message: string) => {
@@ -281,6 +285,18 @@ function Workspace({
         </button>
         <button
           type="button"
+          onClick={() => setHistory({})}
+          disabled={!store.board}
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M3.5 10a6.5 6.5 0 106.5-6.5A6.5 6.5 0 004.8 6M3.5 3.5V6.5h3" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 6.5V10l2.5 1.5" strokeLinecap="round" />
+          </svg>
+          تاریخچه
+        </button>
+        <button
+          type="button"
           onClick={onNew}
           className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
         >
@@ -301,7 +317,9 @@ function Workspace({
       <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <AskAssistant value={ask}>
-            <Board store={store} />
+            <ShowHistory value={(card) => setHistory({ card })}>
+              <Board store={store} />
+            </ShowHistory>
           </AskAssistant>
         </div>
         {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
@@ -310,6 +328,14 @@ function Workspace({
         </div>
       </div>
 
+      {history && (
+        <HistoryDialog
+          boardId={boardId}
+          card={history.card}
+          onRestored={store.apply}
+          onClose={() => setHistory(null)}
+        />
+      )}
       {settingsOpen && store.board && (
         <BoardSettingsDialog
           store={store}

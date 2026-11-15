@@ -5,6 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardLabel, Card, Member, Priority } from "@/lib/board";
 import { AskAssistant, splitRequest } from "@/lib/assistant";
+import { ShowHistory } from "@/lib/workspace";
 import { PRIORITIES, colorOf, formatDue, labelTitle, today } from "@/lib/cardDetails";
 
 type Props = {
@@ -159,6 +160,7 @@ export function CardEditForm({
   const [selected, setSelected] = useState<string[]>(card.labels ?? []);
   const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const [assignee, setAssignee] = useState(card.assignee ?? "");
+  const showHistory = useContext(ShowHistory);
 
   return (
     <form
@@ -258,6 +260,15 @@ export function CardEditForm({
         >
           {isNew ? "ثبت کارت" : "ذخیره"}
         </button>
+        {!isNew && showHistory && (
+          <button
+            type="button"
+            onClick={() => showHistory({ id: card.id, title: card.title })}
+            className="mr-auto rounded-lg px-3 py-2 text-sm text-primary transition hover:bg-primary-50"
+          >
+            تاریخچه کارت
+          </button>
+        )}
         <button
           type="button"
           onClick={onCancel}
