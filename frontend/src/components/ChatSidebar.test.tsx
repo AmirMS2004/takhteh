@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { addCard, moveCard, type BoardState } from "@/lib/board";
-import type { Operation } from "@/lib/proposal";
 import { fakeApi } from "@/test/fakeApi";
 import Home from "@/app/page";
 
@@ -10,16 +9,12 @@ const chatPanel = () => screen.getByRole("complementary", { name: "دستیار 
 const column = (id: string) => screen.getByTestId(`column-${id}`);
 const proposalBox = () => within(chatPanel()).getByRole("region", { name: "تغییرات پیشنهادی" });
 
-const NULLS = { card_id: null, column_id: null, title: null, details: null, index: null, due_date: null, priority: null, assignee: null, labels: null };
-const op = (fields: Partial<Operation> & Pick<Operation, "type">): Operation => ({ ...NULLS, ...fields });
+const CHANGES = ["کارت تازه «کارت هوش مصنوعی» در «برای انجام» (اولویت بالا)", "انتقال «پژوهش رقبا» به «انجام‌شده» (بالای ستون)"];
 
 /** The assistant proposes a new card in "todo" and moving "c1" to the top of "done". */
 const proposeChanges = (_: unknown, board: BoardState) => ({
   reply: "این تغییرات را پیشنهاد می‌کنم.",
-  operations: [
-    op({ type: "create_card", column_id: "todo", title: "کارت هوش مصنوعی", details: "", priority: "high" }),
-    op({ type: "move_card", card_id: "c1", column_id: "done", index: 0 }),
-  ],
+  changes: CHANGES,
   board: moveCard(addCard(board, "todo", { id: "ai-1", title: "کارت هوش مصنوعی", details: "" }), "c1", "done", 0),
 });
 
@@ -46,8 +41,8 @@ describe("ChatSidebar", () => {
   it("shows the stored conversation when the board opens", async () => {
     const api = fakeApi();
     api.state.chats["board-1"] = [
-      { role: "user", content: "دیروز پرسیدم" },
-      { role: "assistant", content: "و جواب دادم" },
+      { id: "msg-90", role: "user", content: "دیروز پرسیدم", proposal: null },
+      { id: "msg-91", role: "assistant", content: "و جواب دادم", proposal: null },
     ];
     render(<Home />);
     await screen.findByTestId("column-backlog");
@@ -84,13 +79,10 @@ describe("ChatSidebar", () => {
     await say(user, "یک کارت بساز و پژوهش رقبا را تمام کن");
     await within(chatPanel()).findByText("این تغییرات را پیشنهاد می‌کنم.");
     const items = within(proposalBox()).getAllByRole("listitem").map((li) => li.textContent);
-    expect(items).toEqual([
-      "کارت تازه «کارت هوش مصنوعی» در «برای انجام» (اولویت بالا)",
-      "انتقال «پژوهش رقبا» به «انجام‌شده» (بالای ستون)",
-    ]);
+    expect(items).toEqual(CHANGES);
     expect(within(column("todo")).queryByText("کارت هوش مصنوعی")).not.toBeInTheDocument();
     expect(within(column("backlog")).getByText("پژوهش رقبا")).toBeInTheDocument();
-    expect(api.calls().some((c) => c.route === "POST /api/ai/apply")).toBe(false);
+    expect(api.calls().some((c) => c.route.includes("/api/ai/proposals/"))).toBe(false);
   });
 
   it("applies the changes when confirmed, and undoes them", async () => {
@@ -101,8 +93,7 @@ describe("ChatSidebar", () => {
     expect(await within(column("todo")).findByText("کارت هوش مصنوعی")).toBeInTheDocument();
     expect(within(column("done")).getByText("پژوهش رقبا")).toBeInTheDocument();
     expect(within(proposalBox()).getByRole("status")).toHaveTextContent("اعمال شد.");
-    const applied = api.calls().find((c) => c.route === "POST /api/ai/apply")!;
-    expect(applied.body).toEqual({ board_id: "board-1", operations: proposeChanges(null, api.state.board).operations });
+    expect(api.calls().some((c) => /^POST \/api\/ai\/proposals\/msg-\d+\/apply$/.test(c.route))).toBe(true);
 
     await user.click(within(proposalBox()).getByRole("button", { name: "برگرداندن" }));
     expect(await within(proposalBox()).findByText("برگردانده شد.")).toBeInTheDocument();
@@ -111,13 +102,41 @@ describe("ChatSidebar", () => {
     expect(within(proposalBox()).queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("keeps proposals and the undo button after the page is opened again", async () => {
+    const { user } = await renderHome({ chat: proposeChanges });
+    await say(user, "یک کارت بساز");
+    await user.click(await within(chatPanel()).findByRole("button", { name: "اعمال تغییرات" }));
+    await within(column("todo")).findByText("کارت هوش مصنوعی");
+
+    cleanup();
+    render(<Home />);
+    await screen.findByTestId("column-backlog");
+    expect(await within(proposalBox()).findByText("اعمال شد.")).toBeInTheDocument();
+    expect(within(proposalBox()).getAllByRole("listitem").map((li) => li.textContent)).toEqual(CHANGES);
+    await userEvent.setup().click(within(proposalBox()).getByRole("button", { name: "برگرداندن" }));
+    expect(await within(proposalBox()).findByText("برگردانده شد.")).toBeInTheDocument();
+    expect(within(column("todo")).queryByText("کارت هوش مصنوعی")).not.toBeInTheDocument();
+  });
+
+  it("a pending proposal can still be applied after the page is opened again", async () => {
+    const { user } = await renderHome({ chat: proposeChanges });
+    await say(user, "یک کارت بساز");
+    await within(chatPanel()).findByRole("button", { name: "اعمال تغییرات" });
+    cleanup();
+    render(<Home />);
+    await screen.findByTestId("column-backlog");
+    await userEvent.setup().click(await within(proposalBox()).findByRole("button", { name: "اعمال تغییرات" }));
+    expect(await within(column("todo")).findByText("کارت هوش مصنوعی")).toBeInTheDocument();
+  });
+
   it("rejects the changes without touching the board", async () => {
     const { api, user } = await renderHome({ chat: proposeChanges });
     await say(user, "یک کارت بساز");
     await user.click(await within(chatPanel()).findByRole("button", { name: "رد کردن" }));
-    expect(within(proposalBox()).getByRole("status")).toHaveTextContent("رد شد.");
+    expect(await within(proposalBox()).findByText("رد شد.")).toBeInTheDocument();
     expect(within(proposalBox()).queryByRole("button")).not.toBeInTheDocument();
-    expect(api.calls().some((c) => c.route === "POST /api/ai/apply")).toBe(false);
+    expect(api.calls().some((c) => c.route.endsWith("/apply"))).toBe(false);
+    expect(api.calls().some((c) => c.route.endsWith("/reject"))).toBe(true);
     expect(within(column("todo")).queryByText("کارت هوش مصنوعی")).not.toBeInTheDocument();
   });
 
@@ -125,7 +144,7 @@ describe("ChatSidebar", () => {
     const { user } = await renderHome({
       chat: (body, board) => ({
         reply: `پیشنهاد ${body.message}`,
-        operations: [op({ type: "create_card", column_id: "todo", title: body.message, details: "" })],
+        changes: [`کارت تازه «${body.message}»`],
         board: addCard(board, "todo", { id: `ai-${body.message}`, title: body.message, details: "" }),
       }),
     });
@@ -143,7 +162,8 @@ describe("ChatSidebar", () => {
   it("says so when the board changed and the proposal no longer fits", async () => {
     const { user } = await renderHome({
       chat: proposeChanges,
-      overrides: { "POST /api/ai/apply": { status: 409 } },
+      // The reply is the first stored message (msg-1); the backend answers 409 when the change no longer fits.
+      overrides: { "POST /api/ai/proposals/msg-1/apply": { status: 409 } },
     });
     await say(user, "یک کارت بساز");
     await user.click(await within(chatPanel()).findByRole("button", { name: "اعمال تغییرات" }));
@@ -156,7 +176,7 @@ describe("ChatSidebar", () => {
     const { user } = await renderHome({
       chat: (_, board) => ({
         reply: "انجام شد.",
-        operations: [op({ type: "update_card", card_id: "card-999", title: "x" })],
+        changes: ["ویرایش «card-999»"],
         board: addCard(board, "todo", { id: "ai-1", title: "نباید دیده شود", details: "" }),
         error: "Changes cannot be applied: card-999",
       }),
@@ -220,7 +240,7 @@ describe("ChatSidebar", () => {
     push({ type: "delta", text: "نوشتن" });
     expect(await within(chatPanel()).findByText("در حال نوشتن")).toBeInTheDocument();
     expect(within(chatPanel()).getByLabelText("پیام به دستیار")).toBeDisabled();
-    push({ type: "done", reply: "در حال نوشتن", operations: [], error: null });
+    push({ type: "done", reply: "در حال نوشتن", message_id: "msg-1", proposal: null, error: null });
     finish();
     expect(await within(chatPanel()).findByText("در حال نوشتن")).toHaveAttribute("data-role", "assistant");
     expect(within(chatPanel()).getByLabelText("پیام به دستیار")).toBeEnabled();

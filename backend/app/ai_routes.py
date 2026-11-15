@@ -12,29 +12,42 @@ from pydantic import BaseModel, Field, ValidationError
 from app import ai, db
 from app import board_service as service
 from app.auth import User, current_user
-from app.board import Assignee, DueDate, Priority
+from app.board import Assignee, DueDate, LabelColor, Priority
 
 router = APIRouter(prefix="/api/ai")
 
 SYSTEM_PROMPT = """You are the assistant inside a kanban project-management app. The user sees their board and \
 talks to you in a sidebar.
 
-The current board is given below as JSON: "columns" in display order, each with "id", "title" and "cardIds" \
-(top to bottom), and "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), "priority" ("low", "medium" or "high"), "assignee" (the username of a board member) and "labels" (a list of label ids); the first three may be null. \
-The board's labels are in "labels", each with "id", "name" (may be empty) and "color". The board's members are in \
-"members"; only their usernames can be an assignee.
+The current board is given below as JSON: "title"; "columns" in display order, each with "id", "title" and \
+"cardIds" (top to bottom); "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), \
+"priority" ("low", "medium" or "high"), "assignee" (the username of a board member) and "labels" (a list of \
+label ids), the first three possibly null; "labels", each with "id", "name" (may be empty) and "color" \
+(red, orange, yellow, green, blue or purple); and "members", each with "username" and "role" (owner or member).
 
-You can change the board by returning operations:
+You can do anything on this board that the user can, by returning operations:
 - create_card: column_id, title, details (use "" when there are no details), and optionally due_date, priority, assignee, labels
 - update_card: card_id, and any of title, details, due_date, priority, assignee to change (null keeps the current value); "labels" replaces the card's whole label list (null keeps it), so include labels it should keep
 - move_card: card_id, column_id, index (0 is the top of the column; null puts it at the bottom)
-Only use label ids from the board's "labels"; you cannot create, rename or delete labels.
-Set every field an operation does not use to null. Only use ids that exist on the board. Columns cannot be \
-created, renamed or deleted, and cards cannot be deleted; if asked, say so.
+- delete_card: card_id
+- create_column: title, and optionally index (its place among the columns; null puts it at the end)
+- rename_column: column_id, title
+- move_column: column_id, index (0 is the first column)
+- delete_column: column_id (deletes its cards too; a board keeps at least one column)
+- create_label: name (may be ""), color
+- update_label: label_id, and name and/or color to change
+- delete_label: label_id (removes it from every card)
+- rename_board: title (only the board owner can)
+- add_member: username of an existing account (only the owner can)
+- remove_member: username (only the owner can; the owner cannot be removed, and you never remove the user you are talking to)
+To use a column or label created earlier in the same reply, write "new:" followed by its exact title or name \
+as its id, e.g. "new:Testing". Set every field an operation does not use to null. Only use ids that exist on \
+the board. Deleting the whole board is not possible here; the user does that in the board settings.
 
 To break a card into smaller tasks, propose create_card operations: usually 3 to 7 cards with short, \
 concrete titles that together cover the original, in the original card's column unless the user says \
-otherwise, keeping its assignee, due date and labels when they still fit. The original card stays; say so.
+otherwise, keeping its assignee, due date and labels when they still fit. Keep the original card unless the \
+user asks to replace it.
 
 For a summary or weekly report, use the "facts" below, which the app computed (a week is the last 7 days \
 and the board's last column counts as done): what was done this week, what is new, what is in progress, \
@@ -45,16 +58,26 @@ keys of the facts.
 Write the reply as plain text without Markdown symbols such as ** or #; use short lines, and "- " for lists.
 
 Only return operations when the user asks for a change; otherwise return an empty list. Operations are \
-applied in order. They are not applied right away: the user sees them as a proposal and applies or rejects \
-it, so the board below may not include changes you proposed earlier. Always write a short "reply" for the \
-user, in the user's language (usually Persian), answering their question or describing the changes you \
-propose; never say a change is done, because it is not applied until the user confirms it (for example \
+applied in order, all or none. They are not applied right away: the user sees them as a proposal and applies \
+or rejects it, so the board below may not include changes you proposed earlier. Always write a short "reply" \
+for the user, in the user's language (usually Persian), answering their question or describing the changes \
+you propose; never say a change is done, because it is not applied until the user confirms it (for example \
 "I suggest creating ..." rather than "I created ...").
 
 Today is {today}.
 """
 
 NULLABLE_STRING = {"type": ["string", "null"]}
+OPERATION_TYPES = [
+    "create_card", "update_card", "move_card", "delete_card",
+    "create_column", "rename_column", "move_column", "delete_column",
+    "create_label", "update_label", "delete_label",
+    "rename_board", "add_member", "remove_member",
+]
+OPERATION_FIELDS = [
+    "type", "card_id", "column_id", "label_id", "title", "details", "index",
+    "due_date", "priority", "assignee", "labels", "name", "color", "username",
+]
 
 RESPONSE_FORMAT = {
     "type": "json_schema",
@@ -72,14 +95,12 @@ RESPONSE_FORMAT = {
                     "items": {
                         "type": "object",
                         "additionalProperties": False,
-                        "required": [
-                            "type", "card_id", "column_id", "title", "details", "index",
-                            "due_date", "priority", "assignee", "labels",
-                        ],
+                        "required": OPERATION_FIELDS,
                         "properties": {
-                            "type": {"type": "string", "enum": ["create_card", "update_card", "move_card"]},
+                            "type": {"type": "string", "enum": OPERATION_TYPES},
                             "card_id": NULLABLE_STRING,
                             "column_id": NULLABLE_STRING,
+                            "label_id": NULLABLE_STRING,
                             "title": NULLABLE_STRING,
                             "details": NULLABLE_STRING,
                             "index": {"type": ["integer", "null"]},
@@ -87,6 +108,12 @@ RESPONSE_FORMAT = {
                             "priority": {"type": ["string", "null"], "enum": ["low", "medium", "high", None]},
                             "assignee": NULLABLE_STRING,
                             "labels": {"type": ["array", "null"], "items": {"type": "string"}},
+                            "name": NULLABLE_STRING,
+                            "color": {
+                                "type": ["string", "null"],
+                                "enum": ["red", "orange", "yellow", "green", "blue", "purple", None],
+                            },
+                            "username": NULLABLE_STRING,
                         },
                     },
                 },
@@ -101,9 +128,15 @@ class InvalidOperation(Exception):
 
 
 class Operation(BaseModel):
-    type: Literal["create_card", "update_card", "move_card"]
+    type: Literal[
+        "create_card", "update_card", "move_card", "delete_card",
+        "create_column", "rename_column", "move_column", "delete_column",
+        "create_label", "update_label", "delete_label",
+        "rename_board", "add_member", "remove_member",
+    ]
     card_id: str | None = None
     column_id: str | None = None
+    label_id: str | None = None
     title: str | None = None
     details: str | None = None
     index: int | None = None
@@ -111,9 +144,14 @@ class Operation(BaseModel):
     priority: Priority | None = None
     assignee: Assignee | None = None
     labels: list[str] | None = None
+    name: str | None = None
+    color: LabelColor | None = None
+    username: str | None = None
 
 
 DETAIL_FIELDS = ("due_date", "priority", "assignee", "labels")
+# Errors that mean "this change does not fit the board (any more)".
+CHANGE_ERRORS = (InvalidOperation, service.NotFound, service.Forbidden, service.Conflict)
 
 
 class AssistantReply(BaseModel):
@@ -121,32 +159,192 @@ class AssistantReply(BaseModel):
     operations: list[Operation]
 
 
-class ApplyRequest(BaseModel):
-    board_id: str
-    operations: list[Operation] = Field(min_length=1, max_length=50)
+def _require(value: str | None, field: str, op: Operation, max_length: int = 200) -> str:
+    if value is None or not value.strip():
+        raise InvalidOperation(f"{op.type} needs {field}")
+    if len(value.strip()) > max_length:
+        raise InvalidOperation(f"{op.type}: {field} is longer than {max_length} characters")
+    return value.strip()
 
 
-class CardFields(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    details: str = Field(max_length=10000)
-    due_date: DueDate | None
-    priority: Priority | None
-    assignee: str | None
-    labels: list[str]
+class Applier:
+    """Applies operations to one board; every id must belong to it. Columns and labels created by earlier
+    operations can be referred to as "new:<title or name>"."""
+
+    def __init__(self, conn: sqlite3.Connection, user_id: int, board_id: int):
+        self.conn, self.user_id, self.board_id = conn, user_id, board_id
+        self.refs: dict[str, str] = {}
+
+    def _ref(self, key: str) -> str:
+        return self.refs.get(key, key)
+
+    def column(self, key: str | None, op: Operation) -> str:
+        key = self._ref(_require(key, "column_id", op))
+        service._column(self.conn, self.user_id, key, self.board_id)
+        return key
+
+    def card(self, key: str | None, op: Operation) -> str:
+        key = _require(key, "card_id", op)
+        service._card(self.conn, self.user_id, key, self.board_id)
+        return key
+
+    def label(self, key: str | None, op: Operation) -> str:
+        key = self._ref(_require(key, "label_id", op))
+        service._label(self.conn, self.user_id, key, self.board_id)
+        return key
+
+    def details(self, op: Operation) -> dict:
+        # The model cannot clear a detail field: null always means "leave as is".
+        dumped = op.model_dump()
+        fields = {f: dumped[f] for f in DETAIL_FIELDS if dumped[f] is not None}
+        if "labels" in fields:
+            fields["labels"] = [self._ref(key) for key in fields["labels"]]
+        return fields
+
+    def apply(self, op: Operation) -> None:
+        conn, user, board = self.conn, self.user_id, self.board_id
+        board_key = service.board_key(board)
+        if op.type == "create_card":
+            fields = {"title": _require(op.title, "title", op), "details": (op.details or "").strip()} | self.details(op)
+            service.create_card(conn, user, self.column(op.column_id, op), fields, board)
+        elif op.type == "update_card":
+            changes = self.details(op)
+            if op.title is not None:
+                changes["title"] = _require(op.title, "title", op)
+            if op.details is not None:
+                changes["details"] = op.details.strip()
+            service.update_card(conn, user, self.card(op.card_id, op), changes, board)
+        elif op.type == "move_card":
+            index = op.index if op.index is not None else 10**9  # null means "at the bottom"
+            if index < 0:
+                raise InvalidOperation("move_card index cannot be negative")
+            service.move_card(conn, user, self.card(op.card_id, op), self.column(op.column_id, op), index, board)
+        elif op.type == "delete_card":
+            service.delete_card(conn, user, self.card(op.card_id, op))
+        elif op.type == "create_column":
+            title = _require(op.title, "title", op)
+            created = service.create_column(conn, user, board_key, title)
+            self.refs[f"new:{title}"] = created["id"]
+            if op.index is not None:
+                service.move_column(conn, user, created["id"], max(op.index, 0))
+        elif op.type == "rename_column":
+            service.rename_column(conn, user, self.column(op.column_id, op), _require(op.title, "title", op))
+        elif op.type == "move_column":
+            if op.index is None or op.index < 0:
+                raise InvalidOperation("move_column needs an index of 0 or more")
+            service.move_column(conn, user, self.column(op.column_id, op), op.index)
+        elif op.type == "delete_column":
+            service.delete_column(conn, user, self.column(op.column_id, op))
+        elif op.type == "create_label":
+            if op.color is None:
+                raise InvalidOperation("create_label needs color")
+            name = (op.name or "").strip()
+            if len(name) > 30:
+                raise InvalidOperation("create_label: name is longer than 30 characters")
+            created = service.create_label(conn, user, board_key, name, op.color)
+            self.refs[f"new:{name}"] = created["id"]
+        elif op.type == "update_label":
+            changes = {}
+            if op.name is not None:
+                if len(op.name.strip()) > 30:
+                    raise InvalidOperation("update_label: name is longer than 30 characters")
+                changes["name"] = op.name.strip()
+            if op.color is not None:
+                changes["color"] = op.color
+            service.update_label(conn, user, self.label(op.label_id, op), changes)
+        elif op.type == "delete_label":
+            service.delete_label(conn, user, self.label(op.label_id, op))
+        elif op.type == "rename_board":
+            service.rename_board(conn, user, board_key, _require(op.title, "title", op, 100))
+        elif op.type == "add_member":
+            service.add_member(conn, user, board_key, _require(op.username, "username", op, 32))
+        else:  # remove_member
+            username = _require(op.username, "username", op, 32).lower()
+            me = conn.execute("SELECT username FROM users WHERE id = ?", (user,)).fetchone()["username"]
+            if username == me:
+                raise InvalidOperation("the assistant does not remove the user it is talking to")
+            service.remove_member(conn, user, board_key, username)
+
+    def apply_all(self, operations: list[Operation]) -> None:
+        for op in operations:
+            self.apply(op)
 
 
-class Undo(BaseModel):
-    """What a change replaced: the cards it created, the earlier fields of the cards it changed and the
-    earlier card order of the columns it touched."""
-
-    created: list[str]
-    cards: dict[str, CardFields]
-    columns: dict[str, list[str]]
+PRIORITY_NAMES = {"low": "پایین", "medium": "متوسط", "high": "بالا"}
+FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+COLOR_NAMES = {"red": "قرمز", "orange": "نارنجی", "yellow": "زرد", "green": "سبز", "blue": "آبی", "purple": "بنفش"}
 
 
-class UndoRequest(BaseModel):
-    board_id: str
-    undo: Undo
+def describe(op: Operation, board: dict) -> str:
+    """One proposed change in Persian, with the names on the board as it is now."""
+    columns = {c["id"]: c for c in board["columns"]}
+    labels = {label["id"]: label for label in board["labels"]}
+
+    def column(key: str | None) -> str:
+        if key and key.startswith("new:"):
+            return f"«{key[4:]}»"
+        return f"«{columns[key]['title']}»" if key in columns else f"«{key}»"
+
+    def card(key: str | None) -> str:
+        return f"«{board['cards'][key]['title']}»" if key in board["cards"] else f"«{key}»"
+
+    def label(key: str) -> str:
+        if key.startswith("new:"):
+            return f"برچسب {key[4:]}"
+        found = labels.get(key)
+        if not found:
+            return key
+        return f"برچسب {found['name']}" if found["name"] else f"برچسب {COLOR_NAMES[found['color']]}"
+
+    def details() -> list[str]:
+        parts = []
+        if op.due_date:
+            parts.append(f"سررسید {op.due_date.isoformat().translate(FA_DIGITS)}")
+        if op.priority:
+            parts.append(f"اولویت {PRIORITY_NAMES[op.priority]}")
+        if op.assignee:
+            parts.append(f"مسئول {op.assignee}")
+        if op.labels is not None:
+            parts.append("، ".join(label(key) for key in op.labels) if op.labels else "بدون برچسب")
+        return parts
+
+    t = op.type
+    if t == "create_card":
+        extra = details()
+        return f"کارت تازه «{op.title}» در {column(op.column_id)}" + (f" ({'، '.join(extra)})" if extra else "")
+    if t == "update_card":
+        parts = ([f"عنوان «{op.title}»"] if op.title is not None else []) + (
+            ["توضیحات تازه"] if op.details is not None else []
+        ) + details()
+        return f"ویرایش {card(op.card_id)}: {'، '.join(parts)}"
+    if t == "move_card":
+        return f"انتقال {card(op.card_id)} به {column(op.column_id)}" + (" (بالای ستون)" if op.index == 0 else "")
+    if t == "delete_card":
+        return f"حذف کارت {card(op.card_id)}"
+    if t == "create_column":
+        return f"ستون تازه «{op.title}»"
+    if t == "rename_column":
+        return f"تغییر نام ستون {column(op.column_id)} به «{op.title}»"
+    if t == "move_column":
+        return f"جابه‌جایی ستون {column(op.column_id)} به جایگاه {str((op.index or 0) + 1).translate(FA_DIGITS)}"
+    if t == "delete_column":
+        count = len(columns[op.column_id]["cardIds"]) if op.column_id in columns else 0
+        return f"حذف ستون {column(op.column_id)}" + (f" با {str(count).translate(FA_DIGITS)} کارت" if count else "")
+    if t == "create_label":
+        name = f"«{op.name}» " if op.name else ""
+        return f"برچسب تازه {name}{COLOR_NAMES.get(op.color or '', '')}".strip()
+    if t == "update_label":
+        parts = ([f"نام «{op.name}»"] if op.name is not None else []) + (
+            [f"رنگ {COLOR_NAMES[op.color]}"] if op.color else []
+        )
+        return f"ویرایش {label(op.label_id or '')}: {'، '.join(parts)}"
+    if t == "delete_label":
+        return f"حذف {label(op.label_id or '')}"
+    if t == "rename_board":
+        return f"تغییر نام تخته به «{op.title}»"
+    if t == "add_member":
+        return f"افزودن {op.username} به اعضای تخته"
+    return f"حذف {op.username} از اعضای تخته"
 
 
 class ChatMessage(BaseModel):
@@ -172,41 +370,6 @@ def _history(conn: sqlite3.Connection, board_id: int, user_id: int, limit: int) 
         (board_id, user_id, limit),
     ).fetchall()
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
-
-
-def _require(value: str | None, field: str, op: Operation) -> str:
-    if value is None or not value.strip():
-        raise InvalidOperation(f"{op.type} needs {field}")
-    return value.strip()
-
-
-def apply_operation(conn: sqlite3.Connection, user_id: int, board_id: int, op: Operation) -> None:
-    """Applies one operation; every id must belong to `board_id`."""
-    # The model cannot clear a detail field: null always means "leave as is".
-    dumped = op.model_dump()
-    details = {f: dumped[f] for f in DETAIL_FIELDS if dumped[f] is not None}
-    if op.type == "create_card":
-        fields = {"title": _require(op.title, "title", op), "details": (op.details or "").strip()} | details
-        service.create_card(conn, user_id, _require(op.column_id, "column_id", op), fields, board_id)
-    elif op.type == "update_card":
-        changes = dict(details)
-        if op.title is not None:
-            changes["title"] = _require(op.title, "title", op)
-        if op.details is not None:
-            changes["details"] = op.details.strip()
-        service.update_card(conn, user_id, _require(op.card_id, "card_id", op), changes, board_id)
-    else:
-        index = op.index if op.index is not None else 10**9  # null means "at the bottom"
-        if index < 0:
-            raise InvalidOperation("move_card index cannot be negative")
-        service.move_card(
-            conn,
-            user_id,
-            _require(op.card_id, "card_id", op),
-            _require(op.column_id, "column_id", op),
-            index,
-            board_id,
-        )
 
 
 def partial_reply(raw: str) -> str:
@@ -299,98 +462,156 @@ def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
     return messages, board_id
 
 
-def _apply_all(conn: sqlite3.Connection, user_id: int, board_id: int, operations: list[Operation]) -> None:
-    for op in operations:
-        apply_operation(conn, user_id, board_id, op)
-
-
 def _check_operations(user_id: int, board_id: int, operations: list[Operation]) -> str | None:
     """Applies the operations and rolls them back: None if they all work, otherwise the reason."""
     try:
         with db.connect() as conn:
-            _apply_all(conn, user_id, board_id, operations)
+            Applier(conn, user_id, board_id).apply_all(operations)
             conn.rollback()
-    except (InvalidOperation, service.NotFound) as e:
+    except CHANGE_ERRORS as e:
         return f"Changes cannot be applied: {e}"
     return None
 
 
 def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
-    """Validates the model's JSON and its operations, which are returned as a proposal, not applied."""
+    """Validates the model's JSON and its operations, which are stored with the reply as a proposal (not
+    applied): the user applies or rejects it later by the message id."""
     try:
         result = AssistantReply.model_validate_json(raw)
     except ValidationError as e:
         raise HTTPException(status_code=502, detail="AI returned an invalid response") from e
 
     error = _check_operations(user.id, board_id, result.operations) if result.operations else None
+    proposal = None
+    if result.operations and not error:
+        with db.connect() as conn:
+            board = service.get_board(conn, user.id, service.board_key(board_id))
+        proposal = {
+            "operations": [op.model_dump(mode="json") for op in result.operations],
+            "changes": [describe(op, board) for op in result.operations],
+            "status": "pending",
+        }
 
     with db.connect() as conn:
         # Only completed turns are stored, so failed ones never reach the model as history.
-        conn.executemany(
-            "INSERT INTO chat_messages (board_id, user_id, role, content) VALUES (?, ?, ?, ?)",
-            [(board_id, user.id, "user", body.message), (board_id, user.id, "assistant", result.reply)],
+        conn.execute(
+            "INSERT INTO chat_messages (board_id, user_id, role, content) VALUES (?, ?, 'user', ?)",
+            (board_id, user.id, body.message),
         )
+        message_id = conn.execute(
+            "INSERT INTO chat_messages (board_id, user_id, role, content, proposal) VALUES (?, ?, 'assistant', ?, ?)",
+            (board_id, user.id, result.reply, json.dumps(proposal, ensure_ascii=False) if proposal else None),
+        ).lastrowid
     return {
         "reply": result.reply,
-        "operations": [] if error else [op.model_dump(mode="json") for op in result.operations],
+        "message_id": message_key(message_id),
+        "proposal": _shown_proposal(proposal),
         "error": error,
     }
 
 
-CARD_FIELDS = ("title", "details", "due_date", "priority", "assignee", "labels")
+def message_key(message_id: int) -> str:
+    return f"msg-{message_id}"
 
 
-def _undo_for(before: dict, after: dict, operations: list[Operation]) -> Undo:
-    """The undo for a change, from the board before and after it."""
-    created = [key for key in after["cards"] if key not in before["cards"]]
-    changed = {op.card_id for op in operations if op.card_id in before["cards"]}
-    touched = set(created) | changed
-    after_order = {col["id"]: col["cardIds"] for col in after["columns"]}
-    columns = {
-        col["id"]: col["cardIds"]
-        for col in before["columns"]
-        if touched & (set(col["cardIds"]) | set(after_order[col["id"]]))
-    }
-    return Undo(
-        created=created,
-        cards={key: CardFields(**{f: before["cards"][key][f] for f in CARD_FIELDS}) for key in changed},
-        columns=columns,
+def _shown_proposal(proposal: dict | None) -> dict | None:
+    """What the chat panel sees of a proposal: the changes in words and where it stands."""
+    return {"changes": proposal["changes"], "status": proposal["status"]} if proposal else None
+
+
+def _proposal(conn: sqlite3.Connection, user: User, key: str) -> tuple[int, int, dict]:
+    """(message id, board id, proposal) of the user's own message on a board they are on; 404 otherwise."""
+    message_id = service.parse_key(key, "msg")
+    row = conn.execute(
+        "SELECT board_id, proposal FROM chat_messages WHERE id = ? AND user_id = ? AND proposal IS NOT NULL",
+        (message_id, user.id),
+    ).fetchone()
+    if not row:
+        raise service.NotFound(key)
+    service.member_board(conn, user.id, service.board_key(row["board_id"]))
+    return message_id, row["board_id"], json.loads(row["proposal"])
+
+
+def _save(conn: sqlite3.Connection, message_id: int, proposal: dict) -> None:
+    conn.execute(
+        "UPDATE chat_messages SET proposal = ? WHERE id = ?", (json.dumps(proposal, ensure_ascii=False), message_id)
     )
 
 
-@router.post("/apply")
-def apply(body: ApplyRequest, user: Annotated[User, Depends(current_user)]) -> dict:
-    """Applies a proposal from the chat, all or none; 409 if the board has changed so that it no longer
-    fits. Returns the board and the undo for this change."""
-    with db.connect() as conn:
-        board_id = service.member_board(conn, user.id, body.board_id)
-        before = service.get_board(conn, user.id, body.board_id)
-    try:
-        with db.connect() as conn:
-            _apply_all(conn, user.id, board_id, body.operations)
-            after = service.get_board(conn, user.id, body.board_id)
-    except (InvalidOperation, service.NotFound) as e:
-        raise HTTPException(status_code=409, detail=f"Changes cannot be applied: {e}") from None
-    return {"board": after, "undo": _undo_for(before, after, body.operations).model_dump(mode="json")}
+def _status_conflict(proposal: dict, wanted: str) -> None:
+    if proposal["status"] != wanted:
+        raise HTTPException(status_code=409, detail=f"The proposal is {proposal['status']}")
 
 
-@router.post("/undo")
-def undo(body: UndoRequest, user: Annotated[User, Depends(current_user)]) -> dict:
-    """Puts back what an applied proposal changed (see Undo)."""
+@router.post("/proposals/{key}/apply")
+def apply_proposal(key: str, user: Annotated[User, Depends(current_user)]) -> dict:
+    """Applies a pending proposal, all or none (409 if the board has changed so that it no longer fits).
+    The board as it was is kept for undo."""
     with db.connect() as conn:
-        board_id = service.member_board(conn, user.id, body.board_id)
-        cards = {key: fields.model_dump() for key, fields in body.undo.cards.items()}
+        message_id, board_id, proposal = _proposal(conn, user, key)
+        _status_conflict(proposal, "pending")
+        before = service.snapshot(conn, board_id)
         try:
-            service.restore_cards(conn, user.id, board_id, body.undo.created, cards, body.undo.columns)
-        except service.NotFound as e:
-            raise HTTPException(status_code=409, detail=f"Cannot undo: {e}") from None
-        return service.get_board(conn, user.id, body.board_id)
+            Applier(conn, user.id, board_id).apply_all([Operation(**op) for op in proposal["operations"]])
+        except CHANGE_ERRORS as e:
+            raise HTTPException(status_code=409, detail=f"Changes cannot be applied: {e}") from None
+        proposal |= {"status": "applied", "before": before, "after": service.fingerprint(service.snapshot(conn, board_id))}
+        _save(conn, message_id, proposal)
+        return {"board": service.get_board(conn, user.id, service.board_key(board_id))}
+
+
+@router.post("/proposals/{key}/reject")
+def reject_proposal(key: str, user: Annotated[User, Depends(current_user)]) -> dict:
+    with db.connect() as conn:
+        message_id, _, proposal = _proposal(conn, user, key)
+        _status_conflict(proposal, "pending")
+        _save(conn, message_id, proposal | {"status": "rejected"})
+    return {"ok": True}
+
+
+@router.post("/proposals/{key}/undo")
+def undo_proposal(key: str, user: Annotated[User, Depends(current_user)]) -> dict:
+    """Puts the board back as it was before the user's latest applied proposal on it. 409 if this is not
+    that proposal, or if the board has changed since (undo would discard those changes)."""
+    with db.connect() as conn:
+        message_id, board_id, proposal = _proposal(conn, user, key)
+        _status_conflict(proposal, "applied")
+        latest = conn.execute(
+            "SELECT id FROM chat_messages WHERE board_id = ? AND user_id = ?"
+            " AND json_extract(proposal, '$.status') = 'applied' ORDER BY id DESC LIMIT 1",
+            (board_id, user.id),
+        ).fetchone()
+        if latest["id"] != message_id:
+            raise HTTPException(status_code=409, detail="Only the latest applied change can be undone")
+        if service.fingerprint(service.snapshot(conn, board_id)) != proposal["after"]:
+            raise HTTPException(status_code=409, detail="The board has changed since")
+        try:
+            service.restore_snapshot(conn, board_id, proposal["before"])
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409, detail="The board cannot be put back") from None
+        _save(conn, message_id, {k: v for k, v in proposal.items() if k not in ("before", "after")} | {"status": "undone"})
+        return {"board": service.get_board(conn, user.id, service.board_key(board_id))}
 
 
 @router.get("/history/{board_id}")
 def get_history(board_id: str, user: Annotated[User, Depends(current_user)]) -> list[dict]:
+    """The user's conversation on the board for the chat panel (latest MAX_SHOWN messages, oldest first),
+    with each reply's proposal."""
     with db.connect() as conn:
-        return _history(conn, service.member_board(conn, user.id, board_id), user.id, MAX_SHOWN)
+        rows = conn.execute(
+            "SELECT id, role, content, proposal FROM chat_messages WHERE board_id = ? AND user_id = ?"
+            " ORDER BY id DESC LIMIT ?",
+            (service.member_board(conn, user.id, board_id), user.id, MAX_SHOWN),
+        ).fetchall()
+    return [
+        {
+            "id": message_key(r["id"]),
+            "role": r["role"],
+            "content": r["content"],
+            "proposal": _shown_proposal(json.loads(r["proposal"]) if r["proposal"] else None),
+        }
+        for r in reversed(rows)
+    ]
 
 
 @router.delete("/history/{board_id}")

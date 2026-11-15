@@ -89,12 +89,13 @@
         "board_id": "INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE",
         "user_id": "INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE",
         "role": "TEXT NOT NULL",
-        "content": "TEXT NOT NULL"
+        "content": "TEXT NOT NULL",
+        "proposal": "TEXT"
       },
       "indexes": [
         "idx_chat_messages (board_id, user_id, id)"
       ],
-      "notes": "Each user's conversation with the assistant on a board, oldest first by id. role is user|assistant. Only completed turns are stored. Leaving a board deletes that user's messages on it."
+      "notes": "Each user's conversation with the assistant on a board, oldest first by id. role is user|assistant. Only completed turns are stored. Leaving a board deletes that user's messages on it. proposal (JSON, assistant replies only): operations, changes (Persian descriptions), status pending|applied|rejected|undone; once applied also before (the board's rows before the change) and after (a fingerprint), for undo. Added to older databases at startup."
     }
   },
   "api_board_shape": {

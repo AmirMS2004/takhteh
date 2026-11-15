@@ -33,7 +33,7 @@ def send(client, message, board=None):
 def history(client, board=None):
     response = client.get(f"/api/ai/history/{board or board_id(client)}")
     assert response.status_code == 200
-    return response.json()
+    return [{"role": m["role"], "content": m["content"]} for m in response.json()]
 
 
 def test_completed_turns_are_stored_and_listed(auth_client, model):

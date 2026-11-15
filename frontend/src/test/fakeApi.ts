@@ -16,19 +16,19 @@ import {
   type BoardState,
   type Card,
 } from "@/lib/board";
-import type { Operation } from "@/lib/proposal";
+import type { Proposal } from "@/lib/proposal";
 
 type Override = { status: number; body?: unknown };
 type ChatBody = { board_id: string; message: string };
-type StoredMessage = { role: "user" | "assistant"; content: string };
+type StoredMessage = { id: string; role: "user" | "assistant"; content: string; proposal: Proposal | null };
 /**
- * Scripted assistant: returns the reply and, optionally, proposed `operations` with the `board` they lead to
- * (what /api/ai/apply then puts in place).
+ * Scripted assistant: returns the reply and, optionally, proposed `changes` (in words) with the `board` they
+ * lead to, which applying the proposal puts in place.
  */
 type ChatScript = (
   body: ChatBody,
   board: BoardState,
-) => { reply: string; operations?: Operation[]; board?: BoardState; error?: string; failWith?: number };
+) => { reply: string; changes?: string[]; board?: BoardState; error?: string; failWith?: number };
 
 /** An empty board like the backend creates: default columns and labels, no cards. */
 function emptyBoard(id: string, title: string, owner: string): BoardState {
@@ -66,8 +66,8 @@ export function fakeApi({
     // name, email and picture per username; missing means empty
     profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number }>>,
     chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
-    proposals: {} as Record<string, BoardState>, // board after each proposal, keyed by its operations as JSON
-    snapshots: [] as BoardState[], // boards before each applied proposal, for undo
+    // Per proposal (by message id): the board it leads to, and the board before it once applied.
+    proposals: {} as Record<string, { boardId: string; after: BoardState; before?: BoardState }>,
     username: "user",
   };
 
@@ -90,12 +90,23 @@ export function fakeApi({
   });
   const profile = () => ({ username: state.username, name: "", email: "", avatar: 0, ...state.profiles[state.username] });
 
-  /** The chat result the backend returns: invalid changes are not proposed. */
-  const propose = (result: ReturnType<ChatScript>) => {
-    const operations = !result.error && result.board && result.operations ? result.operations : [];
-    if (operations.length) state.proposals[JSON.stringify(operations)] = result.board!;
-    return { reply: result.reply, operations, error: result.error ?? null };
+  /** Stores the turn like the backend (with any valid proposal) and returns the chat result. */
+  const finish = (boardId: string, message: string, result: ReturnType<ChatScript>) => {
+    const proposal: Proposal | null =
+      !result.error && result.board && result.changes?.length ? { changes: result.changes, status: "pending" } : null;
+    const id = `msg-${state.nextId++}`;
+    if (proposal) state.proposals[id] = { boardId, after: result.board! };
+    state.chats[boardId] = [
+      ...(state.chats[boardId] ?? []),
+      { id: `msg-${state.nextId++}`, role: "user", content: message, proposal: null },
+      { id, role: "assistant", content: result.reply, proposal },
+    ];
+    return { reply: result.reply, message_id: id, proposal, error: result.error ?? null };
   };
+  const stored = (id: string) =>
+    Object.values(state.chats)
+      .flat()
+      .find((m) => m.id === id)!;
 
   const handle = (method: string, path: string, body: Record<string, unknown>): Response => {
     if (path === "/api/auth/me") return state.loggedIn ? json(profile()) : json({}, 401);
@@ -184,12 +195,6 @@ export function fakeApi({
       if (method === "DELETE") delete state.chats[m[1]];
       return json(method === "DELETE" ? { ok: true } : (state.chats[m[1]] ?? []));
     }
-    const remember = (boardId: string, message: string, reply: string) =>
-      (state.chats[boardId] = [
-        ...(state.chats[boardId] ?? []),
-        { role: "user", content: message },
-        { role: "assistant", content: reply },
-      ]);
     if (method === "POST" && path === "/api/ai/chat/stream") {
       // NDJSON like the backend: the reply in three pieces, then the result (or an error event).
       const b = state.boards[body.board_id as string];
@@ -199,24 +204,34 @@ export function fakeApi({
       if (result.failWith) {
         lines.push({ type: "error", status: result.failWith } as never);
       } else {
-        lines.push({ type: "done", ...propose(result) } as never);
-        remember(b.id, body.message as string, result.reply);
+        lines.push({ type: "done", ...finish(b.id, body.message as string, result) } as never);
       }
       return new Response(lines.map((l) => JSON.stringify(l)).join("\n") + "\n", { status: 200 });
     }
     if (method === "POST" && path === "/api/ai/chat") {
-      return json(propose(chat(body as unknown as ChatBody, state.boards[body.board_id as string])));
+      const b = state.boards[body.board_id as string];
+      return json(finish(b.id, body.message as string, chat(body as unknown as ChatBody, b)));
     }
-    if (method === "POST" && path === "/api/ai/apply") {
-      const after = state.proposals[JSON.stringify(body.operations)];
-      if (!after) return json({ detail: "Changes cannot be applied" }, 409);
-      state.snapshots.push(state.boards[after.id]);
-      put(after);
-      return json({ board: after, undo: { snapshot: state.snapshots.length - 1 } });
-    }
-    if (method === "POST" && path === "/api/ai/undo") {
-      const before = state.snapshots[(body.undo as { snapshot: number }).snapshot];
-      return json(put(before));
+    if (method === "POST" && (m = path.match(/^\/api\/ai\/proposals\/(.+)\/(apply|reject|undo)$/))) {
+      const [, id, action] = m;
+      const message = stored(id);
+      const record = state.proposals[id];
+      if (!message?.proposal || !record) return json({}, 404);
+      const wanted = action === "undo" ? "applied" : "pending";
+      if (message.proposal.status !== wanted) return json({ detail: `The proposal is ${message.proposal.status}` }, 409);
+      if (action === "reject") {
+        message.proposal = { ...message.proposal, status: "rejected" };
+        return json({ ok: true });
+      }
+      if (action === "apply") {
+        record.before = state.boards[record.boardId];
+        put(record.after);
+        message.proposal = { ...message.proposal, status: "applied" };
+      } else {
+        put(record.before!);
+        message.proposal = { ...message.proposal, status: "undone" };
+      }
+      return json({ board: state.boards[record.boardId] });
     }
 
     // --- labels, columns, cards (ids are unique across boards) ---

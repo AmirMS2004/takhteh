@@ -2,6 +2,8 @@
 Shared by the REST routes and the AI. `board_id`, where accepted, pins an operation to one board (the AI
 chat uses it so the model cannot reach the user's other boards)."""
 
+import hashlib
+import json
 import sqlite3
 
 from app import db
@@ -206,38 +208,59 @@ def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> None:
     _write_order(conn, row["column_id"], _card_ids(conn, row["column_id"]))
 
 
-def restore_cards(
-    conn: sqlite3.Connection,
-    user_id: int,
-    board_id: int,
-    created: list[str],
-    cards: dict[str, dict],
-    columns: dict[str, list[str]],
-) -> None:
-    """Undoes a change: deletes the cards it created, puts back the earlier fields of the cards it changed,
-    and the earlier card order of the columns it touched. Cards deleted since then are skipped; cards added
-    to those columns since then stay, at the bottom."""
+# --- snapshots (undo of the assistant's changes) ---
 
-    def exists(key: str) -> bool:
-        try:
-            _card(conn, user_id, key, board_id)
-            return True
-        except NotFound:
-            return False
+_SNAPSHOT_TABLES = {
+    "columns": "SELECT * FROM columns WHERE board_id = ? ORDER BY id",
+    "cards": "SELECT k.* FROM cards k JOIN columns c ON c.id = k.column_id WHERE c.board_id = ? ORDER BY k.id",
+    "labels": "SELECT * FROM labels WHERE board_id = ? ORDER BY id",
+    "card_labels": "SELECT cl.* FROM card_labels cl JOIN labels l ON l.id = cl.label_id WHERE l.board_id = ?"
+    " ORDER BY cl.card_id, cl.label_id",
+    "members": "SELECT * FROM board_members WHERE board_id = ? ORDER BY user_id",
+}
 
-    for key in created:
-        if exists(key):
-            conn.execute("DELETE FROM cards WHERE id = ?", (parse_key(key, "card"),))
-    for key, fields in cards.items():
-        if exists(key):
-            update_card(conn, user_id, key, fields, board_id)
-    wanted = {
-        _column(conn, user_id, col, board_id)[0]: [parse_key(k, "card") for k in keys if exists(k)]
-        for col, keys in columns.items()
-    }
-    placed = {card_id for ids in wanted.values() for card_id in ids}
-    for column_id, ids in wanted.items():
-        _write_order(conn, column_id, ids + [i for i in _card_ids(conn, column_id) if i not in placed])
+
+def snapshot(conn: sqlite3.Connection, board_id: int) -> dict:
+    """Every row of the board (title, columns, cards, labels, card labels, members), to put back later."""
+    snap = {"title": conn.execute("SELECT title FROM boards WHERE id = ?", (board_id,)).fetchone()["title"]}
+    for name, query in _SNAPSHOT_TABLES.items():
+        snap[name] = [dict(row) for row in conn.execute(query, (board_id,))]
+    return snap
+
+
+def fingerprint(snap: dict) -> str:
+    return hashlib.sha256(json.dumps(snap, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict) -> None:
+    """Puts the board back exactly as in `snap`, keeping ids. Members who left are added back if their
+    account still exists; members added since are removed (never the owner)."""
+
+    def insert(table: str, rows: list[dict]) -> None:
+        for row in rows:
+            names = ", ".join(row)
+            conn.execute(f"INSERT INTO {table} ({names}) VALUES ({', '.join('?' * len(row))})", tuple(row.values()))
+
+    conn.execute("UPDATE boards SET title = ? WHERE id = ?", (snap["title"], board_id))
+    # Cards and their labels go with their columns, card labels with their labels (ON DELETE CASCADE).
+    conn.execute("DELETE FROM columns WHERE board_id = ?", (board_id,))
+    conn.execute("DELETE FROM labels WHERE board_id = ?", (board_id,))
+    insert("labels", snap["labels"])
+    insert("columns", snap["columns"])
+    insert("cards", snap["cards"])
+    insert("card_labels", snap["card_labels"])
+    wanted = {m["user_id"] for m in snap["members"]}
+    conn.execute(
+        f"DELETE FROM board_members WHERE board_id = ? AND role != 'owner'"
+        f" AND user_id NOT IN ({', '.join('?' * len(wanted))})",
+        (board_id, *wanted),
+    )
+    for m in snap["members"]:
+        conn.execute(
+            "INSERT OR IGNORE INTO board_members (board_id, user_id, role)"
+            " SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM users WHERE id = ?)",
+            (board_id, m["user_id"], m["role"], m["user_id"]),
+        )
 
 
 def rename_column(conn: sqlite3.Connection, user_id: int, column: str, title: str) -> None:

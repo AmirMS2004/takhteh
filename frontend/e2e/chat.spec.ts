@@ -11,28 +11,45 @@ test.beforeEach(async ({ page }) => {
   await freshBoard(page);
 });
 
-const NULLS = { card_id: null, column_id: null, title: null, details: null, index: null, due_date: null, priority: null, assignee: null, labels: null };
+type Page = import("@playwright/test").Page;
 
-test("the assistant's proposal is applied on confirmation, survives reload, and can be undone", async ({ page }) => {
-  const sent: unknown[] = [];
+/**
+ * Stands in for the model: the stream route answers with a stored-looking proposal, and applying it makes
+ * the change through the real card API (the server side of proposals is covered by the backend tests).
+ */
+async function stubAssistant(page: Page, changes: string[], titles: string[], columnIndex: number) {
+  const sent: string[] = [];
+  const created: string[] = [];
+  let boardId = "";
   await page.route("**/api/ai/chat/stream", async (route) => {
     const body = route.request().postDataJSON();
-    sent.push(body);
-    const board = await (await page.request.get(`/api/boards/${body.board_id}`)).json();
-    // The NDJSON stream the backend sends: the reply in pieces, then the proposal. Applying and undoing
-    // go to the real backend.
-    const reply = "پیشنهاد: یک کارت در «برای انجام».";
-    const operations = [{ ...NULLS, type: "create_card", column_id: board.columns[1].id, title: "کارت از دستیار", details: "ساخته در چت" }];
+    sent.push(body.message);
+    boardId = body.board_id;
+    const reply = "پیشنهاد می‌کنم این تغییرات را بدهیم.";
     const lines = [
       { type: "delta", text: reply.slice(0, 10) },
       { type: "delta", text: reply.slice(10) },
-      { type: "done", reply, operations, error: null },
+      { type: "done", reply, message_id: "msg-e2e", proposal: { changes, status: "pending" }, error: null },
     ];
-    await route.fulfill({
-      contentType: "application/x-ndjson",
-      body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
-    });
+    await route.fulfill({ contentType: "application/x-ndjson", body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
   });
+  await page.route("**/api/ai/proposals/msg-e2e/apply", async (route) => {
+    const board = await (await page.request.get(`/api/boards/${boardId}`)).json();
+    for (const title of titles) {
+      const card = await (await page.request.post("/api/cards", { data: { column_id: board.columns[columnIndex].id, title } })).json();
+      created.push(card.id);
+    }
+    await route.fulfill({ json: { board: await (await page.request.get(`/api/boards/${boardId}`)).json() } });
+  });
+  await page.route("**/api/ai/proposals/msg-e2e/undo", async (route) => {
+    for (const id of created) await page.request.delete(`/api/cards/${id}`);
+    await route.fulfill({ json: { board: await (await page.request.get(`/api/boards/${boardId}`)).json() } });
+  });
+  return sent;
+}
+
+test("the assistant's proposal is applied on confirmation and can be undone", async ({ page }) => {
+  const sent = await stubAssistant(page, ["کارت تازه «کارت از دستیار» در «برای انجام»"], ["کارت از دستیار"], 1);
 
   await panel(page).getByLabel("پیام به دستیار").fill("یک کارت بساز");
   await page.keyboard.press("Enter");
@@ -40,7 +57,7 @@ test("the assistant's proposal is applied on confirmation, survives reload, and 
   const proposal = panel(page).getByRole("region", { name: "تغییرات پیشنهادی" });
   await expect(proposal).toContainText("کارت تازه «کارت از دستیار» در «برای انجام»");
   await expect(column(page, "todo").getByText("کارت از دستیار")).toHaveCount(0);
-  expect(sent).toEqual([{ board_id: expect.stringMatching(/^board-/), message: "یک کارت بساز" }]);
+  expect(sent).toEqual(["یک کارت بساز"]);
 
   await proposal.getByRole("button", { name: "اعمال تغییرات" }).click();
   await expect(column(page, "todo").getByText("کارت از دستیار")).toBeVisible();
@@ -72,16 +89,8 @@ test("the chat panel can be hidden and shown again", async ({ page }) => {
 });
 
 test("splits a card into smaller cards through the assistant", async ({ page }) => {
-  const sent: string[] = [];
-  await page.route("**/api/ai/chat/stream", async (route) => {
-    const body = route.request().postDataJSON();
-    sent.push(body.message);
-    const board = await (await page.request.get(`/api/boards/${body.board_id}`)).json();
-    const backlog = board.columns[0].id;
-    const operations = ["بررسی رقیب اول", "بررسی رقیب دوم"].map((title) => ({ ...NULLS, type: "create_card", column_id: backlog, title, details: "" }));
-    const done = { type: "done", reply: "پیشنهاد می‌کنم این دو کارت را بسازیم.", operations, error: null };
-    await route.fulfill({ contentType: "application/x-ndjson", body: JSON.stringify(done) + "\n" });
-  });
+  const titles = ["بررسی رقیب اول", "بررسی رقیب دوم"];
+  const sent = await stubAssistant(page, titles.map((t) => `کارت تازه «${t}» در «ایده‌ها»`), titles, 0);
 
   await page.getByRole("button", { name: "بستن دستیار" }).click();
   await column(page, "backlog").getByRole("button", { name: "تقسیم پژوهش رقبا با دستیار", exact: true }).click();

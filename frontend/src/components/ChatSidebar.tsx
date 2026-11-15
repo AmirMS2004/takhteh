@@ -1,20 +1,14 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
-import { ApiError, applyChanges, chatStream, clearHistory, getHistory, undoChanges, type ChatMessage } from "@/lib/api";
+import * as api from "@/lib/api";
+import { ApiError, chatStream, clearHistory, getHistory, type ChatMessage } from "@/lib/api";
 import { WEEKLY_REPORT } from "@/lib/assistant";
 import type { BoardState } from "@/lib/board";
-import { describe, type Operation, type Undo } from "@/lib/proposal";
+import type { Proposal } from "@/lib/proposal";
 
-/** Changes the assistant proposed with a reply; the user applies or rejects them, and can undo the last. */
-type Proposal = {
-  operations: Operation[];
-  changes: string[]; // the operations in words, as the board was when they were proposed
-  status: "pending" | "busy" | "applied" | "rejected" | "undone";
-  undo?: Undo;
-  problem?: string;
-};
-type Message = ChatMessage & { error?: boolean; note?: string; proposal?: Proposal };
+/** A message on screen; `busy` and `problem` belong to its proposal while the user acts on it. */
+type Message = ChatMessage & { error?: boolean; note?: string; busy?: boolean; problem?: string };
 
 /** Starting prompts that fit the open board: its own columns and, when it has any, its own cards. */
 function suggestions(board: BoardState | null): string[] {
@@ -66,41 +60,33 @@ export function ChatSidebar({
   // Only the latest applied proposal can be undone.
   const lastApplied = messages.findLastIndex((m) => m.proposal?.status === "applied");
 
-  const setProposal = (i: number, change: Partial<Proposal>) =>
-    setMessages((all) => all.map((m, j) => (j === i ? { ...m, proposal: { ...m.proposal!, ...change } } : m)));
+  const update = (i: number, change: Partial<Message>) =>
+    setMessages((all) => all.map((m, j) => (j === i ? { ...m, ...change } : m)));
 
-  const applyProposal = async (i: number) => {
-    setProposal(i, { status: "busy", problem: undefined });
+  /** Runs an action on the proposal of message `i`; on success its status becomes `status`. */
+  const act = async (
+    i: number,
+    status: Proposal["status"],
+    call: (id: string) => Promise<BoardState | void>,
+    conflict: string,
+  ) => {
+    update(i, { busy: true, problem: undefined });
     try {
-      const res = await applyChanges(boardId, messages[i].proposal!.operations);
-      onBoard(res.board);
-      setProposal(i, { status: "applied", undo: res.undo });
+      const board = await call(messages[i].id!);
+      if (board) onBoard(board);
+      update(i, { busy: false, proposal: { ...messages[i].proposal!, status } });
     } catch (e) {
-      setProposal(i, {
-        status: "pending",
-        problem:
-          e instanceof ApiError && e.status === 409
-            ? "تخته از زمان این پیشنهاد تغییر کرده و نمی‌توان آن را اعمال کرد. دوباره درخواست کنید."
-            : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
+      update(i, {
+        busy: false,
+        problem: e instanceof ApiError && e.status === 409 ? conflict : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
       });
     }
   };
-
-  const undoProposal = async (i: number) => {
-    setProposal(i, { status: "busy", problem: undefined });
-    try {
-      onBoard(await undoChanges(boardId, messages[i].proposal!.undo!));
-      setProposal(i, { status: "undone" });
-    } catch (e) {
-      setProposal(i, {
-        status: "applied",
-        problem:
-          e instanceof ApiError && e.status === 409
-            ? "تخته از آن زمان تغییر کرده و نمی‌توان این تغییرات را برگرداند."
-            : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
-      });
-    }
-  };
+  const applyProposal = (i: number) =>
+    act(i, "applied", api.applyProposal, "تخته از زمان این پیشنهاد تغییر کرده و نمی‌توان آن را اعمال کرد. دوباره درخواست کنید.");
+  const rejectProposal = (i: number) => act(i, "rejected", api.rejectProposal, "این پیشنهاد دیگر در انتظار نیست.");
+  const undoProposal = (i: number) =>
+    act(i, "undone", api.undoProposal, "تخته از آن زمان تغییر کرده و نمی‌توان این تغییرات را برگرداند.");
 
   // The conversation is stored on the server (per user and board); show it when the board opens.
   useEffect(() => {
@@ -121,17 +107,14 @@ export function ChatSidebar({
     setPending(true);
     try {
       const res = await chatStream(boardId, message, (text) => setStreaming((s) => s + text));
-      const proposal: Proposal | undefined =
-        res.operations.length && board
-          ? { operations: res.operations, changes: res.operations.map((op) => describe(op, board)), status: "pending" }
-          : undefined;
       setMessages((m) => [
         ...m,
         {
+          id: res.message_id,
           role: "assistant",
           content: res.reply,
           note: res.error ? "این تغییرات با تخته جور نبود و پیشنهاد نشد؛ دوباره و دقیق‌تر درخواست کنید." : undefined,
-          proposal,
+          proposal: res.proposal,
         },
       ]);
     } catch (e) {
@@ -209,9 +192,11 @@ export function ChatSidebar({
               {m.proposal && (
                 <ProposalBox
                   proposal={m.proposal}
+                  busy={!!m.busy}
+                  problem={m.problem}
                   canUndo={i === lastApplied}
                   onApply={() => applyProposal(i)}
-                  onReject={() => setProposal(i, { status: "rejected", problem: undefined })}
+                  onReject={() => rejectProposal(i)}
                   onUndo={() => undoProposal(i)}
                 />
               )}
@@ -287,18 +272,22 @@ const STATUS_TEXT = { applied: "اعمال شد.", rejected: "رد شد.", undon
 
 function ProposalBox({
   proposal,
+  busy,
+  problem,
   canUndo,
   onApply,
   onReject,
   onUndo,
 }: {
   proposal: Proposal;
+  busy: boolean;
+  problem?: string;
   canUndo: boolean;
   onApply: () => void;
   onReject: () => void;
   onUndo: () => void;
 }) {
-  const { status, changes, problem } = proposal;
+  const { status, changes } = proposal;
   return (
     <section aria-label="تغییرات پیشنهادی" className="mt-2.5 space-y-2 rounded-xl border border-accent/70 bg-surface p-2.5">
       <p className="text-xs font-semibold text-ink">تغییرات پیشنهادی</p>
@@ -312,11 +301,11 @@ function ProposalBox({
           {problem}
         </p>
       )}
-      {status === "pending" || (status === "busy" && !proposal.undo) ? (
+      {status === "pending" ? (
         <div className="flex gap-2">
           <button
             type="button"
-            disabled={status === "busy"}
+            disabled={busy}
             onClick={onApply}
             className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
           >
@@ -324,7 +313,7 @@ function ProposalBox({
           </button>
           <button
             type="button"
-            disabled={status === "busy"}
+            disabled={busy}
             onClick={onReject}
             className="rounded-lg px-3 py-1.5 text-xs text-gray-text transition hover:bg-mist disabled:opacity-50"
           >
@@ -334,9 +323,9 @@ function ProposalBox({
       ) : (
         <div className="flex items-center gap-2 text-xs">
           <span role="status" className={status === "rejected" ? "text-gray-text" : "font-medium text-primary-700"}>
-            {status === "busy" ? "در حال برگرداندن…" : STATUS_TEXT[status]}
+            {busy ? "در حال برگرداندن…" : STATUS_TEXT[status]}
           </span>
-          {status === "applied" && canUndo && (
+          {status === "applied" && canUndo && !busy && (
             <button
               type="button"
               onClick={onUndo}

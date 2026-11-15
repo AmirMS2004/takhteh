@@ -6,26 +6,11 @@ from app import ai
 from tests.conftest import AI_KEY_SET, board_path
 
 
-NULLS = ["card_id", "column_id", "title", "details", "index", "due_date", "priority", "assignee", "labels"]
+from tests.ai_helpers import FakeModel, apply, board, op, send, stored_operations
 
 
 def label_id(b: dict, color: str) -> str:
     return next(label["id"] for label in b["labels"] if label["color"] == color)
-
-
-def op(type_: str, **fields) -> dict:
-    """A flat operation as the model returns it: unused fields are null."""
-    return {"type": type_} | dict.fromkeys(NULLS) | fields
-
-
-class FakeModel:
-    def __init__(self):
-        self.reply = {"reply": "باشه", "operations": []}
-        self.calls = []
-
-    def __call__(self, messages, response_format=None):
-        self.calls.append({"messages": messages, "response_format": response_format})
-        return self.reply if isinstance(self.reply, str) else json.dumps(self.reply, ensure_ascii=False)
 
 
 @pytest.fixture
@@ -35,29 +20,15 @@ def model(monkeypatch):
     return fake
 
 
-def board(client) -> dict:
-    return client.get(board_path(client)).json()
-
-
 def titles(b: dict, column_index: int) -> list[str]:
     return [b["cards"][i]["title"] for i in b["columns"][column_index]["cardIds"]]
-
-
-def send(client, message="سلام"):
-    board_id = client.get("/api/boards").json()[0]["id"]
-    return client.post("/api/ai/chat", json={"board_id": board_id, "message": message})
-
-
-def apply(client, operations):
-    board_id = client.get("/api/boards").json()[0]["id"]
-    return client.post("/api/ai/apply", json={"board_id": board_id, "operations": operations})
 
 
 def run(client, message="سلام") -> dict:
     """Sends a message and applies the proposal it returns; the apply response."""
     proposal = send(client, message).json()
-    assert proposal["error"] is None and proposal["operations"], proposal
-    response = apply(client, proposal["operations"])
+    assert proposal["error"] is None and proposal["proposal"], proposal
+    response = apply(client, proposal["message_id"])
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -110,7 +81,7 @@ def test_missing_key_is_503(auth_client, monkeypatch):
 def test_reply_without_operations_leaves_board_unchanged(auth_client, model):
     before = board(auth_client)
     response = send(auth_client).json()
-    assert response == {"reply": "باشه", "operations": [], "error": None}
+    assert response == {"reply": "باشه", "message_id": response["message_id"], "proposal": None, "error": None}
     assert board(auth_client) == before
 
 
@@ -123,7 +94,8 @@ def test_changes_are_proposed_not_applied(auth_client, model):
     model.reply["operations"] = [op("create_card", column_id=todo, title="نوشتن تست", details="")]
     response = send(auth_client).json()
     assert response["error"] is None
-    assert response["operations"] == [op("create_card", column_id=todo, title="نوشتن تست", details="")]
+    assert response["proposal"] == {"changes": ["کارت تازه «نوشتن تست» در «برای انجام»"], "status": "pending"}
+    assert stored_operations(response["message_id"]) == [op("create_card", column_id=todo, title="نوشتن تست", details="")]
     assert board(auth_client) == before
 
 
@@ -210,7 +182,7 @@ def test_unknown_label_rolls_back(auth_client, model):
     before = board(auth_client)
     model.reply["operations"] = [op("update_card", card_id="card-1", labels=["label-999"])]
     response = send(auth_client).json()
-    assert response["error"].startswith("Changes cannot be applied") and response["operations"] == []
+    assert response["error"].startswith("Changes cannot be applied") and response["proposal"] is None
     assert board(auth_client) == before
 
 
@@ -237,7 +209,7 @@ def test_invalid_operation_rolls_back_everything(auth_client, model, bad):
     before = board(auth_client)
     model.reply["operations"] = [op("create_card", column_id="col-1", title="معتبر", details=""), bad]
     response = send(auth_client).json()
-    assert response["operations"] == []
+    assert response["proposal"] is None
     assert response["error"].startswith("Changes cannot be applied")
     assert response["reply"] == "باشه"
     assert before == board(auth_client)
@@ -248,7 +220,7 @@ def test_invalid_operation_rolls_back_everything(auth_client, model, bad):
     [
         "not json",
         '{"reply": "x"}',
-        '{"reply": "x", "operations": [{"type": "delete_card"}]}',
+        '{"reply": "x", "operations": [{"type": "drop_table"}]}',
     ],
 )
 def test_malformed_model_output_is_502(auth_client, model, raw):
@@ -266,7 +238,7 @@ def test_cannot_touch_another_users_board(client, model):
     client.post("/api/auth/login", json={"username": "other", "password": "secret"})
     model.reply["operations"] = [op("update_card", card_id="card-1", title="hacked")]
     assert send(client).json()["error"].startswith("Changes cannot be applied")
-    assert apply(client, [op("update_card", card_id="card-1", title="hacked")]).status_code == 409
+    assert apply(client, "msg-1").status_code == 404
     client.post("/api/auth/login", json={"username": "user", "password": "password"})
     assert board(client)["cards"]["card-1"]["title"] == "پژوهش رقبا"
 
@@ -282,7 +254,7 @@ def test_live_creates_card(auth_client):
     body = response.json()
     assert body["error"] is None, body
     assert body["reply"]
-    assert "تست زنده" in titles(apply(auth_client, body["operations"]).json()["board"], 1), body
+    assert "تست زنده" in titles(apply(auth_client, body["message_id"]).json()["board"], 1), body
 
 
 @pytest.mark.live
@@ -292,7 +264,7 @@ def test_live_moves_card_and_answers_questions(auth_client):
     assert "پژوهش رقبا" in titles(body["board"], 4), body
 
     body = send(auth_client, "ستون «در حال انجام» چند کارت دارد؟").json()
-    assert body["operations"] == [] and body["error"] is None, body
+    assert body["proposal"] is None and body["error"] is None, body
     assert body["reply"]
 
 

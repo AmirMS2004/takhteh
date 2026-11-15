@@ -1,5 +1,5 @@
 import type { BoardLabel, BoardState, BoardSummary, Card, Column } from "./board";
-import type { Operation, Undo } from "./proposal";
+import type { Proposal } from "./proposal";
 
 /** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
 export const UNAUTHORIZED_EVENT = "pm:unauthorized";
@@ -146,9 +146,10 @@ export async function deleteLabel(labelId: string): Promise<void> {
   await request(`/api/labels/${labelId}`, { method: "DELETE" });
 }
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
-/** The assistant's reply and the changes it proposes; nothing is applied until `applyChanges`. */
-export type ChatResponse = { reply: string; operations: Operation[]; error: string | null };
+/** A message of the stored conversation; replies may carry a proposal. */
+export type ChatMessage = { id?: string; role: "user" | "assistant"; content: string; proposal?: Proposal | null };
+/** The assistant's reply (stored as `message_id`) and what it proposes; nothing is applied until `applyProposal`. */
+export type ChatResponse = { reply: string; message_id: string; proposal: Proposal | null; error: string | null };
 
 /**
  * Sends a chat message and reads the NDJSON stream: `onText` gets each piece of the reply as the model
@@ -195,14 +196,18 @@ export async function clearHistory(boardId: string): Promise<void> {
   await request(`/api/ai/history/${boardId}`, { method: "DELETE" });
 }
 
-/** Applies a proposal, all or none (409 if the board changed so that it no longer fits). */
-export function applyChanges(boardId: string, operations: Operation[]): Promise<{ board: BoardState; undo: Undo }> {
-  return request("/api/ai/apply", { method: "POST", body: JSON.stringify({ board_id: boardId, operations }) });
+/** Applies the proposal of a reply, all or none (409 if the board changed so that it no longer fits). */
+export async function applyProposal(messageId: string): Promise<BoardState> {
+  return (await request<{ board: BoardState }>(`/api/ai/proposals/${messageId}/apply`, { method: "POST" })).board;
 }
 
-/** Puts back what an applied proposal changed. */
-export function undoChanges(boardId: string, undo: Undo): Promise<BoardState> {
-  return request("/api/ai/undo", { method: "POST", body: JSON.stringify({ board_id: boardId, undo }) });
+export async function rejectProposal(messageId: string): Promise<void> {
+  await request(`/api/ai/proposals/${messageId}/reject`, { method: "POST" });
+}
+
+/** Puts the board back as before the latest applied proposal (409 if the board changed since). */
+export async function undoProposal(messageId: string): Promise<BoardState> {
+  return (await request<{ board: BoardState }>(`/api/ai/proposals/${messageId}/undo`, { method: "POST" })).board;
 }
 
 export function chat(boardId: string, message: string): Promise<ChatResponse> {

@@ -82,7 +82,7 @@ def test_streams_the_reply_then_the_result(auth_client, stream):
     assert len(deltas) > 1
     assert "".join(d["text"] for d in deltas) == REPLY
     done = evs[-1]
-    assert done == {"type": "done", "reply": REPLY, "operations": [], "error": None}
+    assert done == {"type": "done", "reply": REPLY, "message_id": done["message_id"], "proposal": None, "error": None}
 
 
 def test_stream_proposes_operations(auth_client, stream):
@@ -91,7 +91,8 @@ def test_stream_proposes_operations(auth_client, stream):
     op |= {k: None for k in ["card_id", "index", "due_date", "priority", "assignee", "labels"]}
     stream["pieces"] = pieces(model_json([op]))
     done = events(send(auth_client))[-1]
-    assert done["operations"] == [op] and done["error"] is None
+    assert done["proposal"] == {"changes": ["کارت تازه «از جریان» در «برای انجام»"], "status": "pending"}
+    assert done["error"] is None
     assert auth_client.get(board_path(auth_client)).json() == before
 
 

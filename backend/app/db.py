@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role TEXT NOT NULL,
-    content TEXT NOT NULL
+    content TEXT NOT NULL,
+    proposal TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_chat_messages ON chat_messages(board_id, user_id, id);
 """
@@ -183,6 +184,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     """Brings databases from earlier versions up to date; does nothing on a current one."""
     if "user_id" in {row["name"] for row in conn.execute("PRAGMA table_info(boards)")}:
         _rebuild_boards(conn)
+    if "proposal" not in {row["name"] for row in conn.execute("PRAGMA table_info(chat_messages)")}:
+        conn.execute("ALTER TABLE chat_messages ADD COLUMN proposal TEXT")
     user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
     for name, definition in PROFILE_COLUMNS.items():
         if name not in user_columns:

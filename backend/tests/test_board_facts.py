@@ -5,6 +5,7 @@ import pytest
 
 from app import ai, db
 from app.ai_routes import board_facts
+from tests.ai_helpers import stored_operations
 from tests.conftest import AI_KEY_SET, board_path
 
 TODAY = datetime.date(2026, 11, 15)
@@ -107,7 +108,7 @@ def test_live_splits_a_card(auth_client):
         json={"board_id": board(auth_client)["id"], "message": "کارت «پژوهش رقبا» را به چند کارت کوچک‌تر تقسیم کن."},
     ).json()
     assert response["error"] is None, response
-    creates = [op for op in response["operations"] if op["type"] == "create_card"]
+    creates = [op for op in stored_operations(response["message_id"]) if op["type"] == "create_card"]
     assert 2 <= len(creates) <= 8, response
     assert all(op["column_id"] == board(auth_client)["columns"][0]["id"] for op in creates), response
 
@@ -118,5 +119,5 @@ def test_live_weekly_report(auth_client):
     response = auth_client.post(
         "/api/ai/chat", json={"board_id": board(auth_client)["id"], "message": "گزارش هفتگی این برد را بنویس."}
     ).json()
-    assert response["operations"] == [] and response["error"] is None, response
+    assert response["proposal"] is None and response["error"] is None, response
     assert "**" not in response["reply"] and len(response["reply"]) > 80, response
