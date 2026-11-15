@@ -2,6 +2,8 @@
 # Build and start the app container (Mac/Linux).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Git Bash on Windows rewrites "/app/data"-style arguments; keep the volume path as written.
+export MSYS_NO_PATHCONV=1
 
 docker build -t pm-kanban .
 docker rm -f pm-kanban >/dev/null 2>&1 || true

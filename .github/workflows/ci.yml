@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      # Live OpenRouter tests are excluded by default (pytest -m live runs them).
+      - run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # Also type-checks; a separate `tsc` would miss the types Next.js generates during the build.
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --force --with-deps chrome
+      # Global setup builds the Docker image and runs a throwaway container on port 8001.
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results
+          path: frontend/test-results
+          retention-days: 7
