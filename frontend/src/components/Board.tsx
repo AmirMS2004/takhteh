@@ -32,7 +32,10 @@ import {
   updateLabel,
   type BoardState,
 } from "@/lib/board";
+import { today } from "@/lib/cardDetails";
+import { emptyFilter, isActive, matches, type Filter } from "@/lib/filter";
 import { ColumnView } from "./ColumnView";
+import { FilterBar } from "./FilterBar";
 import { LabelsDialog } from "./LabelsDialog";
 import { CardView } from "./CardItem";
 
@@ -45,6 +48,7 @@ export function Board({ store }: { store: BoardStore }) {
   const { board, failed, apply, current, persist, notice, dismissNotice } = store;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [labelsOpen, setLabelsOpen] = useState(false);
+  const [filter, setFilter] = useState<Filter>(emptyFilter);
   const dragStart = useRef<BoardState | null>(null);
 
   const sensors = useSensors(
@@ -124,6 +128,13 @@ export function Board({ store }: { store: BoardStore }) {
   };
 
   const activeCard = activeId ? board.cards[activeId] : null;
+  // Filtering hides cards. Dragging is paused meanwhile: with cards hidden, a drop position
+  // could not be mapped back to the real order.
+  const filtering = isActive(filter);
+  const day = today();
+  const visibleCards = (ids: string[]) =>
+    ids.map((id) => board.cards[id]).filter((card) => matches(card, filter, board.labels, day));
+  const visibleCount = board.columns.reduce((n, c) => n + visibleCards(c.cardIds).length, 0);
 
   return (
     <DndContext
@@ -143,7 +154,15 @@ export function Board({ store }: { store: BoardStore }) {
           </button>
         </div>
       )}
-      <div className="mb-4 flex items-center gap-2 px-6 sm:px-10">
+      {/* Search and filters first; the labels button follows them, wrapping together on narrow screens. */}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2 px-6 sm:px-10">
+        <FilterBar
+          filter={filter}
+          onChange={setFilter}
+          labels={board.labels}
+          shown={visibleCount}
+          total={Object.keys(board.cards).length}
+        />
         <button
           type="button"
           onClick={() => setLabelsOpen(true)}
@@ -156,12 +175,18 @@ export function Board({ store }: { store: BoardStore }) {
           برچسب‌ها
         </button>
       </div>
+      {filtering && (
+        <p className="-mt-2 mb-3 px-6 text-xs text-gray-text sm:px-10">
+          تا وقتی فیلتر فعال است، کارت‌ها جابه‌جا نمی‌شوند؛ ویرایش ممکن است.
+        </p>
+      )}
       <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
         {board.columns.map((column) => (
           <ColumnView
             key={column.id}
             column={column}
-            cards={column.cardIds.map((id) => board.cards[id])}
+            cards={visibleCards(column.cardIds)}
+            filtering={filtering}
             onRename={(title) => {
               apply(renameColumn(current(), column.id, title));
               persist(api.renameColumn(column.id, title));

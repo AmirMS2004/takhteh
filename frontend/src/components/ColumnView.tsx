@@ -15,6 +15,7 @@ type Props = {
   onUpdate: (cardId: string, changes: CardChanges) => void;
   labels: BoardLabel[];
   onManageLabels: () => void;
+  filtering?: boolean;
 };
 
 function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string) => void }) {
@@ -134,7 +135,17 @@ function AddCardForm({ onAdd }: { onAdd: Props["onAdd"] }) {
   );
 }
 
-export function ColumnView({ column, cards, onRename, onAdd, onDelete, onUpdate, labels, onManageLabels }: Props) {
+export function ColumnView({
+  column,
+  cards,
+  onRename,
+  onAdd,
+  onDelete,
+  onUpdate,
+  labels,
+  onManageLabels,
+  filtering = false,
+}: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -159,7 +170,7 @@ export function ColumnView({ column, cards, onRename, onAdd, onDelete, onUpdate,
         <ul className="flex min-h-24 flex-1 flex-col gap-2.5 px-3 pb-3">
           {cards.length === 0 && (
             <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-gray-text">
-              کارتی نیست؛ کارت را اینجا رها کنید.
+              {filtering ? "کارتی با این فیلتر نیست." : "کارتی نیست؛ کارت را اینجا رها کنید."}
             </li>
           )}
           {cards.map((card) => (
@@ -170,6 +181,7 @@ export function ColumnView({ column, cards, onRename, onAdd, onDelete, onUpdate,
               onUpdate={(changes) => onUpdate(card.id, changes)}
               labels={labels}
               onManageLabels={onManageLabels}
+              dragDisabled={filtering}
             />
           ))}
         </ul>

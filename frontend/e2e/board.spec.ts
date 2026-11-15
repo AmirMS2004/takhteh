@@ -133,6 +133,19 @@ test("names a label, puts it on a card, and keeps both after reload", async ({ p
   await expect(saved.getByTitle("برچسب سبز")).toBeVisible();
 });
 
+test("searches cards and pauses dragging while filtered", async ({ page }) => {
+  await page.getByRole("searchbox", { name: "جست‌وجوی کارت‌ها" }).fill("بازنویسی");
+  await expect(page.locator("li h3")).toHaveText(["بازنویسی متن‌های راهنما"]);
+  await expect(page.getByRole("search")).toContainText("۱ کارت از ۱۰");
+
+  // Dragging is paused: the card stays where it was.
+  await drag(page, card(page, "بازنویسی متن‌های راهنما"), column(page, "done").locator("ul"));
+  await expect(column(page, "review").getByText("بازنویسی متن‌های راهنما")).toBeVisible();
+
+  await page.getByRole("button", { name: "پاک کردن فیلترها" }).click();
+  await expect(page.locator("li h3")).toHaveCount(10);
+});
+
 test("cancels adding a card", async ({ page }) => {
   const col = column(page, "todo");
   await col.getByRole("button", { name: /افزودن کارت/ }).click();

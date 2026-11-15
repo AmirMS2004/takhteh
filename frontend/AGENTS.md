@@ -26,12 +26,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `src/components/Board.tsx` — نمایش برد از `useBoard` (prop به نام `store`) و ذخیره هر تغییر. تغییرات ابتدا در صفحه اعمال می‌شوند و اگر ذخیره شکست بخورد، برد از سرور دوباره خوانده می‌شود. کارت جدید پس از پاسخ سرور (با شناسه سرور) اضافه می‌شود. در کشیدن و رها کردن، فقط هنگام رها کردن یک درخواست `move` با ستون و اندیس نهایی فرستاده می‌شود؛ handlerها برد را از `store.current()` می‌خوانند تا هیچ‌وقت نسخه قدیمی را نبینند، و لغو کشیدن برد را به حالت پیش از کشیدن برمی‌گرداند.
 - `src/components/ColumnView.tsx` — یک ستون: تغییر نام درون‌خطی (Enter ذخیره، Escape لغو)، شمارنده کارت‌ها، فرم افزودن کارت.
 - `src/lib/cardDetails.ts` — نام فارسی و رنگ اولویت‌ها و رنگ‌های برچسب (`LABEL_COLORS`، `colorOf`، `labelTitle`)، `today()` و `formatDue()` (نمایش سررسید با تقویم شمسی).
+- `src/lib/filter.ts` — جست‌وجو و فیلتر سمت کاربر: `matches` (متن در عنوان، جزئیات، مسئول و نام برچسب‌ها؛ برچسب‌ها با «یکی از»؛ اولویت؛ سررسید گذشته / تا ۷ روز / بدون سررسید) و `normalize` (ی/ک عربی، نیم‌فاصله، حروف کوچک).
+- `src/components/FilterBar.tsx` — نوار جست‌وجو و فیلتر بالای برد؛ Escape جست‌وجو را پاک می‌کند؛ تعداد «n کارت از m» و «پاک کردن فیلترها» وقتی فیلتر فعال است. در `Board.tsx` کارت‌های نامطابق پنهان می‌شوند و تا وقتی فیلتر فعال است کشیدن متوقف است (`dragDisabled`)، چون با کارت‌های پنهان، جای رها کردن به ترتیب واقعی قابل تبدیل نیست.
 - `src/components/LabelsDialog.tsx` — مدیریت برچسب‌های برد (افزودن، نام، رنگ، حذف با تأیید)؛ از دکمه «برچسب‌ها» بالای برد یا «مدیریت برچسب‌ها» در فرم کارت باز می‌شود. نام با Enter یا خروج از فیلد ذخیره می‌شود.
 - `src/components/CardItem.tsx` — `CardView` (ظاهر کارت: برچسب‌ها (بانام به‌صورت قرص رنگی با متن، بی‌نام به‌صورت نوار رنگ)، و تراشه‌های اولویت، سررسید (قرمز اگر گذشته باشد) و مسئول؛ دکمه‌های ویرایش و حذف؛ در صفحه لمسی همیشه دیده می‌شوند؛ حذف با تأیید `window.confirm`)، `CardEditForm` (ویرایش درون‌خطی همه فیلدها، از جمله سررسید، اولویت، مسئول و روشن/خاموش کردن برچسب‌های برد) و `CardItem` (پوشش sortable؛ هنگام ویرایش، کشیدن غیرفعال است).
 
 ## آزمون‌ها
 
-- `npm test` — Vitest با jsdom: `src/lib/board.test.ts`، `src/components/Board.test.tsx`، `src/components/ChatSidebar.test.tsx`، `src/components/Accounts.test.tsx`، `src/components/Labels.test.tsx` و `src/app/page.test.tsx`. `src/test/fakeApi.ts` یک نسخه درون‌حافظه‌ای از بک‌اند است که `fetch` را جایگزین می‌کند؛ پاسخ دستیار با گزینه `chat` قابل تعریف است.
+- `npm test` — Vitest با jsdom: `src/lib/board.test.ts`، `src/components/Board.test.tsx`، `src/components/ChatSidebar.test.tsx`، `src/components/Accounts.test.tsx`، `src/components/Labels.test.tsx`، `src/components/Filter.test.tsx`، `src/lib/filter.test.ts` و `src/app/page.test.tsx`. `src/test/fakeApi.ts` یک نسخه درون‌حافظه‌ای از بک‌اند است که `fetch` را جایگزین می‌کند؛ پاسخ دستیار با گزینه `chat` قابل تعریف است.
 - `npm run test:e2e` — Playwright (`e2e/board.spec.ts`، `e2e/auth.spec.ts`، `e2e/accounts.spec.ts`، `e2e/chat.spec.ts`؛ در آزمون چت، `/api/ai/chat` در مرورگر جایگزین می‌شود تا به مدل واقعی وابسته نباشد). `e2e/global-setup.ts` ایمیج را می‌سازد و یک کانتینر جداگانه `pm-kanban-e2e` روی پورت 8001 بدون volume اجرا می‌کند و در پایان حذفش می‌کند، پس برد واقعی روی پورت 8000 دست نمی‌خورد. آزمون‌ها پشت‌سرهم اجرا می‌شوند و `freshBoard` در `e2e/helpers.ts` پیش از هر آزمون برد (کارت‌ها، نام ستون‌ها و برچسب‌ها) را از طریق API به داده اولیه برمی‌گرداند. فقط Docker Desktop باید روشن باشد.
 - `npm run dev` — درخواست‌های `/api` را به کانتینر روی پورت 8000 می‌فرستد (rewrite فقط در حالت توسعه).
 
@@ -41,4 +43,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - کارت‌ها عنصر `li` هستند ولی dnd-kit به آن‌ها `role="button"` می‌دهد؛ در آزمون‌ها با تگ `li` پیدا شوند، نه با نقش listitem. ستون خالی یک `li` راهنما دارد؛ برای شمردن کارت‌ها از `li h3` استفاده شود.
 - آزمون‌های e2e در viewport به عرض ۱۶۰۰ اجرا می‌شوند تا ستون‌های مبدأ و مقصد کشیدن کنار پنل چت دیده شوند.
 - در Vitest، `window.confirm` پیاده‌سازی نشده است؛ آزمون‌های حذف آن را با `vi.spyOn` جایگزین می‌کنند.
+- وقتی کشیدن یک کارت غیرفعال است (ویرایش یا فیلتر)، ویژگی‌های sortable روی `li` گذاشته نمی‌شوند؛ وگرنه `aria-disabled` دکمه‌های داخل کارت را هم غیرفعال نشان می‌دهد.
 - `cacheComponents` و `partialPrefetching` با خروجی ایستا سازگار نیستند؛ اضافه نشوند.

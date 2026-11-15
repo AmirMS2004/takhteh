@@ -246,17 +246,19 @@ export function CardItem({
   onDelete,
   onUpdate,
   onManageLabels,
+  dragDisabled = false,
 }: {
   card: Card;
   labels: BoardLabel[];
   onDelete: (id: string) => void;
   onUpdate: (changes: CardChanges) => void;
   onManageLabels: () => void;
+  dragDisabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
-    disabled: editing,
+    disabled: editing || dragDisabled,
   });
   return (
     <li
@@ -264,8 +266,9 @@ export function CardItem({
       data-testid={`card-${card.id}`}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${isDragging ? "opacity-40" : ""}`}
-      // While editing, skip the sortable role/aria-disabled so the form isn't nested in a disabled button.
-      {...(editing ? {} : attributes)}
+      // When dragging is off, skip the sortable role/aria-disabled: otherwise the card's own buttons
+      // (and the edit form) would sit inside a "disabled button".
+      {...(editing || dragDisabled ? {} : attributes)}
       {...listeners}
     >
       {editing ? (
