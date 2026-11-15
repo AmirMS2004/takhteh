@@ -7,5 +7,6 @@ export default defineConfig({
   workers: 1,
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
-  use: { baseURL: BASE_URL, channel: "chrome" },
+  // Wide enough that drag tests see source and target columns next to the open chat panel.
+  use: { baseURL: BASE_URL, channel: "chrome", viewport: { width: 1600, height: 1000 } },
 });

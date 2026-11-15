@@ -34,6 +34,13 @@ def test_client_targets_openrouter(monkeypatch):
     assert client.api_key == "test-key"
 
 
+def test_client_has_short_timeout(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    client = ai.client()
+    assert client.timeout == 60
+    assert client.max_retries == 1
+
+
 def test_client_requires_key(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with pytest.raises(ai.AIUnavailable, match="OPENROUTER_API_KEY"):

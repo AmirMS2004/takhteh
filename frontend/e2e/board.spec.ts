@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { card, column, freshBoard, loginAndWaitForBoard } from "./helpers";
+import { card, column, freshBoard } from "./helpers";
 import { restartContainer } from "./container";
 
 const titles = (col: Locator) => col.locator("li h3").allTextContents();
@@ -23,6 +23,7 @@ async function reloadAfterSave(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  page.on("dialog", (dialog) => dialog.accept()); // confirm card deletion
   await freshBoard(page);
 });
 
@@ -116,7 +117,8 @@ test("drags a card into an empty column and keeps it there after reload", async 
   const review = column(page, "review");
   await review.locator("li").first().hover();
   await review.getByRole("button", { name: /^حذف/ }).click();
-  await expect(review.locator("li")).toHaveCount(0);
+  await expect(review.locator("li h3")).toHaveCount(0);
+  await expect(review.getByText(/کارتی نیست/)).toBeVisible();
   await drag(page, card(page, "پیاده‌سازی API کاربران"), review.locator("ul"));
   expect(await titles(review)).toEqual(["پیاده‌سازی API کاربران"]);
 
@@ -142,7 +144,7 @@ test("keeps changes after the container restarts", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   await restartContainer();
-  // The session key is random per start, so sign in again.
-  await loginAndWaitForBoard(page);
+  // The session key is kept with the data, so the user stays signed in across the restart.
+  await page.reload();
   await expect(column(page, "done").getByRole("button", { name: "تحویل‌شده" })).toBeVisible();
 });

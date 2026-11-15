@@ -66,6 +66,17 @@ describe("Home", () => {
     expect(submit).toBeDisabled();
   });
 
+  it("returns to the login form when the session expires mid-use", async () => {
+    const api = fakeApi();
+    render(<Home />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "برای انجام" }));
+    api.state.loggedIn = false; // e.g. the session cookie is no longer valid
+    await user.clear(screen.getByLabelText("نام ستون"));
+    await user.type(screen.getByLabelText("نام ستون"), "اسپرینت{Enter}");
+    expect(await screen.findByRole("heading", loginHeading)).toBeInTheDocument();
+  });
+
   it("logs out and returns to the login form", async () => {
     const api = fakeApi();
     render(<Home />);

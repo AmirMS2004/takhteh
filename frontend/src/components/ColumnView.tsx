@@ -20,7 +20,7 @@ function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string)
   const [value, setValue] = useState(title);
 
   const save = () => {
-    if (value.trim()) onRename(value.trim());
+    if (value.trim() && value.trim() !== title) onRename(value.trim());
     else setValue(title);
     setEditing(false);
   };
@@ -30,6 +30,7 @@ function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string)
       <input
         autoFocus
         aria-label="نام ستون"
+        maxLength={200}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={save}
@@ -97,6 +98,7 @@ function AddCardForm({ onAdd }: { onAdd: Props["onAdd"] }) {
         autoFocus
         placeholder="عنوان کارت"
         aria-label="عنوان کارت"
+        maxLength={200}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
@@ -105,6 +107,7 @@ function AddCardForm({ onAdd }: { onAdd: Props["onAdd"] }) {
         placeholder="جزئیات"
         aria-label="جزئیات کارت"
         rows={3}
+        maxLength={5000}
         value={details}
         onChange={(e) => setDetails(e.target.value)}
         className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
@@ -136,7 +139,7 @@ export function ColumnView({ column, cards, onRename, onAdd, onDelete, onUpdate 
     <section
       ref={setNodeRef}
       data-testid={`column-${column.id}`}
-      className={`flex w-72 shrink-0 flex-col rounded-2xl border bg-slate-100/70 backdrop-blur transition-colors ${
+      className={`flex w-64 shrink-0 flex-col rounded-2xl border bg-slate-100/70 backdrop-blur transition-colors ${
         isOver ? "border-primary/40 bg-sky-50/80" : "border-slate-200/70"
       }`}
     >
@@ -152,6 +155,11 @@ export function ColumnView({ column, cards, onRename, onAdd, onDelete, onUpdate 
       </header>
       <SortableContext items={column.cardIds} strategy={verticalListSortingStrategy}>
         <ul className="flex min-h-24 flex-1 flex-col gap-2.5 px-3 pb-3">
+          {cards.length === 0 && (
+            <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-gray-text">
+              کارتی نیست؛ کارت را اینجا رها کنید.
+            </li>
+          )}
           {cards.map((card) => (
             <CardItem
               key={card.id}

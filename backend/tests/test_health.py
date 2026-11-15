@@ -2,7 +2,7 @@ import pytest
 from fastapi.staticfiles import StaticFiles
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, session_secret
 
 
 @pytest.fixture
@@ -34,3 +34,15 @@ def test_api_and_hashed_assets_keep_default_caching(client):
     response = client.get("/_next/static/chunks/x.js")
     assert response.status_code == 200
     assert "cache-control" not in response.headers
+
+
+def test_session_secret_is_kept_next_to_the_database(db_file, monkeypatch):
+    monkeypatch.delenv("SESSION_SECRET", raising=False)
+    first = session_secret()
+    assert (db_file.parent / "session_secret").read_text() == first
+    assert session_secret() == first  # same key after a restart
+
+
+def test_session_secret_from_environment(monkeypatch):
+    monkeypatch.setenv("SESSION_SECRET", "from-env")
+    assert session_secret() == "from-env"

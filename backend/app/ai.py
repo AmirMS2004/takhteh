@@ -22,7 +22,8 @@ def client() -> OpenAI:
     key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
         raise AIUnavailable("OPENROUTER_API_KEY is not set")
-    return OpenAI(api_key=key, base_url=BASE_URL)
+    # The SDK default (600 s read timeout, 2 retries) could leave the chat waiting for 30 minutes.
+    return OpenAI(api_key=key, base_url=BASE_URL, timeout=60, max_retries=1)
 
 
 def chat(messages: list[dict], response_format: dict | None = None) -> str:

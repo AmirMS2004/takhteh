@@ -15,6 +15,18 @@ from app.board_service import NotFound
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
+def session_secret() -> str:
+    """SESSION_SECRET from the environment, or a random key kept next to the database so that
+    restarting the container does not sign everyone out."""
+    if secret := os.environ.get("SESSION_SECRET"):
+        return secret
+    path = db.db_path().parent / "session_secret"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(secrets.token_hex(32))
+    return path.read_text().strip()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init_db()
@@ -22,10 +34,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="PM Kanban", lifespan=lifespan)
-# Signed, HttpOnly cookie. Without SESSION_SECRET a random key is used, so sessions end on restart.
+# Signed, HttpOnly session cookie.
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("SESSION_SECRET") or secrets.token_hex(32),
+    secret_key=session_secret(),
     same_site="lax",
 )
 app.include_router(auth.router)

@@ -1,7 +1,15 @@
-import pytest
-from fastapi.testclient import TestClient
+import os
+import tempfile
+from pathlib import Path
 
-from app.main import app
+import pytest
+
+# Set before importing the app, so files created at import time (the session key) go to a temp dir.
+os.environ["DB_PATH"] = str(Path(tempfile.mkdtemp()) / "app.db")
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

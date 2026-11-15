@@ -11,6 +11,7 @@ import type { BoardState } from "./board";
 export function useBoard() {
   const [board, setBoard] = useState<BoardState | null>(null);
   const [failed, setFailed] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const ref = useRef<BoardState | null>(null);
 
   const apply = (next: BoardState) => {
@@ -38,7 +39,13 @@ export function useBoard() {
     failed,
     apply,
     current: () => ref.current!,
-    persist: (call: Promise<unknown>) => call.catch(reload),
+    notice,
+    dismissNotice: () => setNotice(null),
+    persist: (call: Promise<unknown>) =>
+      call.catch(() => {
+        setNotice("ذخیره تغییر ناموفق بود؛ برد از سرور دوباره بارگذاری شد.");
+        return reload();
+      }),
   };
 }
 

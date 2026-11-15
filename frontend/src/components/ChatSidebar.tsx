@@ -6,6 +6,9 @@ import type { BoardState } from "@/lib/board";
 
 type Message = ChatMessage & { error?: boolean; note?: string };
 
+// The backend accepts at most 50 history messages; the recent ones are what matter to the model.
+const MAX_HISTORY = 20;
+
 const SUGGESTIONS = [
   "یک کارت برای نوشتن مستندات API در ستون «برای انجام» بساز.",
   "کارت «پژوهش رقبا» را به «در حال انجام» ببر.",
@@ -13,7 +16,7 @@ const SUGGESTIONS = [
 ];
 
 function failureText(error: unknown) {
-  if (error instanceof ApiError && error.status === 503) return "دستیار هوش مصنوعی در دسترس نیست. تنظیم کلید OpenRouter را بررسی کنید.";
+  if (error instanceof ApiError && error.status === 503) return "دستیار هوش مصنوعی فعلاً در دسترس نیست. کمی بعد دوباره تلاش کنید.";
   if (error instanceof ApiError && error.status === 502) return "پاسخ دستیار نامعتبر بود. دوباره تلاش کنید.";
   return "ارتباط با دستیار برقرار نشد. دوباره تلاش کنید.";
 }
@@ -33,7 +36,10 @@ export function ChatSidebar({ onBoard }: { onBoard: (board: BoardState) => void 
     const message = text.trim();
     if (!message || pending) return;
     // Failed turns are not sent back to the model.
-    const history = messages.filter((m) => !m.error).map(({ role, content }) => ({ role, content }));
+    const history = messages
+      .filter((m) => !m.error)
+      .slice(-MAX_HISTORY)
+      .map(({ role, content }) => ({ role, content }));
     setMessages((m) => [...m, { role: "user", content: message }]);
     setInput("");
     setPending(true);
@@ -59,7 +65,7 @@ export function ChatSidebar({ onBoard }: { onBoard: (board: BoardState) => void 
   return (
     <aside
       aria-label="دستیار هوش مصنوعی"
-      className="flex h-[32rem] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgba(3,33,71,0.35)] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-[22rem] lg:shrink-0"
+      className="flex h-[32rem] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-28px_rgba(3,33,71,0.35)] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-80 lg:shrink-0"
     >
       <header className="border-b border-slate-100 px-4 py-3">
         <div className="flex items-center gap-2">
@@ -122,6 +128,7 @@ export function ChatSidebar({ onBoard }: { onBoard: (board: BoardState) => void 
           aria-label="پیام به دستیار"
           placeholder="پیام خود را بنویسید…"
           rows={2}
+          maxLength={4000}
           value={input}
           disabled={pending}
           onChange={(e) => setInput(e.target.value)}

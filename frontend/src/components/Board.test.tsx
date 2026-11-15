@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeApi } from "@/test/fakeApi";
@@ -75,11 +75,35 @@ describe("Board", () => {
     });
   });
 
-  it("deletes a card", async () => {
+  it("deletes a card after confirmation", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const { api, user } = await renderBoard();
     await user.click(screen.getByRole("button", { name: "حذف پژوهش رقبا" }));
+    expect(confirm).toHaveBeenCalledWith("کارت «پژوهش رقبا» حذف شود؟");
     expect(screen.queryByText("پژوهش رقبا")).not.toBeInTheDocument();
     expect(api.state.board.cards.c1).toBeUndefined();
+  });
+
+  it("keeps the card when deletion is not confirmed", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { api, user } = await renderBoard();
+    await user.click(screen.getByRole("button", { name: "حذف پژوهش رقبا" }));
+    expect(screen.getByText("پژوهش رقبا")).toBeInTheDocument();
+    expect(api.calls()).toHaveLength(1);
+  });
+
+  it("does not save a column name that did not change", async () => {
+    const { api, user } = await renderBoard();
+    await user.click(within(column("todo")).getByRole("button", { name: "برای انجام" }));
+    await user.keyboard("{Enter}");
+    expect(api.calls()).toHaveLength(1);
+  });
+
+  it("shows a hint in empty columns", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { user } = await renderBoard();
+    await user.click(screen.getByRole("button", { name: "حذف بازنویسی متن‌های راهنما" }));
+    expect(within(column("review")).getByText(/کارتی نیست/)).toBeInTheDocument();
   });
 
   it("edits a card title and details", async () => {
@@ -117,10 +141,14 @@ describe("Board", () => {
     expect(screen.getByRole("button", { name: "ذخیره" })).toBeDisabled();
   });
 
-  it("reloads the server state when a save fails", async () => {
+  it("reloads the server state and tells the user when a save fails", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { user } = await renderBoard({ overrides: { "DELETE /api/cards/c1": { status: 500 } } });
     await user.click(screen.getByRole("button", { name: "حذف پژوهش رقبا" }));
     // Optimistically removed, then restored from the server after the failure.
     expect(await within(column("backlog")).findByText("پژوهش رقبا")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("ذخیره تغییر ناموفق بود");
+    await user.click(screen.getByRole("button", { name: "بستن" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

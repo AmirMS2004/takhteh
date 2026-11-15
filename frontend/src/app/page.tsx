@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Board } from "@/components/Board";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { LoginForm } from "@/components/LoginForm";
-import { getMe, logout } from "@/lib/api";
+import { UNAUTHORIZED_EVENT, getMe, logout } from "@/lib/api";
 import { useBoard } from "@/lib/useBoard";
 
 type Session = { status: "loading" } | { status: "anonymous" } | { status: "user"; username: string };
@@ -33,6 +33,9 @@ export default function Home() {
     getMe()
       .then((username) => setSession(username ? { status: "user", username } : { status: "anonymous" }))
       .catch(() => setSession({ status: "anonymous" }));
+    const signOut = () => setSession({ status: "anonymous" });
+    window.addEventListener(UNAUTHORIZED_EVENT, signOut);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, signOut);
   }, []);
 
   if (session.status === "loading") return null;
@@ -42,26 +45,34 @@ export default function Home() {
 
   return (
     <main className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-start justify-between gap-4 px-6 pt-10 pb-8 sm:px-10">
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 px-6 pt-8 pb-6 sm:px-10 sm:pt-10">
         <div>
           <div className="flex items-center gap-3">
             <span className="h-8 w-1.5 rounded-full bg-accent" />
-            <h1 className="text-3xl font-extrabold tracking-tight text-navy">تخته پروژه</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-navy sm:text-3xl">تخته پروژه</h1>
           </div>
-          <p className="mt-2 pr-4.5 text-sm text-gray-text">
-            کارت‌ها را بکشید و بین ستون‌ها جابه‌جا کنید. برای تغییر نام ستون روی عنوان آن کلیک کنید.
+          <p className="mt-2 hidden pr-4.5 text-sm text-gray-text sm:block">
+            کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید.
           </p>
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <button
             type="button"
             aria-pressed={chatOpen}
             onClick={() => setChatOpen((o) => !o)}
-            className="rounded-lg bg-primary/10 px-3 py-1.5 font-medium text-primary transition hover:bg-primary/15"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
+              chatOpen ? "bg-primary text-white hover:brightness-110" : "bg-primary/10 text-primary hover:bg-primary/15"
+            }`}
           >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+              <path d="M4 5h12v8H8l-4 3V5z" strokeLinejoin="round" />
+            </svg>
             {chatOpen ? "بستن دستیار" : "دستیار هوش مصنوعی"}
           </button>
-          <span className="text-gray-text" dir="ltr">
+          <span className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-gray-text" dir="ltr">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-navy text-xs font-bold text-white uppercase" aria-hidden>
+              {session.username[0]}
+            </span>
             {session.username}
           </span>
           <button

@@ -3,7 +3,7 @@ import "@fontsource-variable/vazirmatn";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "تخته کانبان",
+  title: "تخته پروژه",
   description: "مدیریت ساده پروژه به سبک کانبان",
 };
 

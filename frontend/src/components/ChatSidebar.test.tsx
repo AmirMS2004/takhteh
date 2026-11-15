@@ -107,6 +107,17 @@ describe("ChatSidebar", () => {
     expect(api.calls()[0].body.history).toEqual([]);
   });
 
+  it("sends at most the last 20 messages as history", async () => {
+    const { api, user } = await renderHome();
+    for (let i = 1; i <= 12; i++) {
+      await say(user, `پیام ${i}`);
+      await within(chatPanel()).findByText(`پاسخ به: پیام ${i}`);
+    }
+    const last = api.calls().filter((c) => c.route === "POST /api/ai/chat").at(-1)!;
+    expect(last.body.history).toHaveLength(20);
+    expect(last.body.history[0]).toEqual({ role: "user", content: "پیام 2" });
+  });
+
   it("sends a suggestion when clicked", async () => {
     const { api, user } = await renderHome();
     await user.click(within(chatPanel()).getByRole("button", { name: /چه کارهایی در حال انجام است/ }));

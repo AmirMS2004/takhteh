@@ -12,8 +12,9 @@ type Props = {
   overlay?: boolean;
 };
 
+// Shown on hover or keyboard focus; always shown on touch screens, which have no hover.
 const iconButton =
-  "rounded-md p-1 text-gray-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100";
+  "rounded-md p-1 text-gray-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 
 export function CardView({ card, onDelete, onEdit, overlay }: Props) {
   return (
@@ -43,7 +44,7 @@ export function CardView({ card, onDelete, onEdit, overlay }: Props) {
             <button
               type="button"
               aria-label={`حذف ${card.title}`}
-              onClick={() => onDelete(card.id)}
+              onClick={() => window.confirm(`کارت «${card.title}» حذف شود؟`) && onDelete(card.id)}
               onPointerDown={(e) => e.stopPropagation()}
               className={`${iconButton} hover:bg-red-50 hover:text-red-600`}
             >
@@ -54,7 +55,7 @@ export function CardView({ card, onDelete, onEdit, overlay }: Props) {
           )}
         </div>
       </div>
-      {card.details && <p className="mt-1.5 text-[13px] leading-6 text-gray-text">{card.details}</p>}
+      {card.details && <p className="mt-1.5 line-clamp-3 text-[13px] leading-6 text-gray-text">{card.details}</p>}
     </div>
   );
 }
@@ -83,6 +84,7 @@ function CardEditForm({
       <input
         autoFocus
         aria-label="ویرایش عنوان"
+        maxLength={200}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
@@ -90,6 +92,7 @@ function CardEditForm({
       <textarea
         aria-label="ویرایش جزئیات"
         rows={3}
+        maxLength={5000}
         value={details}
         onChange={(e) => setDetails(e.target.value)}
         className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
@@ -133,7 +136,7 @@ export function CardItem({
       ref={setNodeRef}
       data-testid={`card-${card.id}`}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={isDragging ? "opacity-40" : ""}
+      className={`rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${isDragging ? "opacity-40" : ""}`}
       // While editing, skip the sortable role/aria-disabled so the form isn't nested in a disabled button.
       {...(editing ? {} : attributes)}
       {...listeners}

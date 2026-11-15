@@ -16,15 +16,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - `src/app/layout.tsx` — ریشه HTML با `lang="fa" dir="rtl"` و فونت Vazirmatn.
 - `src/app/page.tsx` — صفحه اصلی: با `GET /api/auth/me` وضعیت ورود را می‌خواند؛ فرم ورود یا `Workspace` (برد و پنل چت کنار هم، با نام کاربر، دکمه نمایش/پنهان کردن دستیار و دکمه خروج) را نشان می‌دهد. پنل چت با ویژگی `hidden` پنهان می‌شود، نه حذف، تا گفت‌وگو باقی بماند.
-- `src/lib/useBoard.ts` — state برد: بارگذاری از سرور، `apply` (به‌روزرسانی state و یک ref هم‌زمان برای handlerهای کشیدن)، `persist` (در صورت شکست ذخیره، بازخوانی از سرور). برد و چت هر دو از همین store استفاده می‌کنند.
-- `src/components/ChatSidebar.tsx` — پنل گفت‌وگو با هوش مصنوعی: پیشنهادهای شروع، پیام‌ها، نشانگر «در حال پاسخ…»، ارسال با Enter (Shift+Enter خط جدید). تاریخچه در state کامپوننت است و با هر پیام فرستاده می‌شود (نوبت‌های ناموفق نه). اگر `applied > 0` باشد، برد برگشتی جایگزین برد صفحه می‌شود.
-- `src/lib/api.ts` — فراخوانی‌های API (ورود و خروج، `getBoard`، `renameColumn`، `createCard`، `updateCard`، `moveCard`، `deleteCard`، `chat`) و `ApiError`.
+- `src/lib/useBoard.ts` — state برد: بارگذاری از سرور، `apply` (به‌روزرسانی state و یک ref هم‌زمان برای handlerهای کشیدن)، `persist` (در صورت شکست ذخیره، بازخوانی از سرور و نمایش `notice` بالای برد). برد و چت هر دو از همین store استفاده می‌کنند.
+- `src/components/ChatSidebar.tsx` — پنل گفت‌وگو با هوش مصنوعی: پیشنهادهای شروع، پیام‌ها، نشانگر «در حال پاسخ…»، ارسال با Enter (Shift+Enter خط جدید). تاریخچه در state کامپوننت است و با هر پیام فقط ۲۰ پیام آخر فرستاده می‌شود (نوبت‌های ناموفق نه؛ سقف بک‌اند ۵۰ پیام است). اگر `applied > 0` باشد، برد برگشتی جایگزین برد صفحه می‌شود.
+- `src/lib/api.ts` — فراخوانی‌های API (ورود و خروج، `getBoard`، `renameColumn`، `createCard`، `updateCard`، `moveCard`، `deleteCard`، `chat`) و `ApiError`. هر پاسخ 401 (جز مسیرهای `/api/auth/`) رویداد `pm:unauthorized` را می‌فرستد و صفحه به فرم ورود برمی‌گردد.
 - `src/components/LoginForm.tsx` — فرم ورود با پیام خطای فارسی.
 - `src/app/globals.css` — Tailwind و رنگ‌های پروژه (`accent`، `primary`، `secondary`، `navy`، `gray-text`).
 - `src/lib/board.ts` — نوع‌ها (`Card`، `Column`، `BoardState`)، توابع خالص تغییر برد (`renameColumn`، `addCard`، `updateCard`، `deleteCard`، `moveCard`، `findColumn`) و `initialBoard` که فقط در آزمون‌ها استفاده می‌شود.
 - `src/components/Board.tsx` — نمایش برد از `useBoard` (prop به نام `store`) و ذخیره هر تغییر. تغییرات ابتدا در صفحه اعمال می‌شوند و اگر ذخیره شکست بخورد، برد از سرور دوباره خوانده می‌شود. کارت جدید پس از پاسخ سرور (با شناسه سرور) اضافه می‌شود. در کشیدن و رها کردن، فقط هنگام رها کردن یک درخواست `move` با ستون و اندیس نهایی فرستاده می‌شود؛ handlerها برد را از `store.current()` می‌خوانند تا هیچ‌وقت نسخه قدیمی را نبینند، و لغو کشیدن برد را به حالت پیش از کشیدن برمی‌گرداند.
 - `src/components/ColumnView.tsx` — یک ستون: تغییر نام درون‌خطی (Enter ذخیره، Escape لغو)، شمارنده کارت‌ها، فرم افزودن کارت.
-- `src/components/CardItem.tsx` — `CardView` (ظاهر کارت، دکمه‌های ویرایش و حذف)، `CardEditForm` (ویرایش درون‌خطی) و `CardItem` (پوشش sortable؛ هنگام ویرایش، کشیدن غیرفعال است).
+- `src/components/CardItem.tsx` — `CardView` (ظاهر کارت، دکمه‌های ویرایش و حذف؛ در صفحه لمسی همیشه دیده می‌شوند؛ حذف با تأیید `window.confirm`)، `CardEditForm` (ویرایش درون‌خطی) و `CardItem` (پوشش sortable؛ هنگام ویرایش، کشیدن غیرفعال است).
 
 ## آزمون‌ها
 
@@ -35,5 +35,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## نکات
 
 - `data-testid`های `column-<id>` و `card-<id>` در آزمون‌ها استفاده می‌شوند؛ حفظ شوند. شناسه‌های سرور `col-N` و `card-N` هستند.
-- کارت‌ها عنصر `li` هستند ولی dnd-kit به آن‌ها `role="button"` می‌دهد؛ در آزمون‌ها با تگ `li` پیدا شوند، نه با نقش listitem.
+- کارت‌ها عنصر `li` هستند ولی dnd-kit به آن‌ها `role="button"` می‌دهد؛ در آزمون‌ها با تگ `li` پیدا شوند، نه با نقش listitem. ستون خالی یک `li` راهنما دارد؛ برای شمردن کارت‌ها از `li h3` استفاده شود.
+- آزمون‌های e2e در viewport به عرض ۱۶۰۰ اجرا می‌شوند تا ستون‌های مبدأ و مقصد کشیدن کنار پنل چت دیده شوند.
+- در Vitest، `window.confirm` پیاده‌سازی نشده است؛ آزمون‌های حذف آن را با `vi.spyOn` جایگزین می‌کنند.
 - `cacheComponents` و `partialPrefetching` با خروجی ایستا سازگار نیستند؛ اضافه نشوند.

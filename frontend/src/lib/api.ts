@@ -1,10 +1,14 @@
 import type { BoardState, Card } from "./board";
 
+/** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
+export const UNAUTHORIZED_EVENT = "pm:unauthorized";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
+  if (res.status === 401 && !path.startsWith("/api/auth/")) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   if (!res.ok) throw new ApiError(res.status);
   return res.json();
 }

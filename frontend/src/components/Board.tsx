@@ -5,7 +5,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   closestCorners,
   pointerWithin,
@@ -37,12 +38,14 @@ function position(board: BoardState, cardId: string) {
 }
 
 export function Board({ store }: { store: BoardStore }) {
-  const { board, failed, apply, current, persist } = store;
+  const { board, failed, apply, current, persist, notice, dismissNotice } = store;
   const [activeId, setActiveId] = useState<string | null>(null);
   const dragStart = useRef<BoardState | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // On touch screens a swipe scrolls the board; a short press-and-hold starts a drag.
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -127,7 +130,15 @@ export function Board({ store }: { store: BoardStore }) {
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="flex gap-5 overflow-x-auto px-6 pb-8 sm:px-10">
+      {notice && (
+        <div role="alert" className="mx-6 mb-4 flex items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-700 sm:mx-10">
+          {notice}
+          <button type="button" onClick={dismissNotice} className="font-medium hover:underline">
+            بستن
+          </button>
+        </div>
+      )}
+      <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
         {board.columns.map((column) => (
           <ColumnView
             key={column.id}
