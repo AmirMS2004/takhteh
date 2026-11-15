@@ -23,16 +23,36 @@ export function fakeApi({
   overrides = {} as Record<string, Override>,
   chat = ((body) => ({ reply: `پاسخ به: ${body.message}` })) as ChatScript,
 } = {}) {
-  const state = { board: structuredClone(initialBoard) as BoardState, loggedIn, nextId: 1 };
+  const state = {
+    board: structuredClone(initialBoard) as BoardState,
+    loggedIn,
+    nextId: 1,
+    users: { user: "password" } as Record<string, string>,
+    username: "user",
+  };
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
   const handle = (method: string, path: string, body: Record<string, unknown>): Response => {
-    if (path === "/api/auth/me") return state.loggedIn ? json({ username: "user" }) : json({}, 401);
+    if (path === "/api/auth/me") return state.loggedIn ? json({ username: state.username }) : json({}, 401);
     if (path === "/api/auth/login") {
-      if (body.username !== "user" || body.password !== "password") return json({}, 401);
-      state.loggedIn = true;
-      return json({ username: "user" });
+      const name = String(body.username).toLowerCase();
+      if (state.users[name] !== body.password) return json({}, 401);
+      Object.assign(state, { loggedIn: true, username: name });
+      return json({ username: name });
+    }
+    if (path === "/api/auth/signup") {
+      const name = String(body.username).toLowerCase();
+      if (name in state.users) return json({}, 409);
+      state.users[name] = body.password as string;
+      Object.assign(state, { loggedIn: true, username: name });
+      return json({ username: name }, 201);
+    }
+    if (path === "/api/auth/password") {
+      if (!state.loggedIn) return json({}, 401);
+      if (state.users[state.username] !== body.current_password) return json({}, 403);
+      state.users[state.username] = body.new_password as string;
+      return json({ ok: true });
     }
     if (path === "/api/auth/logout") {
       state.loggedIn = false;

@@ -36,6 +36,21 @@ export async function login(username: string, password: string): Promise<string>
   return data.username;
 }
 
+export async function signup(username: string, password: string): Promise<string> {
+  const data = await request<{ username: string }>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  return data.username;
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await request("/api/auth/password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+}
+
 export async function logout(): Promise<void> {
   await request("/api/auth/logout", { method: "POST" });
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Board } from "@/components/Board";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { LoginForm } from "@/components/LoginForm";
 import { UNAUTHORIZED_EVENT, getMe, logout } from "@/lib/api";
@@ -28,6 +29,7 @@ function Workspace({ chatOpen }: { chatOpen: boolean }) {
 export default function Home() {
   const [session, setSession] = useState<Session>({ status: "loading" });
   const [chatOpen, setChatOpen] = useState(true);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   useEffect(() => {
     getMe()
@@ -77,6 +79,13 @@ export default function Home() {
           </span>
           <button
             type="button"
+            onClick={() => setPasswordOpen(true)}
+            className="rounded-lg px-3 py-1.5 font-medium whitespace-nowrap text-gray-text transition hover:bg-slate-100 hover:text-navy"
+          >
+            تغییر رمز
+          </button>
+          <button
+            type="button"
             onClick={async () => {
               await logout().catch(() => {});
               setSession({ status: "anonymous" });
@@ -88,6 +97,7 @@ export default function Home() {
         </div>
       </header>
       <Workspace chatOpen={chatOpen} />
+      {passwordOpen && <ChangePasswordDialog onClose={() => setPasswordOpen(false)} />}
     </main>
   );
 }
