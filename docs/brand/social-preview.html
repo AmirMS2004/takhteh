@@ -1,0 +1,146 @@
+<!doctype html>
+<!--
+  The repository's social preview (GitHub: Settings > Social preview), 1280x640. Rendered to
+  social-preview.png with Playwright; see docs/BRAND.md. Uses the app's Vazirmatn font from frontend/node_modules.
+-->
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: "Vazirmatn";
+    src: url("../../frontend/node_modules/@fontsource-variable/vazirmatn/files/vazirmatn-arabic-wght-normal.woff2") format("woff2");
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: "Vazirmatn";
+    src: url("../../frontend/node_modules/@fontsource-variable/vazirmatn/files/vazirmatn-latin-wght-normal.woff2") format("woff2");
+    font-weight: 100 900;
+    unicode-range: U+0000-00FF;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1280px; height: 640px; }
+  body {
+    font-family: "Vazirmatn", sans-serif;
+    color: #fff;
+    overflow: hidden;
+    position: relative;
+    background:
+      radial-gradient(700px 420px at 100% 0%, rgb(32 157 215 / 0.38), transparent 65%),
+      radial-gradient(620px 420px at 0% 100%, rgb(117 57 145 / 0.42), transparent 65%),
+      radial-gradient(520px 320px at 35% 0%, rgb(236 173 10 / 0.16), transparent 70%),
+      #032147;
+  }
+
+  /* Brand side (right, RTL start) */
+  .brand { position: absolute; top: 88px; right: 88px; width: 560px; }
+  .lockup { display: flex; align-items: center; gap: 28px; }
+  .name { font-size: 150px; font-weight: 900; line-height: 1; letter-spacing: -0.02em; }
+  .bar { width: 10px; height: 64px; border-radius: 99px; background: #ecad0a; margin-top: 44px; }
+  .tagline { margin-top: 18px; font-size: 40px; font-weight: 700; color: rgb(255 255 255 / 0.92); }
+  .lead { margin-top: 14px; font-size: 24px; line-height: 1.7; color: rgb(255 255 255 / 0.7); }
+  .chips { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    font-size: 19px; font-weight: 600; padding: 7px 16px; border-radius: 99px;
+    background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.18);
+  }
+  .chip.accent { background: rgb(236 173 10 / 0.18); border-color: rgb(236 173 10 / 0.55); color: #ffd768; }
+
+  /* Product side (left): a small board with the assistant */
+  .board {
+    position: absolute; top: 72px; left: 72px; width: 520px; height: 496px;
+    border-radius: 28px; padding: 22px;
+    background: rgb(255 255 255 / 0.07);
+    border: 1px solid rgb(255 255 255 / 0.14);
+    box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.55);
+    display: flex; gap: 14px;
+  }
+  .lane {
+    flex: 1; border-radius: 18px; padding: 12px; background: #dfe7f1;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .lane h3 { font-size: 16px; font-weight: 800; color: #032147; display: flex; justify-content: space-between; align-items: center; }
+  .count { font-size: 12px; font-weight: 700; background: #fff; color: rgb(3 33 71 / 0.7); border-radius: 99px; padding: 1px 9px; }
+  .card {
+    background: #fff; border-radius: 12px; padding: 10px 11px; color: #032147;
+    font-size: 14px; font-weight: 700; box-shadow: 0 2px 4px rgb(3 33 71 / 0.08);
+  }
+  .card small { display: block; margin-top: 5px; font-size: 11px; font-weight: 500; color: #888; }
+  .labels { display: flex; gap: 5px; margin-bottom: 7px; }
+  .labels i { display: block; height: 6px; width: 28px; border-radius: 9px; }
+  .moving {
+    transform: rotate(-4deg) translateX(-6px);
+    box-shadow: 0 18px 30px -12px rgb(3 33 71 / 0.55), 0 0 0 2px #ecad0a;
+  }
+  .chip-in { display: inline-block; margin-top: 7px; font-size: 11px; padding: 1px 8px; border-radius: 99px; }
+
+  .assistant {
+    position: absolute; left: 330px; top: 352px; width: 300px;
+    border-radius: 18px; padding: 14px 16px; color: #032147; background: #fff;
+    box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.6);
+    border-top: 5px solid #ecad0a;
+  }
+  .assistant b { display: block; font-size: 15px; font-weight: 800; }
+  .assistant p { margin-top: 6px; font-size: 13px; color: #445; line-height: 1.6; }
+  .assistant .actions { margin-top: 10px; display: flex; gap: 8px; }
+  .btn { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 8px; }
+  .btn.apply { background: #753991; color: #fff; }
+  .btn.reject { color: #888; border: 1px solid #dfe5ee; }
+
+  .footer { position: absolute; bottom: 44px; right: 88px; font-size: 20px; color: rgb(255 255 255 / 0.55); font-weight: 500; }
+  .footer span { direction: ltr; unicode-bidi: isolate; }
+</style>
+</head>
+<body>
+  <section class="brand">
+    <div class="lockup">
+      <svg width="132" height="132" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="4" y="4" width="56" height="56" rx="16" fill="#fff"/>
+        <rect x="43" y="15" width="12" height="11" rx="3" fill="#032147"/>
+        <rect x="43" y="29" width="12" height="11" rx="3" fill="#032147" fill-opacity=".5"/>
+        <rect x="43" y="43" width="12" height="7" rx="3" fill="#032147" fill-opacity=".25"/>
+        <rect x="26" y="15" width="12" height="11" rx="3" fill="#ecad0a"/>
+        <rect x="26" y="29" width="12" height="11" rx="3" fill="#032147" fill-opacity=".5"/>
+        <rect x="9" y="15" width="12" height="11" rx="3" fill="#032147" fill-opacity=".5"/>
+      </svg>
+      <div class="name">تخته</div>
+      <div class="bar"></div>
+    </div>
+    <p class="tagline">همه کارها روی یک تخته</p>
+    <p class="lead">مدیریت پروژه به سبک کانبان، فارسی و راست‌به‌چپ،<br>با دستیاری که کارت‌ها را برایتان می‌چیند.</p>
+    <div class="chips">
+      <span class="chip accent">دستیار هوش مصنوعی</span>
+      <span class="chip">هم‌گام‌سازی زنده</span>
+      <span class="chip">تاریخچه و بازگرداندن</span>
+      <span class="chip">تم روشن و تاریک</span>
+    </div>
+  </section>
+
+  <section class="board" aria-hidden="true">
+    <div class="lane">
+      <h3>برای انجام <span class="count">۳</span></h3>
+      <div class="card"><div class="labels"><i style="background:#d04a4a"></i><i style="background:#209dd7"></i></div>طراحی صفحه ورود<small>وایرفریم و نسخه نهایی</small></div>
+      <div class="card">تعریف شاخص‌ها<small>با تیم محصول</small></div>
+      <div class="card">مستندات API<span class="chip-in" style="background:#fcecea;color:#c4413a">اولویت بالا</span></div>
+    </div>
+    <div class="lane">
+      <h3>در حال انجام <span class="count">۲</span></h3>
+      <div class="card moving"><div class="labels"><i style="background:#ecad0a"></i></div>پژوهش رقبا<small>سه محصول رقیب</small></div>
+      <div class="card">بهبود سرعت<span class="chip-in" style="background:#fdf3d6;color:#8a6400">سررسید ۲۰ آذر</span></div>
+    </div>
+    <div class="lane">
+      <h3>انجام‌شده <span class="count">۲</span></h3>
+      <div class="card">راه‌اندازی مخزن</div>
+      <div class="card">جلسه شروع پروژه</div>
+    </div>
+  </section>
+
+  <div class="assistant" aria-hidden="true">
+    <b>تغییرات پیشنهادی دستیار</b>
+    <p>کارت تازه «آزمون کاربرپذیری» در «برای انجام»<br>انتقال «پژوهش رقبا» به «انجام‌شده»</p>
+    <div class="actions"><span class="btn apply">اعمال تغییرات</span><span class="btn reject">رد کردن</span></div>
+  </div>
+
+  <p class="footer"><span>Takhteh</span> · منبع باز با مجوز MIT</p>
+</body>
+</html>
