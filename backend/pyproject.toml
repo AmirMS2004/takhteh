@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi",
     "itsdangerous",
+    "openai",
     "uvicorn[standard]",
 ]
 
@@ -19,3 +20,6 @@ package = false
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# Live tests call OpenRouter for real; run them explicitly with `pytest -m live`.
+markers = ["live: calls the real OpenRouter API (needs OPENROUTER_API_KEY)"]
+addopts = "-m 'not live'"

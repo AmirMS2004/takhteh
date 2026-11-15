@@ -7,6 +7,8 @@ FastAPI روی Python 3.13، مدیریت پکیج با `uv`.
 - `app/board_service.py` — همه خواندن و نوشتن‌های برد، محدود به کاربر؛ شناسه‌های API به شکل `col-N` و `card-N`؛ شناسه ناموجود یا متعلق به کاربر دیگر خطای `NotFound` (پاسخ 404) می‌دهد. AI در بخش نهم هم از همین ماژول استفاده می‌کند.
 - `app/board.py` — مسیرهای `GET /api/board`، `PATCH /api/columns/{id}`، `POST /api/cards`، `PATCH /api/cards/{id}`، `POST /api/cards/{id}/move`، `DELETE /api/cards/{id}`.
 - `app/auth.py` — `POST /api/auth/login`، `POST /api/auth/logout`، `GET /api/auth/me` و dependency به نام `current_user` برای محافظت از مسیرها. سشن در کوکی امضاشده `SessionMiddleware`؛ کلید از `SESSION_SECRET` (در نبودش تصادفی و با هر راه‌اندازی مجدد، کاربران خارج می‌شوند).
+- `app/ai.py` — کلاینت OpenAI روی OpenRouter (`openai/gpt-oss-120b`) و تابع `chat(messages, response_format=None)`. نبود `OPENROUTER_API_KEY` یا خطای OpenRouter خطای `AIUnavailable` (پاسخ 503) می‌دهد.
+- `app/ai_routes.py` — `POST /api/ai/ping` (موقت، تا بخش نهم): پرسش «2+2» برای بررسی اتصال.
 - `static/` — خروجی ایستای Next.js که در Docker از `frontend/out` کپی می‌شود (در git نیست؛ در اجرای محلی بدون آن، `/` خطای 404 می‌دهد).
 - `tests/` — آزمون‌های pytest؛ `conftest.py` برای هر آزمون یک پایگاه داده موقت می‌سازد و فیکسچرهای `client` و `auth_client` (واردشده) دارد.
 
@@ -19,3 +21,9 @@ docker run --rm -v "$PWD/backend:/src" -w /src -e UV_PROJECT_ENVIRONMENT=/tmp/ve
 ```
 
 با `uv` محلی: `cd backend && uv run pytest`. پس از تغییر وابستگی‌ها `uv lock` اجرا شود.
+
+آزمون‌های `live` واقعاً OpenRouter را صدا می‌زنند و به‌طور پیش‌فرض اجرا نمی‌شوند. برای اجرا، `.env` را به کانتینر بده و `-m live` بزن:
+
+```bash
+docker run --rm --env-file .env -v "$PWD/backend:/src" -w /src -e UV_PROJECT_ENVIRONMENT=/tmp/venv ghcr.io/astral-sh/uv:python3.13-bookworm-slim uv run pytest -q -m live
+```

@@ -156,14 +156,14 @@ Dockerfile    ساخت چندمرحله‌ای: Node برای فرانت‌ان�
 
 ## بخش هشتم: اتصال به هوش مصنوعی
 
-- [ ] افزودن کتابخانه `openai` و تنظیم `base_url="https://openrouter.ai/api/v1"` با `OPENROUTER_API_KEY` از محیط
-- [ ] `backend/app/ai.py` با تابع `chat(messages, response_format=None)` و مدل `openai/gpt-oss-120b`
-- [ ] مسیر موقت `POST /api/ai/ping` (محافظت‌شده) که «2+2» را می‌پرسد و پاسخ را برمی‌گرداند
-- [ ] پیام خطای روشن (503) وقتی کلید تنظیم نشده یا OpenRouter خطا می‌دهد
+- [x] افزودن کتابخانه `openai` و تنظیم `base_url="https://openrouter.ai/api/v1"` با `OPENROUTER_API_KEY` از محیط
+- [x] `backend/app/ai.py` با تابع `chat(messages, response_format=None)` و مدل `openai/gpt-oss-120b`
+- [x] مسیر موقت `POST /api/ai/ping` (محافظت‌شده) که «2+2» را می‌پرسد و پاسخ را برمی‌گرداند
+- [x] پیام خطای روشن (503) وقتی کلید تنظیم نشده یا OpenRouter خطا می‌دهد
 
 **آزمون‌ها**
-- [ ] pytest واحد: mock کردن کلاینت و بررسی مدل، پیام‌ها و `base_url`
-- [ ] pytest یکپارچه (با نشان `@pytest.mark.live`، فقط وقتی کلید موجود است): پاسخ واقعی شامل «4» باشد
+- [x] pytest واحد: mock کردن کلاینت و بررسی مدل، پیام‌ها و `base_url`
+- [x] pytest یکپارچه (با نشان `@pytest.mark.live`؛ به‌طور پیش‌فرض اجرا نمی‌شود، با `-m live`): پاسخ واقعی شامل «4» باشد
 
 **معیار موفقیت:** فراخوانی واقعی از داخل کانتینر پاسخ «4» می‌دهد.
 

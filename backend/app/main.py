@@ -8,7 +8,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import auth, board, db
+from app import ai_routes, auth, board, db
+from app.ai import AIUnavailable
 from app.board_service import NotFound
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -29,11 +30,17 @@ app.add_middleware(
 )
 app.include_router(auth.router)
 app.include_router(board.router)
+app.include_router(ai_routes.router)
 
 
 @app.exception_handler(NotFound)
 def not_found(_: Request, exc: NotFound) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": f"Not found: {exc}"})
+
+
+@app.exception_handler(AIUnavailable)
+def ai_unavailable(_: Request, exc: AIUnavailable) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": f"AI unavailable: {exc}"})
 
 
 @app.get("/api/health")
