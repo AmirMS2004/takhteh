@@ -25,7 +25,7 @@ describe("ChatSidebar", () => {
     await say(user, "سلام");
     expect(await within(chatPanel()).findByText("پاسخ به: سلام")).toBeInTheDocument();
     expect(within(chatPanel()).getByText("سلام")).toHaveAttribute("data-role", "user");
-    expect(api.calls().find((c) => c.route === "POST /api/ai/chat")?.body).toEqual({ board_id: "board-1", message: "سلام", history: [] });
+    expect(api.calls().find((c) => c.route === "POST /api/ai/chat/stream")?.body).toEqual({ board_id: "board-1", message: "سلام", history: [] });
   });
 
   it("sends the conversation history with the next message", async () => {
@@ -34,7 +34,7 @@ describe("ChatSidebar", () => {
     await within(chatPanel()).findByText("پاسخ به: اول");
     await say(user, "دوم");
     await within(chatPanel()).findByText("پاسخ به: دوم");
-    const chats = api.calls().filter((c) => c.route === "POST /api/ai/chat");
+    const chats = api.calls().filter((c) => c.route === "POST /api/ai/chat/stream");
     expect(chats[1].body).toEqual({
       board_id: "board-1",
       message: "دوم",
@@ -77,7 +77,7 @@ describe("ChatSidebar", () => {
     const { api, user } = await renderHome();
     const original = api.fetchMock.getMockImplementation()!;
     api.fetchMock.mockImplementation(async (path, init) => {
-      if (path === "/api/ai/chat") await gate;
+      if (path === "/api/ai/chat/stream") await gate;
       return original(path, init);
     });
     await say(user, "صبر کن");
@@ -94,14 +94,14 @@ describe("ChatSidebar", () => {
     [502, "پاسخ دستیار نامعتبر بود"],
     [500, "ارتباط با دستیار برقرار نشد"],
   ])("shows an error for status %i and leaves failed turns out of the history", async (status, text) => {
-    const { api, user } = await renderHome({ overrides: { "POST /api/ai/chat": { status } } });
+    const { api, user } = await renderHome({ overrides: { "POST /api/ai/chat/stream": { status } } });
     await say(user, "سلام");
     expect(await within(chatPanel()).findByText(new RegExp(text))).toBeInTheDocument();
 
     api.fetchMock.mockClear();
     const original = api.fetchMock.getMockImplementation()!;
     api.fetchMock.mockImplementation(async (path, init) =>
-      path === "/api/ai/chat" ? new Response(JSON.stringify({ reply: "ok", board: {}, applied: 0, error: null })) : original(path, init),
+      path === "/api/ai/chat/stream" ? new Response(JSON.stringify({ type: "done", reply: "ok", board: {}, applied: 0, error: null }) + "\n") : original(path, init),
     );
     await say(user, "دوباره");
     await within(chatPanel()).findByText("ok");
@@ -114,16 +114,51 @@ describe("ChatSidebar", () => {
       await say(user, `پیام ${i}`);
       await within(chatPanel()).findByText(`پاسخ به: پیام ${i}`);
     }
-    const last = api.calls().filter((c) => c.route === "POST /api/ai/chat").at(-1)!;
+    const last = api.calls().filter((c) => c.route === "POST /api/ai/chat/stream").at(-1)!;
     expect(last.body.history).toHaveLength(20);
     expect(last.body.history[0]).toEqual({ role: "user", content: "پیام 2" });
+  });
+
+  it("shows the reply growing while it streams", async () => {
+    let push!: (line: object) => void;
+    let finish!: () => void;
+    const { api, user } = await renderHome();
+    const original = api.fetchMock.getMockImplementation()!;
+    api.fetchMock.mockImplementation(async (path, init) => {
+      if (path !== "/api/ai/chat/stream") return original(path, init);
+      const body = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          push = (line) => controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+          finish = () => controller.close();
+        },
+      });
+      return new Response(body);
+    });
+    await say(user, "سلام");
+    push({ type: "delta", text: "در حال " });
+    // The first piece is already visible (Testing Library trims the trailing space).
+    expect(await within(chatPanel()).findByText("در حال")).toBeInTheDocument();
+    push({ type: "delta", text: "نوشتن" });
+    expect(await within(chatPanel()).findByText("در حال نوشتن")).toBeInTheDocument();
+    expect(within(chatPanel()).getByLabelText("پیام به دستیار")).toBeDisabled();
+    push({ type: "done", reply: "در حال نوشتن", board: api.state.board, applied: 0, error: null });
+    finish();
+    expect(await within(chatPanel()).findByText("در حال نوشتن")).toHaveAttribute("data-role", "assistant");
+    expect(within(chatPanel()).getByLabelText("پیام به دستیار")).toBeEnabled();
+  });
+
+  it("shows the daily quota message when the model is rate limited mid-stream", async () => {
+    const { user } = await renderHome({ chat: () => ({ reply: "شروع", failWith: 429 }) });
+    await say(user, "سلام");
+    expect(await within(chatPanel()).findByText(/سهمیه روزانه مدل رایگان/)).toBeInTheDocument();
   });
 
   it("sends a suggestion when clicked", async () => {
     const { api, user } = await renderHome();
     await user.click(within(chatPanel()).getByRole("button", { name: /چه کارهایی در حال انجام است/ }));
     expect(await within(chatPanel()).findByText(/پاسخ به: چه کارهایی/)).toBeInTheDocument();
-    expect(api.calls().some((c) => c.route === "POST /api/ai/chat")).toBe(true);
+    expect(api.calls().some((c) => c.route === "POST /api/ai/chat/stream")).toBe(true);
   });
 
   it("does not send empty messages; Shift+Enter adds a new line", async () => {
@@ -134,7 +169,7 @@ describe("ChatSidebar", () => {
     await user.clear(input);
     await user.type(input, "خط اول{Shift>}{Enter}{/Shift}خط دوم");
     expect(input).toHaveValue("خط اول\nخط دوم");
-    expect(api.calls().some((c) => c.route === "POST /api/ai/chat")).toBe(false);
+    expect(api.calls().some((c) => c.route === "POST /api/ai/chat/stream")).toBe(false);
   });
 
   it("hides and shows the panel without losing the conversation", async () => {

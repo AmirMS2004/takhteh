@@ -1,9 +1,12 @@
 import datetime
 import json
+import re
 import sqlite3
+from collections.abc import Iterator
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from app import ai, db
@@ -149,12 +152,43 @@ def apply_operation(conn: sqlite3.Connection, user_id: int, board_id: int, op: O
         )
 
 
-@router.post("/chat")
-def chat(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> dict:
+def partial_reply(raw: str) -> str:
+    """The text of the "reply" field decoded so far from a JSON reply that is still being written.
+    Empty until the field starts; stops at an escape sequence that is not complete yet."""
+    start = re.search(r'"reply"\s*:\s*"', raw)
+    if not start:
+        return ""
+    out, i = [], start.end()
+    while i < len(raw):
+        c = raw[i]
+        if c == '"':
+            break
+        if c == "\\":
+            if i + 1 >= len(raw):
+                break
+            e = raw[i + 1]
+            if e == "u":
+                if i + 6 > len(raw):
+                    break
+                out.append(chr(int(raw[i + 2 : i + 6], 16)))
+                i += 6
+                continue
+            out.append(ESCAPES.get(e, e))
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
+
+
+def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
+    """The messages for the model, and the board the chat is pinned to (404 if not a member)."""
     with db.connect() as conn:
         board = service.get_board(conn, user.id, body.board_id)
         board_id = service.member_board(conn, user.id, body.board_id)
-
     messages = [
         {
             "role": "system",
@@ -164,13 +198,16 @@ def chat(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> dic
         *[m.model_dump() for m in body.history],
         {"role": "user", "content": body.message},
     ]
-    raw = ai.chat(messages, response_format=RESPONSE_FORMAT)
+    return messages, board_id
+
+
+def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
+    """Validates the model's JSON and applies its operations, all or none."""
     try:
         result = AssistantReply.model_validate_json(raw)
     except ValidationError as e:
         raise HTTPException(status_code=502, detail="AI returned an invalid response") from e
 
-    # All operations succeed together or none are applied.
     error = None
     try:
         with db.connect() as conn:
@@ -187,3 +224,36 @@ def chat(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> dic
         "applied": 0 if error else len(result.operations),
         "error": error,
     }
+
+
+@router.post("/chat")
+def chat(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> dict:
+    messages, board_id = _prepare(body, user)
+    return _finish(ai.chat(messages, response_format=RESPONSE_FORMAT), body, user, board_id)
+
+
+@router.post("/chat/stream")
+def chat_stream(body: ChatRequest, user: Annotated[User, Depends(current_user)]) -> StreamingResponse:
+    """Same as /chat, as NDJSON: {"type": "delta", "text"} lines while the reply is written, then one
+    {"type": "done", ...result} line, or {"type": "error", "status", "detail"} if it fails midway."""
+    messages, board_id = _prepare(body, user)  # access errors happen before the stream starts
+
+    def line(event: dict) -> str:
+        return json.dumps(event, ensure_ascii=False) + "\n"
+
+    def events() -> Iterator[str]:
+        raw, sent = "", ""
+        try:
+            for piece in ai.stream_chat(messages, response_format=RESPONSE_FORMAT):
+                raw += piece
+                reply = partial_reply(raw)
+                if len(reply) > len(sent):
+                    yield line({"type": "delta", "text": reply[len(sent) :]})
+                    sent = reply
+            yield line({"type": "done"} | _finish(raw, body, user, board_id))
+        except ai.AIUnavailable as e:
+            yield line({"type": "error", "status": 429 if isinstance(e, ai.AIRateLimited) else 503, "detail": str(e)})
+        except HTTPException as e:
+            yield line({"type": "error", "status": e.status_code, "detail": e.detail})
+
+    return StreamingResponse(events(), media_type="application/x-ndjson")

@@ -139,6 +139,43 @@ export async function deleteLabel(labelId: string): Promise<void> {
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 export type ChatResponse = { reply: string; board: BoardState; applied: number; error: string | null };
 
+/**
+ * Sends a chat message and reads the NDJSON stream: `onText` gets each piece of the reply as the model
+ * writes it; the promise resolves with the final result. HTTP or mid-stream errors reject with ApiError.
+ */
+export async function chatStream(
+  boardId: string,
+  message: string,
+  history: ChatMessage[],
+  onText: (text: string) => void,
+): Promise<ChatResponse> {
+  const res = await fetch("/api/ai/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ board_id: boardId, message, history }),
+  });
+  if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  if (!res.ok || !res.body) throw new ApiError(res.status);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop()!; // a line that is not complete yet
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      if (event.type === "delta") onText(event.text);
+      else if (event.type === "done") return event as ChatResponse;
+      else throw new ApiError(event.status);
+    }
+    if (done) throw new ApiError(502); // the stream ended without a result
+  }
+}
+
 export function chat(boardId: string, message: string, history: ChatMessage[]): Promise<ChatResponse> {
   return request<ChatResponse>("/api/ai/chat", {
     method: "POST",

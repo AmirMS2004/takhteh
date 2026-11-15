@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 
 test("the assistant's change appears on the board and survives reload", async ({ page }) => {
   const sent: unknown[] = [];
-  await page.route("**/api/ai/chat", async (route) => {
+  await page.route("**/api/ai/chat/stream", async (route) => {
     const body = route.request().postDataJSON();
     sent.push(body);
     // Do what the backend would do: apply the change, then return the new board.
@@ -22,7 +22,17 @@ test("the assistant's change appears on the board and survives reload", async ({
       data: { column_id: board.columns[1].id, title: "کارت از دستیار", details: "ساخته در چت" },
     });
     const after = await (await page.request.get(`/api/boards/${body.board_id}`)).json();
-    await route.fulfill({ json: { reply: "کارت را در «برای انجام» ساختم.", board: after, applied: 1, error: null } });
+    // The NDJSON stream the backend sends: the reply in pieces, then the result.
+    const reply = "کارت را در «برای انجام» ساختم.";
+    const lines = [
+      { type: "delta", text: reply.slice(0, 10) },
+      { type: "delta", text: reply.slice(10) },
+      { type: "done", reply, board: after, applied: 1, error: null },
+    ];
+    await route.fulfill({
+      contentType: "application/x-ndjson",
+      body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
+    });
   });
 
   await panel(page).getByLabel("پیام به دستیار").fill("یک کارت بساز");
@@ -37,7 +47,7 @@ test("the assistant's change appears on the board and survives reload", async ({
 });
 
 test("shows an error when the assistant is unavailable", async ({ page }) => {
-  await page.route("**/api/ai/chat", (route) => route.fulfill({ status: 503, json: { detail: "AI unavailable" } }));
+  await page.route("**/api/ai/chat/stream", (route) => route.fulfill({ status: 503, json: { detail: "AI unavailable" } }));
   await panel(page).getByLabel("پیام به دستیار").fill("سلام");
   await panel(page).getByRole("button", { name: "ارسال" }).click();
   await expect(panel(page).getByText(/در دسترس نیست/)).toBeVisible();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ApiError, chat, type ChatMessage } from "@/lib/api";
+import { ApiError, chatStream, type ChatMessage } from "@/lib/api";
 import type { BoardState } from "@/lib/board";
 
 type Message = ChatMessage & { error?: boolean; note?: string };
@@ -16,6 +16,8 @@ const SUGGESTIONS = [
 ];
 
 function failureText(error: unknown) {
+  if (error instanceof ApiError && error.status === 429)
+    return "سهمیه روزانه مدل رایگان هوش مصنوعی تمام شده است. بعداً دوباره تلاش کنید.";
   if (error instanceof ApiError && error.status === 503) return "دستیار هوش مصنوعی فعلاً در دسترس نیست. کمی بعد دوباره تلاش کنید.";
   if (error instanceof ApiError && error.status === 502) return "پاسخ دستیار نامعتبر بود. دوباره تلاش کنید.";
   return "ارتباط با دستیار برقرار نشد. دوباره تلاش کنید.";
@@ -25,12 +27,14 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  // The reply as it streams in; shown in place of the waiting indicator.
+  const [streaming, setStreaming] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
-  }, [messages, pending]);
+  }, [messages, pending, streaming]);
 
   const send = async (text: string) => {
     const message = text.trim();
@@ -44,7 +48,7 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
     setInput("");
     setPending(true);
     try {
-      const res = await chat(boardId, message, history);
+      const res = await chatStream(boardId, message, history, (text) => setStreaming((s) => s + text));
       if (res.applied > 0) onBoard(res.board);
       setMessages((m) => [
         ...m,
@@ -59,6 +63,7 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
       ]);
     } finally {
       setPending(false);
+      setStreaming("");
     }
   };
 
@@ -110,9 +115,20 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
         ))}
         {pending && (
           <div className="flex justify-end">
-            <div role="status" className="rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-2.5 text-sm text-gray-text">
-              در حال پاسخ…
-            </div>
+            {streaming ? (
+              <div
+                aria-live="polite"
+                data-role="assistant"
+                className="max-w-[85%] rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-2.5 text-sm leading-6 whitespace-pre-wrap text-navy"
+              >
+                {streaming}
+                <span className="mr-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-primary/60 align-middle" aria-hidden />
+              </div>
+            ) : (
+              <div role="status" className="rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-2.5 text-sm text-gray-text">
+                در حال پاسخ…
+              </div>
+            )}
           </div>
         )}
       </div>

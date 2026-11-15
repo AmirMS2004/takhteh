@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import ai_routes, auth, board, db
-from app.ai import AIUnavailable
+from app.ai import AIRateLimited, AIUnavailable
 from app.board_service import Conflict, Forbidden, NotFound
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -68,6 +68,11 @@ def forbidden(_: Request, exc: Forbidden) -> JSONResponse:
 @app.exception_handler(Conflict)
 def conflict(_: Request, exc: Conflict) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(AIRateLimited)
+def ai_rate_limited(_: Request, exc: AIRateLimited) -> JSONResponse:
+    return JSONResponse(status_code=429, content={"detail": f"AI rate limited: {exc}"})
 
 
 @app.exception_handler(AIUnavailable)

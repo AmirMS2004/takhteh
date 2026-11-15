@@ -19,7 +19,10 @@ import {
 type Override = { status: number; body?: unknown };
 type ChatBody = { board_id: string; message: string; history: { role: string; content: string }[] };
 /** Scripted assistant: returns the reply and, optionally, the board after its changes. */
-type ChatScript = (body: ChatBody, board: BoardState) => { reply: string; board?: BoardState; error?: string };
+type ChatScript = (
+  body: ChatBody,
+  board: BoardState,
+) => { reply: string; board?: BoardState; error?: string; failWith?: number };
 
 /** An empty board like the backend creates: default columns and labels, no cards. */
 function emptyBoard(id: string, title: string, owner: string): BoardState {
@@ -142,6 +145,21 @@ export function fakeApi({
     }
 
     // --- chat ---
+    if (method === "POST" && path === "/api/ai/chat/stream") {
+      // NDJSON like the backend: the reply in three pieces, then the result (or an error event).
+      const b = state.boards[body.board_id as string];
+      const result = chat(body as unknown as ChatBody, b);
+      const third = Math.ceil(result.reply.length / 3);
+      const lines = [0, 1, 2].map((i) => ({ type: "delta", text: result.reply.slice(i * third, (i + 1) * third) }));
+      if (result.failWith) {
+        lines.push({ type: "error", status: result.failWith } as never);
+      } else {
+        if (result.board && !result.error) put(result.board);
+        const applied = result.board && !result.error ? 1 : 0;
+        lines.push({ type: "done", reply: result.reply, board: state.boards[b.id], applied, error: result.error ?? null } as never);
+      }
+      return new Response(lines.map((l) => JSON.stringify(l)).join("\n") + "\n", { status: 200 });
+    }
     if (method === "POST" && path === "/api/ai/chat") {
       const b = state.boards[body.board_id as string];
       const result = chat(body as unknown as ChatBody, b);
