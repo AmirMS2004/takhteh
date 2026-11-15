@@ -214,10 +214,8 @@ export function Board({ store }: { store: BoardStore }) {
                 apply(renameColumn(current(), column.id, title));
                 persist(api.renameColumn(column.id, title));
               }}
-              onAdd={(title, details) =>
-                persist(
-                  api.createCard(column.id, title, details).then((card) => apply(addCard(current(), column.id, card))),
-                )
+              onAdd={(fields) =>
+                persist(api.createCard(column.id, fields).then((card) => apply(addCard(current(), column.id, card))))
               }
               onDelete={(cardId) => {
                 apply(deleteCard(current(), cardId));

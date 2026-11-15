@@ -14,6 +14,7 @@ import {
   renameColumn,
   updateCard,
   type BoardState,
+  type Card,
 } from "@/lib/board";
 import type { Operation } from "@/lib/proposal";
 
@@ -247,7 +248,9 @@ export function fakeApi({
       return json({ ok: true });
     }
     if (method === "POST" && path === "/api/cards") {
-      const card = { id: `new-${state.nextId++}`, title: body.title as string, details: body.details as string };
+      const fields = { ...body };
+      delete fields.column_id;
+      const card = { id: `new-${state.nextId++}`, details: "", ...fields } as Card;
       put(addCard(boardOf(body.column_id as string), body.column_id as string, card));
       return json(card, 201);
     }

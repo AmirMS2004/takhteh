@@ -112,6 +112,26 @@ test("sets card details and keeps them after reload", async ({ page }) => {
   await expect(saved.getByTitle("سررسید")).toContainText("فروردین");
 });
 
+test("adds a card with all its details and keeps them after reload", async ({ page }) => {
+  const col = column(page, "review");
+  await col.getByRole("button", { name: /افزودن کارت/ }).click();
+  await col.getByLabel("عنوان کارت").fill("کارت کامل");
+  await col.getByLabel("جزئیات کارت").fill("با همه جزئیات");
+  await col.getByLabel("سررسید").fill("2099-03-21");
+  await col.getByLabel("اولویت").selectOption("high");
+  await col.getByLabel("مسئول").selectOption("user");
+  await col.getByRole("button", { name: "برچسب سبز" }).click();
+  await col.getByRole("button", { name: "ثبت کارت" }).click();
+  await expect(card(page, "کارت کامل")).toBeVisible();
+
+  await reloadAfterSave(page);
+  const saved = card(page, "کارت کامل");
+  await expect(saved.getByText("اولویت بالا")).toBeVisible();
+  await expect(saved.getByTitle("مسئول")).toHaveText(/user/);
+  await expect(saved.getByTitle("برچسب سبز")).toBeVisible();
+  await expect(saved.getByTitle("سررسید")).toContainText("فروردین");
+});
+
 test("names a label, puts it on a card, and keeps both after reload", async ({ page }) => {
   await page.getByRole("button", { name: "برچسب‌ها", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "برچسب‌های برد" });

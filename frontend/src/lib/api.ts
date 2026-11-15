@@ -108,10 +108,11 @@ export async function moveColumn(columnId: string, index: number): Promise<void>
   await request(`/api/columns/${columnId}/move`, { method: "POST", body: JSON.stringify({ index }) });
 }
 
-export function createCard(columnId: string, title: string, details: string): Promise<Card> {
+/** Creates a card with any of its fields (title is required). */
+export function createCard(columnId: string, fields: Partial<Omit<Card, "id">> & { title: string }): Promise<Card> {
   return request<Card>("/api/cards", {
     method: "POST",
-    body: JSON.stringify({ column_id: columnId, title, details }),
+    body: JSON.stringify({ column_id: columnId, ...fields }),
   });
 }
 

@@ -239,6 +239,31 @@ describe("ChatSidebar", () => {
     expect(api.calls().some((c) => c.route === "POST /api/ai/chat/stream")).toBe(true);
   });
 
+  it("suggests prompts that fit the board", async () => {
+    await renderHome();
+    const texts = within(chatPanel())
+      .getAllByRole("button")
+      .map((b) => b.textContent)
+      .filter((t) => t?.endsWith(".") || t?.endsWith("؟"));
+    expect(texts).toEqual([
+      "یک کارت برای نوشتن مستندات در ستون «برای انجام» بساز.",
+      "کارت «پژوهش رقبا» را به «برای انجام» ببر.",
+      "کدام کارها عقب افتاده‌اند؟",
+    ]);
+  });
+
+  it("does not suggest moving cards on a board without cards", async () => {
+    const api = fakeApi();
+    api.state.board.columns.forEach((c) => (c.cardIds = []));
+    api.state.board.cards = {};
+    render(<Home />);
+    await screen.findByTestId("column-backlog");
+    const panel = chatPanel();
+    expect(within(panel).getByRole("button", { name: "برای شروع این پروژه چند کارت پیشنهاد بده." })).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /را به .* ببر/ })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /پژوهش رقبا/ })).not.toBeInTheDocument();
+  });
+
   it("asks for a weekly report", async () => {
     const { api, user } = await renderHome();
     await user.click(within(chatPanel()).getByRole("button", { name: "گزارش هفتگی" }));

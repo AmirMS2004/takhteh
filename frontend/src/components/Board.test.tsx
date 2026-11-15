@@ -71,7 +71,39 @@ describe("Board", () => {
     expect(screen.getByTestId("card-new-1")).toBeInTheDocument();
     expect(api.calls().at(-1)).toEqual({
       route: "POST /api/cards",
-      body: { column_id: "review", title: "کارت تازه", details: "توضیح" },
+      body: {
+        column_id: "review",
+        title: "کارت تازه",
+        details: "توضیح",
+        due_date: null,
+        priority: null,
+        labels: [],
+        assignee: null,
+      },
+    });
+  });
+
+  it("sets due date, priority, assignee and labels while adding a card", async () => {
+    const { api, user } = await renderBoard();
+    const col = column("review");
+    await user.click(within(col).getByRole("button", { name: /افزودن کارت/ }));
+    await user.type(within(col).getByLabelText("عنوان کارت"), "با جزئیات");
+    await user.type(within(col).getByLabelText("سررسید"), "2026-12-01");
+    await user.selectOptions(within(col).getByLabelText("اولویت"), "high");
+    await user.selectOptions(within(col).getByLabelText("مسئول"), "user");
+    await user.click(within(col).getByRole("button", { name: "برچسب قرمز" }));
+    await user.click(within(col).getByRole("button", { name: "ثبت کارت" }));
+
+    const card = await screen.findByTestId("card-new-1");
+    expect(within(card).getByText("اولویت بالا")).toBeInTheDocument();
+    expect(within(card).getByText("user")).toBeInTheDocument();
+    const red = api.state.board.labels.find((l) => l.color === "red")!.id;
+    expect(api.calls().at(-1)!.body).toMatchObject({
+      title: "با جزئیات",
+      due_date: "2026-12-01",
+      priority: "high",
+      assignee: "user",
+      labels: [red],
     });
   });
 

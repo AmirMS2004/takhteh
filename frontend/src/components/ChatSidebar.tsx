@@ -16,11 +16,24 @@ type Proposal = {
 };
 type Message = ChatMessage & { error?: boolean; note?: string; proposal?: Proposal };
 
-const SUGGESTIONS = [
-  "یک کارت برای نوشتن مستندات API در ستون «برای انجام» بساز.",
-  "کارت «پژوهش رقبا» را به «در حال انجام» ببر.",
-  "کدام کارها عقب افتاده‌اند؟",
-];
+/** Starting prompts that fit the open board: its own columns and, when it has any, its own cards. */
+function suggestions(board: BoardState | null): string[] {
+  if (!board || board.columns.length === 0) return [];
+  const { columns, cards } = board;
+  const target = columns[Math.min(1, columns.length - 1)];
+  // A card that is not in the last column, to move it one column on.
+  const from = columns.findIndex((c, i) => i < columns.length - 1 && c.cardIds.length > 0);
+  if (from === -1 && Object.keys(cards).length === 0)
+    return [
+      "برای شروع این پروژه چند کارت پیشنهاد بده.",
+      `یک کارت برای نوشتن مستندات در ستون «${target.title}» بساز.`,
+    ];
+  return [
+    `یک کارت برای نوشتن مستندات در ستون «${target.title}» بساز.`,
+    ...(from === -1 ? [] : [`کارت «${cards[columns[from].cardIds[0]].title}» را به «${columns[from + 1].title}» ببر.`]),
+    "کدام کارها عقب افتاده‌اند؟",
+  ];
+}
 
 /** Lets the page send a message from elsewhere (e.g. "split this card"). */
 export type ChatHandle = { ask: (message: string) => void };
@@ -167,7 +180,7 @@ export function ChatSidebar({
         {messages.length === 0 && (
           <div className="space-y-2">
             <p className="text-sm text-gray-text">برای شروع، یکی از این‌ها را امتحان کنید:</p>
-            {SUGGESTIONS.map((s) => (
+            {suggestions(board).map((s) => (
               <button
                 key={s}
                 type="button"

@@ -134,8 +134,10 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
   );
 }
 
-function CardEditForm({
+/** The card form: edits a card, or with `isNew` fills in a new one (all fields at once). */
+export function CardEditForm({
   card,
+  isNew = false,
   labels,
   members,
   onSave,
@@ -143,6 +145,7 @@ function CardEditForm({
   onManageLabels,
 }: {
   card: Card;
+  isNew?: boolean;
   labels: BoardLabel[];
   members: Member[];
   onSave: (changes: CardChanges) => void;
@@ -176,14 +179,16 @@ function CardEditForm({
     >
       <input
         autoFocus
-        aria-label="ویرایش عنوان"
+        aria-label={isNew ? "عنوان کارت" : "ویرایش عنوان"}
+        placeholder={isNew ? "عنوان کارت" : undefined}
         maxLength={200}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         className={field}
       />
       <textarea
-        aria-label="ویرایش جزئیات"
+        aria-label={isNew ? "جزئیات کارت" : "ویرایش جزئیات"}
+        placeholder={isNew ? "جزئیات" : undefined}
         rows={3}
         maxLength={5000}
         value={details}
@@ -251,7 +256,7 @@ function CardEditForm({
           disabled={!title.trim()}
           className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          ذخیره
+          {isNew ? "ثبت کارت" : "ذخیره"}
         </button>
         <button
           type="button"

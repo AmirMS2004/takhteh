@@ -4,13 +4,13 @@ import { useState } from "react";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardLabel, Card, Column, Member } from "@/lib/board";
-import { CardItem, type CardChanges } from "./CardItem";
+import { CardEditForm, CardItem, type CardChanges } from "./CardItem";
 
 type Props = {
   column: Column;
   cards: Card[];
   onRename: (title: string) => void;
-  onAdd: (title: string, details: string) => void;
+  onAdd: (fields: CardChanges) => void;
   onDelete: (cardId: string) => void;
   onUpdate: (cardId: string, changes: CardChanges) => void;
   labels: BoardLabel[];
@@ -65,16 +65,15 @@ function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string)
   );
 }
 
-function AddCardForm({ onAdd }: { onAdd: Props["onAdd"] }) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [details, setDetails] = useState("");
+const EMPTY_CARD: Card = { id: "", title: "", details: "" };
 
-  const close = () => {
-    setOpen(false);
-    setTitle("");
-    setDetails("");
-  };
+function AddCardForm({
+  onAdd,
+  labels,
+  members,
+  onManageLabels,
+}: Pick<Props, "onAdd" | "labels" | "members" | "onManageLabels">) {
+  const [open, setOpen] = useState(false);
 
   if (!open) {
     return (
@@ -89,51 +88,18 @@ function AddCardForm({ onAdd }: { onAdd: Props["onAdd"] }) {
     );
   }
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!title.trim()) return;
-        onAdd(title.trim(), details.trim());
-        close();
+    <CardEditForm
+      card={EMPTY_CARD}
+      isNew
+      labels={labels}
+      members={members}
+      onManageLabels={onManageLabels}
+      onSave={(fields) => {
+        onAdd(fields);
+        setOpen(false);
       }}
-      onKeyDown={(e) => e.key === "Escape" && close()}
-      className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
-    >
-      <input
-        autoFocus
-        placeholder="عنوان کارت"
-        aria-label="عنوان کارت"
-        maxLength={200}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
-      />
-      <textarea
-        placeholder="جزئیات"
-        aria-label="جزئیات کارت"
-        rows={3}
-        maxLength={5000}
-        value={details}
-        onChange={(e) => setDetails(e.target.value)}
-        className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-navy outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
-      />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={!title.trim()}
-          className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          ثبت کارت
-        </button>
-        <button
-          type="button"
-          onClick={close}
-          className="rounded-lg px-3 py-2 text-sm text-gray-text transition hover:bg-slate-100"
-        >
-          انصراف
-        </button>
-      </div>
-    </form>
+      onCancel={() => setOpen(false)}
+    />
   );
 }
 
@@ -230,7 +196,7 @@ export function ColumnView({
         </ul>
       </SortableContext>
       <div className="px-3 pb-3">
-        <AddCardForm onAdd={onAdd} />
+        <AddCardForm onAdd={onAdd} labels={labels} members={members} onManageLabels={onManageLabels} />
       </div>
     </section>
   );
