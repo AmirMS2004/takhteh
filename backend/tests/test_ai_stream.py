@@ -37,7 +37,7 @@ def stream(monkeypatch):
 
 def send(client, message="سلام"):
     board_id = client.get("/api/boards").json()[0]["id"]
-    return client.post("/api/ai/chat/stream", json={"board_id": board_id, "message": message, "history": []})
+    return client.post("/api/ai/chat/stream", json={"board_id": board_id, "message": message})
 
 
 def events(response) -> list[dict]:

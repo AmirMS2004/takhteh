@@ -114,7 +114,21 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     board_id: str
     message: str = Field(min_length=1, max_length=4000)
-    history: list[ChatMessage] = Field(default=[], max_length=50)
+
+
+# How many stored messages of the conversation the model sees.
+MAX_HISTORY = 20
+# How many the chat panel loads.
+MAX_SHOWN = 200
+
+
+def _history(conn: sqlite3.Connection, board_id: int, user_id: int, limit: int) -> list[dict]:
+    """The user's latest conversation on the board, oldest first."""
+    rows = conn.execute(
+        "SELECT role, content FROM chat_messages WHERE board_id = ? AND user_id = ? ORDER BY id DESC LIMIT ?",
+        (board_id, user_id, limit),
+    ).fetchall()
+    return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
 
 
 def _require(value: str | None, field: str, op: Operation) -> str:
@@ -189,13 +203,14 @@ def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
     with db.connect() as conn:
         board = service.get_board(conn, user.id, body.board_id)
         board_id = service.member_board(conn, user.id, body.board_id)
+        history = _history(conn, board_id, user.id, MAX_HISTORY)
     messages = [
         {
             "role": "system",
             "content": SYSTEM_PROMPT.format(today=datetime.date.today().isoformat())
             + json.dumps(board, ensure_ascii=False),
         },
-        *[m.model_dump() for m in body.history],
+        *history,
         {"role": "user", "content": body.message},
     ]
     return messages, board_id
@@ -217,6 +232,11 @@ def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
         error = f"Changes were not applied: {e}"
 
     with db.connect() as conn:
+        # Only completed turns are stored, so failed ones never reach the model as history.
+        conn.executemany(
+            "INSERT INTO chat_messages (board_id, user_id, role, content) VALUES (?, ?, ?, ?)",
+            [(board_id, user.id, "user", body.message), (board_id, user.id, "assistant", result.reply)],
+        )
         board = service.get_board(conn, user.id, body.board_id)
     return {
         "reply": result.reply,
@@ -224,6 +244,22 @@ def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
         "applied": 0 if error else len(result.operations),
         "error": error,
     }
+
+
+@router.get("/history/{board_id}")
+def get_history(board_id: str, user: Annotated[User, Depends(current_user)]) -> list[dict]:
+    with db.connect() as conn:
+        return _history(conn, service.member_board(conn, user.id, board_id), user.id, MAX_SHOWN)
+
+
+@router.delete("/history/{board_id}")
+def clear_history(board_id: str, user: Annotated[User, Depends(current_user)]) -> dict[str, bool]:
+    with db.connect() as conn:
+        conn.execute(
+            "DELETE FROM chat_messages WHERE board_id = ? AND user_id = ?",
+            (service.member_board(conn, user.id, board_id), user.id),
+        )
+    return {"ok": True}
 
 
 @router.post("/chat")

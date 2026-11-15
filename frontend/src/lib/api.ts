@@ -146,13 +146,12 @@ export type ChatResponse = { reply: string; board: BoardState; applied: number; 
 export async function chatStream(
   boardId: string,
   message: string,
-  history: ChatMessage[],
   onText: (text: string) => void,
 ): Promise<ChatResponse> {
   const res = await fetch("/api/ai/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ board_id: boardId, message, history }),
+    body: JSON.stringify({ board_id: boardId, message }),
   });
   if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   if (!res.ok || !res.body) throw new ApiError(res.status);
@@ -176,9 +175,18 @@ export async function chatStream(
   }
 }
 
-export function chat(boardId: string, message: string, history: ChatMessage[]): Promise<ChatResponse> {
+/** The signed-in user's stored conversation on the board, oldest first. */
+export function getHistory(boardId: string): Promise<ChatMessage[]> {
+  return request<ChatMessage[]>(`/api/ai/history/${boardId}`);
+}
+
+export async function clearHistory(boardId: string): Promise<void> {
+  await request(`/api/ai/history/${boardId}`, { method: "DELETE" });
+}
+
+export function chat(boardId: string, message: string): Promise<ChatResponse> {
   return request<ChatResponse>("/api/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ board_id: boardId, message, history }),
+    body: JSON.stringify({ board_id: boardId, message }),
   });
 }

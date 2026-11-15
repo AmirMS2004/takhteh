@@ -17,7 +17,8 @@ import {
 } from "@/lib/board";
 
 type Override = { status: number; body?: unknown };
-type ChatBody = { board_id: string; message: string; history: { role: string; content: string }[] };
+type ChatBody = { board_id: string; message: string };
+type StoredMessage = { role: "user" | "assistant"; content: string };
 /** Scripted assistant: returns the reply and, optionally, the board after its changes. */
 type ChatScript = (
   body: ChatBody,
@@ -57,6 +58,7 @@ export function fakeApi({
     loggedIn,
     nextId: 1,
     users: { user: "password" } as Record<string, string>,
+    chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
     username: "user",
   };
 
@@ -145,6 +147,16 @@ export function fakeApi({
     }
 
     // --- chat ---
+    if ((m = path.match(/^\/api\/ai\/history\/(.+)$/))) {
+      if (method === "DELETE") delete state.chats[m[1]];
+      return json(method === "DELETE" ? { ok: true } : (state.chats[m[1]] ?? []));
+    }
+    const remember = (boardId: string, message: string, reply: string) =>
+      (state.chats[boardId] = [
+        ...(state.chats[boardId] ?? []),
+        { role: "user", content: message },
+        { role: "assistant", content: reply },
+      ]);
     if (method === "POST" && path === "/api/ai/chat/stream") {
       // NDJSON like the backend: the reply in three pieces, then the result (or an error event).
       const b = state.boards[body.board_id as string];
@@ -157,6 +169,7 @@ export function fakeApi({
         if (result.board && !result.error) put(result.board);
         const applied = result.board && !result.error ? 1 : 0;
         lines.push({ type: "done", reply: result.reply, board: state.boards[b.id], applied, error: result.error ?? null } as never);
+        remember(b.id, body.message as string, result.reply);
       }
       return new Response(lines.map((l) => JSON.stringify(l)).join("\n") + "\n", { status: 200 });
     }

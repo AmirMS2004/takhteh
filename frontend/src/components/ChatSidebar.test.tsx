@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { addCard, moveCard } from "@/lib/board";
 import { fakeApi } from "@/test/fakeApi";
@@ -25,24 +25,43 @@ describe("ChatSidebar", () => {
     await say(user, "سلام");
     expect(await within(chatPanel()).findByText("پاسخ به: سلام")).toBeInTheDocument();
     expect(within(chatPanel()).getByText("سلام")).toHaveAttribute("data-role", "user");
-    expect(api.calls().find((c) => c.route === "POST /api/ai/chat/stream")?.body).toEqual({ board_id: "board-1", message: "سلام", history: [] });
+    expect(api.calls().find((c) => c.route === "POST /api/ai/chat/stream")?.body).toEqual({ board_id: "board-1", message: "سلام" });
   });
 
-  it("sends the conversation history with the next message", async () => {
+  it("shows the stored conversation when the board opens", async () => {
+    const api = fakeApi();
+    api.state.chats["board-1"] = [
+      { role: "user", content: "دیروز پرسیدم" },
+      { role: "assistant", content: "و جواب دادم" },
+    ];
+    render(<Home />);
+    await screen.findByTestId("column-backlog");
+    expect(await within(chatPanel()).findByText("دیروز پرسیدم")).toHaveAttribute("data-role", "user");
+    expect(within(chatPanel()).getByText("و جواب دادم")).toHaveAttribute("data-role", "assistant");
+    expect(within(chatPanel()).queryByText(/برای شروع/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the conversation after the page is opened again", async () => {
     const { api, user } = await renderHome();
-    await say(user, "اول");
-    await within(chatPanel()).findByText("پاسخ به: اول");
-    await say(user, "دوم");
-    await within(chatPanel()).findByText("پاسخ به: دوم");
-    const chats = api.calls().filter((c) => c.route === "POST /api/ai/chat/stream");
-    expect(chats[1].body).toEqual({
-      board_id: "board-1",
-      message: "دوم",
-      history: [
-        { role: "user", content: "اول" },
-        { role: "assistant", content: "پاسخ به: اول" },
-      ],
-    });
+    await say(user, "یادت بماند");
+    await within(chatPanel()).findByText("پاسخ به: یادت بماند");
+    cleanup();
+    render(<Home />);
+    await screen.findByTestId("column-backlog");
+    expect(await within(chatPanel()).findByText("پاسخ به: یادت بماند")).toBeInTheDocument();
+    expect(api.state.chats["board-1"]).toHaveLength(2);
+  });
+
+  it("starts a new conversation after confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { api, user } = await renderHome();
+    expect(within(chatPanel()).queryByRole("button", { name: "گفت‌وگوی تازه" })).not.toBeInTheDocument();
+    await say(user, "سلام");
+    await within(chatPanel()).findByText("پاسخ به: سلام");
+    await user.click(within(chatPanel()).getByRole("button", { name: "گفت‌وگوی تازه" }));
+    expect(within(chatPanel()).queryByText("پاسخ به: سلام")).not.toBeInTheDocument();
+    expect(within(chatPanel()).getByText(/برای شروع/)).toBeInTheDocument();
+    expect(api.state.chats["board-1"]).toBeUndefined();
   });
 
   it("updates the board when the assistant changes it", async () => {
@@ -93,30 +112,12 @@ describe("ChatSidebar", () => {
     [503, "در دسترس نیست"],
     [502, "پاسخ دستیار نامعتبر بود"],
     [500, "ارتباط با دستیار برقرار نشد"],
-  ])("shows an error for status %i and leaves failed turns out of the history", async (status, text) => {
+  ])("shows an error for status %i and lets the user try again", async (status, text) => {
     const { api, user } = await renderHome({ overrides: { "POST /api/ai/chat/stream": { status } } });
     await say(user, "سلام");
     expect(await within(chatPanel()).findByText(new RegExp(text))).toBeInTheDocument();
-
-    api.fetchMock.mockClear();
-    const original = api.fetchMock.getMockImplementation()!;
-    api.fetchMock.mockImplementation(async (path, init) =>
-      path === "/api/ai/chat/stream" ? new Response(JSON.stringify({ type: "done", reply: "ok", board: {}, applied: 0, error: null }) + "\n") : original(path, init),
-    );
-    await say(user, "دوباره");
-    await within(chatPanel()).findByText("ok");
-    expect(api.calls()[0].body.history).toEqual([]);
-  });
-
-  it("sends at most the last 20 messages as history", async () => {
-    const { api, user } = await renderHome();
-    for (let i = 1; i <= 12; i++) {
-      await say(user, `پیام ${i}`);
-      await within(chatPanel()).findByText(`پاسخ به: پیام ${i}`);
-    }
-    const last = api.calls().filter((c) => c.route === "POST /api/ai/chat/stream").at(-1)!;
-    expect(last.body.history).toHaveLength(20);
-    expect(last.body.history[0]).toEqual({ role: "user", content: "پیام 2" });
+    expect(within(chatPanel()).getByLabelText("پیام به دستیار")).toBeEnabled();
+    expect(api.state.chats["board-1"]).toBeUndefined(); // failed turns are not stored
   });
 
   it("shows the reply growing while it streams", async () => {

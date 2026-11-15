@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ApiError, chatStream, type ChatMessage } from "@/lib/api";
+import { ApiError, chatStream, clearHistory, getHistory, type ChatMessage } from "@/lib/api";
 import type { BoardState } from "@/lib/board";
 
 type Message = ChatMessage & { error?: boolean; note?: string };
-
-// The backend accepts at most 50 history messages; the recent ones are what matter to the model.
-const MAX_HISTORY = 20;
 
 const SUGGESTIONS = [
   "یک کارت برای نوشتن مستندات API در ستون «برای انجام» بساز.",
@@ -31,6 +28,12 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
   const [streaming, setStreaming] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
+  // The conversation is stored on the server (per user and board); show it when the board opens.
+  useEffect(() => {
+    // If a message was sent before the history arrived, keep what is on screen.
+    getHistory(boardId).then((history) => setMessages((m) => (m.length ? m : history)), () => {});
+  }, [boardId]);
+
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
@@ -39,23 +42,18 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
   const send = async (text: string) => {
     const message = text.trim();
     if (!message || pending) return;
-    // Failed turns are not sent back to the model.
-    const history = messages
-      .filter((m) => !m.error)
-      .slice(-MAX_HISTORY)
-      .map(({ role, content }) => ({ role, content }));
     setMessages((m) => [...m, { role: "user", content: message }]);
     setInput("");
     setPending(true);
     try {
-      const res = await chatStream(boardId, message, history, (text) => setStreaming((s) => s + text));
+      const res = await chatStream(boardId, message, (text) => setStreaming((s) => s + text));
       if (res.applied > 0) onBoard(res.board);
       setMessages((m) => [
         ...m,
         { role: "assistant", content: res.reply, note: res.error ? "تغییرات اعمال نشد؛ دوباره و دقیق‌تر درخواست کنید." : undefined },
       ]);
     } catch (e) {
-      // Mark the whole turn as failed so neither message is sent as history.
+      // A failed turn is shown as failed; the server did not store it.
       setMessages((m) => [
         ...m.slice(0, -1),
         { ...m[m.length - 1], error: true },
@@ -76,6 +74,20 @@ export function ChatSidebar({ boardId, onBoard }: { boardId: string; onBoard: (b
         <div className="flex items-center gap-2">
           <span className="h-5 w-1 rounded-full bg-accent" />
           <h2 className="font-bold text-navy">دستیار هوش مصنوعی</h2>
+          {messages.length > 0 && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={async () => {
+                if (!window.confirm("گفت‌وگوی این برد پاک شود و از نو شروع کنید؟")) return;
+                await clearHistory(boardId);
+                setMessages([]);
+              }}
+              className="mr-auto rounded-md px-2 py-1 text-xs font-medium text-primary transition hover:bg-sky-50 disabled:opacity-50"
+            >
+              گفت‌وگوی تازه
+            </button>
+          )}
         </div>
         <p className="mt-1 text-xs text-gray-text">کارت بسازید، ویرایش کنید یا جابه‌جا کنید.</p>
       </header>

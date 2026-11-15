@@ -54,6 +54,14 @@ CREATE TABLE IF NOT EXISTS card_labels (
     label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
     PRIMARY KEY (card_id, label_id)
 );
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY,
+    board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chat_messages ON chat_messages(board_id, user_id, id);
 """
 
 # Card fields added after the first release; init_db adds them to older databases.

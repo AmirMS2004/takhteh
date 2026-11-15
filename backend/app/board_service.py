@@ -370,6 +370,8 @@ def remove_member(conn: sqlite3.Connection, user_id: int, board: str, username: 
     if row["user_id"] != user_id and _role(conn, user_id, board_id) != "owner":
         raise Forbidden("only the board owner can remove other members")
     conn.execute("DELETE FROM board_members WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))
+    # Their AI conversation on this board goes too.
+    conn.execute("DELETE FROM chat_messages WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))
     conn.execute(
         "UPDATE cards SET assignee_id = NULL WHERE assignee_id = ?"
         " AND column_id IN (SELECT id FROM columns WHERE board_id = ?)",

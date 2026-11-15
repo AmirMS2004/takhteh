@@ -76,6 +76,17 @@
         "label_id"
       ],
       "notes": "A card can have any number of its board's labels."
+    },
+    "chat_messages": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "board_id": "INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE",
+        "user_id": "INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE",
+        "role": "TEXT NOT NULL",
+        "content": "TEXT NOT NULL"
+      },
+      "indexes": ["idx_chat_messages (board_id, user_id, id)"],
+      "notes": "Each user's conversation with the assistant on a board, oldest first by id. role is user|assistant. Only completed turns are stored. Leaving a board deletes that user's messages on it."
     }
   },
   "api_board_shape": {

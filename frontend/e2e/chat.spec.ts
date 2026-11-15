@@ -40,7 +40,7 @@ test("the assistant's change appears on the board and survives reload", async ({
 
   await expect(panel(page).getByText("کارت را در «برای انجام» ساختم.")).toBeVisible();
   await expect(column(page, "todo").getByText("کارت از دستیار")).toBeVisible();
-  expect(sent).toEqual([{ board_id: expect.stringMatching(/^board-/), message: "یک کارت بساز", history: [] }]);
+  expect(sent).toEqual([{ board_id: expect.stringMatching(/^board-/), message: "یک کارت بساز" }]);
 
   await page.reload();
   await expect(column(page, "todo").getByText("کارت از دستیار")).toBeVisible();
