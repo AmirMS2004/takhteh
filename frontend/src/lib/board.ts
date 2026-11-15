@@ -1,16 +1,18 @@
 export type Priority = "low" | "medium" | "high";
-export type Label = "red" | "orange" | "yellow" | "green" | "blue" | "purple";
+export type LabelColor = "red" | "orange" | "yellow" | "green" | "blue" | "purple";
+/** A board-level label; cards refer to labels by id. The name may be empty (color only). */
+export type BoardLabel = { id: string; name: string; color: LabelColor };
 export type Card = {
   id: string;
   title: string;
   details: string;
   due_date?: string | null; // "YYYY-MM-DD"
   priority?: Priority | null;
-  label?: Label | null;
+  labels?: string[];
   assignee?: string | null;
 };
 export type Column = { id: string; title: string; cardIds: string[] };
-export type BoardState = { columns: Column[]; cards: Record<string, Card> };
+export type BoardState = { columns: Column[]; cards: Record<string, Card>; labels: BoardLabel[] };
 
 export function renameColumn(board: BoardState, columnId: string, title: string): BoardState {
   return {
@@ -21,6 +23,7 @@ export function renameColumn(board: BoardState, columnId: string, title: string)
 
 export function addCard(board: BoardState, columnId: string, card: Card): BoardState {
   return {
+    ...board,
     cards: { ...board.cards, [card.id]: card },
     columns: board.columns.map((c) =>
       c.id === columnId ? { ...c, cardIds: [...c.cardIds, card.id] } : c,
@@ -38,10 +41,30 @@ export function updateCard(
   return { ...board, cards: { ...board.cards, [cardId]: { ...card, ...changes } } };
 }
 
+export function addLabel(board: BoardState, label: BoardLabel): BoardState {
+  return { ...board, labels: [...board.labels, label] };
+}
+
+export function updateLabel(board: BoardState, id: string, changes: Partial<Omit<BoardLabel, "id">>): BoardState {
+  return { ...board, labels: board.labels.map((l) => (l.id === id ? { ...l, ...changes } : l)) };
+}
+
+/** Removes the label from the board and from every card that had it. */
+export function removeLabel(board: BoardState, id: string): BoardState {
+  const cards = Object.fromEntries(
+    Object.entries(board.cards).map(([key, card]) => [
+      key,
+      card.labels?.includes(id) ? { ...card, labels: card.labels.filter((l) => l !== id) } : card,
+    ]),
+  );
+  return { ...board, cards, labels: board.labels.filter((l) => l.id !== id) };
+}
+
 export function deleteCard(board: BoardState, cardId: string): BoardState {
   const cards = { ...board.cards };
   delete cards[cardId];
   return {
+    ...board,
     cards,
     columns: board.columns.map((c) => ({ ...c, cardIds: c.cardIds.filter((id) => id !== cardId) })),
   };
@@ -70,6 +93,11 @@ export function moveCard(
 }
 
 export const initialBoard: BoardState = {
+  labels: (["green", "yellow", "orange", "red", "purple", "blue"] as const).map((color, i) => ({
+    id: `label-${i + 1}`,
+    name: "",
+    color,
+  })),
   columns: [
     { id: "backlog", title: "ایده‌ها", cardIds: ["c1", "c2", "c3"] },
     { id: "todo", title: "برای انجام", cardIds: ["c4", "c5"] },

@@ -11,7 +11,8 @@ from app.auth import User, current_user
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Details = Annotated[str, StringConstraints(strip_whitespace=True, max_length=5000)]
 Priority = Literal["low", "medium", "high"]
-Label = Literal["red", "orange", "yellow", "green", "blue", "purple"]
+LabelColor = Literal["red", "orange", "yellow", "green", "blue", "purple"]
+LabelName = Annotated[str, StringConstraints(strip_whitespace=True, max_length=30)]
 # Validated as a date, dumped (and stored) as "YYYY-MM-DD" text.
 DueDate = Annotated[datetime.date, PlainSerializer(lambda d: d.isoformat(), return_type=str)]
 # An empty assignee means "nobody".
@@ -21,12 +22,12 @@ Assignee = Annotated[
 
 
 class CardFields(BaseModel):
-    """Optional card details; null clears a field."""
+    """Optional card details; null clears a field. `labels` lists label ids from the same board."""
 
     due_date: DueDate | None = None
     priority: Priority | None = None
-    label: Label | None = None
     assignee: Assignee | None = None
+    labels: list[str] | None = Field(default=None, max_length=20)
 
 router = APIRouter(prefix="/api")
 CurrentUser = Annotated[User, Depends(current_user)]
@@ -47,10 +48,21 @@ class CardUpdate(CardFields):
     details: Details | None = None
 
     @model_validator(mode="after")
-    def title_not_null(self):
-        if "title" in self.model_fields_set and self.title is None:
-            raise ValueError("title cannot be null")
+    def not_null(self):
+        for field in ("title", "labels"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
         return self
+
+
+class LabelCreate(BaseModel):
+    name: LabelName = ""
+    color: LabelColor
+
+
+class LabelUpdate(BaseModel):
+    name: LabelName | None = None
+    color: LabelColor | None = None
 
 
 class CardMove(BaseModel):
@@ -74,7 +86,8 @@ def rename_column(column_id: str, body: ColumnUpdate, user: CurrentUser) -> dict
 @router.post("/cards", status_code=201)
 def create_card(body: CardCreate, user: CurrentUser) -> dict:
     with db.connect() as conn:
-        return service.create_card(conn, user.id, body.column_id, body.model_dump(exclude={"column_id"}))
+        fields = body.model_dump(exclude={"column_id"}, exclude_none=True)
+        return service.create_card(conn, user.id, body.column_id, fields)
 
 
 @router.patch("/cards/{card_id}")
@@ -96,3 +109,23 @@ def delete_card(card_id: str, user: CurrentUser) -> dict[str, bool]:
     with db.connect() as conn:
         service.delete_card(conn, user.id, card_id)
     return {"ok": True}
+
+
+@router.post("/labels", status_code=201)
+def create_label(body: LabelCreate, user: CurrentUser) -> dict:
+    with db.connect() as conn:
+        return service.create_label(conn, user.id, body.name, body.color)
+
+
+@router.patch("/labels/{label_id}")
+def update_label(label_id: str, body: LabelUpdate, user: CurrentUser) -> dict:
+    with db.connect() as conn:
+        return service.update_label(conn, user.id, label_id, body.model_dump(exclude_none=True))
+
+
+@router.delete("/labels/{label_id}")
+def delete_label(label_id: str, user: CurrentUser) -> dict[str, bool]:
+    with db.connect() as conn:
+        service.delete_label(conn, user.id, label_id)
+    return {"ok": True}
+

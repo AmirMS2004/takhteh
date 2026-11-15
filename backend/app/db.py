@@ -34,14 +34,27 @@ CREATE TABLE IF NOT EXISTS cards (
     position INTEGER NOT NULL,
     due_date TEXT,
     priority TEXT,
-    label TEXT,
     assignee TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position);
+CREATE TABLE IF NOT EXISTS labels (
+    id INTEGER PRIMARY KEY,
+    board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    name TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS card_labels (
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (card_id, label_id)
+);
 """
 
 # Card fields added after the first release; init_db adds them to older databases.
-CARD_DETAIL_COLUMNS = ["due_date", "priority", "label", "assignee"]
+CARD_DETAIL_COLUMNS = ["due_date", "priority", "assignee"]
+
+# Like Trello, every board starts with one unnamed label per color.
+LABEL_COLORS = ["green", "yellow", "orange", "red", "purple", "blue"]
 
 DEFAULT_COLUMNS = ["ایده‌ها", "برای انجام", "در حال انجام", "بازبینی", "انجام‌شده"]
 
@@ -105,7 +118,34 @@ def create_user(conn: sqlite3.Connection, username: str, password: str) -> int:
         "INSERT INTO columns (board_id, title, position) VALUES (?, ?, ?)",
         [(board_id, title, i) for i, title in enumerate(DEFAULT_COLUMNS)],
     )
+    add_default_labels(conn, board_id)
     return user_id
+
+
+def add_default_labels(conn: sqlite3.Connection, board_id: int) -> None:
+    conn.executemany("INSERT INTO labels (board_id, color) VALUES (?, ?)", [(board_id, c) for c in LABEL_COLORS])
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Brings databases from earlier versions up to date; does nothing on a current one."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(cards)")}
+    for name in CARD_DETAIL_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE cards ADD COLUMN {name} TEXT")
+    for (board_id,) in conn.execute(
+        "SELECT id FROM boards WHERE id NOT IN (SELECT board_id FROM labels)"
+    ).fetchall():
+        add_default_labels(conn, board_id)
+    if "label" in existing:
+        # One color per card became board labels: link each card to its board's label of that color.
+        conn.execute(
+            """INSERT OR IGNORE INTO card_labels (card_id, label_id)
+               SELECT k.id, (SELECT l.id FROM labels l WHERE l.board_id = c.board_id AND l.color = k.label
+                             ORDER BY l.id LIMIT 1)
+               FROM cards k JOIN columns c ON c.id = k.column_id
+               WHERE k.label IS NOT NULL"""
+        )
+        conn.execute("ALTER TABLE cards DROP COLUMN label")
 
 
 def init_db() -> None:
@@ -113,10 +153,7 @@ def init_db() -> None:
     db_path().parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.executescript(SCHEMA)
-        existing = {row["name"] for row in conn.execute("PRAGMA table_info(cards)")}
-        for name in CARD_DETAIL_COLUMNS:
-            if name not in existing:
-                conn.execute(f"ALTER TABLE cards ADD COLUMN {name} TEXT")
+        _migrate(conn)
         if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             return
         user_id = create_user(conn, "user", "password")

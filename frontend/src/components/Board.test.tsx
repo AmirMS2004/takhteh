@@ -122,7 +122,7 @@ describe("Board", () => {
     expect(screen.queryByText("حالت تاریک")).not.toBeInTheDocument();
     expect(api.calls().at(-1)).toEqual({
       route: "PATCH /api/cards/c2",
-      body: { title: "تم تیره", details: "جزئیات تازه", due_date: null, priority: null, label: null, assignee: null },
+      body: { title: "تم تیره", details: "جزئیات تازه", due_date: null, priority: null, labels: [], assignee: null },
     });
   });
 
@@ -139,7 +139,7 @@ describe("Board", () => {
     expect(api.state.board.cards.c2).toMatchObject({
       due_date: "2099-03-21",
       priority: "high",
-      label: "green",
+      labels: ["label-1"],
       assignee: "سارا",
     });
     const card = screen.getByTestId("card-c2");

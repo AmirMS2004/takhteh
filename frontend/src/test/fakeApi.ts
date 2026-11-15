@@ -1,7 +1,11 @@
 import { vi } from "vitest";
 import {
   addCard,
+  addLabel,
   deleteCard,
+  removeLabel,
+  updateLabel,
+  type LabelColor,
   initialBoard,
   moveCard,
   renameColumn,
@@ -68,6 +72,19 @@ export function fakeApi({
       if (result.board && !result.error) state.board = result.board;
       const applied = result.board && !result.error ? 1 : 0;
       return json({ reply: result.reply, board: state.board, applied, error: result.error ?? null });
+    }
+    if (method === "POST" && path === "/api/labels") {
+      const label = { id: `label-new-${state.nextId++}`, name: (body.name as string) ?? "", color: body.color as LabelColor };
+      state.board = addLabel(b, label);
+      return json(label, 201);
+    }
+    if (method === "PATCH" && (m = path.match(/^\/api\/labels\/(.+)$/))) {
+      state.board = updateLabel(b, m[1], body);
+      return json(state.board.labels.find((l) => l.id === m![1]));
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/labels\/(.+)$/))) {
+      state.board = removeLabel(b, m[1]);
+      return json({ ok: true });
     }
     if (method === "PATCH" && (m = path.match(/^\/api\/columns\/(.+)$/))) {
       state.board = renameColumn(b, m[1], body.title as string);

@@ -112,6 +112,27 @@ test("sets card details and keeps them after reload", async ({ page }) => {
   await expect(saved.getByTitle("سررسید")).toContainText("فروردین");
 });
 
+test("names a label, puts it on a card, and keeps both after reload", async ({ page }) => {
+  await page.getByRole("button", { name: "برچسب‌ها", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "برچسب‌های برد" });
+  await dialog.getByLabel("نام برچسب قرمز").fill("فوری");
+  await dialog.getByLabel("نام برچسب قرمز").press("Enter");
+  await dialog.getByRole("button", { name: "بستن" }).click();
+
+  const target = card(page, "طراحی صفحه ورود");
+  await target.hover();
+  await target.getByRole("button", { name: "ویرایش طراحی صفحه ورود" }).click();
+  const form = column(page, "todo");
+  await form.getByRole("button", { name: "برچسب فوری" }).click();
+  await form.getByRole("button", { name: "برچسب سبز" }).click();
+  await form.getByRole("button", { name: "ذخیره" }).click();
+
+  await reloadAfterSave(page);
+  const saved = card(page, "طراحی صفحه ورود");
+  await expect(saved.getByText("فوری")).toBeVisible();
+  await expect(saved.getByTitle("برچسب سبز")).toBeVisible();
+});
+
 test("cancels adding a card", async ({ page }) => {
   const col = column(page, "todo");
   await col.getByRole("button", { name: /افزودن کارت/ }).click();

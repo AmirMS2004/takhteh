@@ -38,13 +38,32 @@
         "position": "INTEGER NOT NULL",
         "due_date": "TEXT",
         "priority": "TEXT",
-        "label": "TEXT",
         "assignee": "TEXT"
       },
       "indexes": [
         "CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"
       ],
-      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; label is red|orange|yellow|green|blue|purple; assignee is free text (max 50). All four are optional (NULL) and are added to older databases at startup."
+      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee is free text (max 50). These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels."
+    },
+    "labels": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "board_id": "INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE",
+        "name": "TEXT NOT NULL DEFAULT ''",
+        "color": "TEXT NOT NULL"
+      },
+      "notes": "Board-level labels like Trello; name may be empty. color is red|orange|yellow|green|blue|purple. Every board starts with one unnamed label per color."
+    },
+    "card_labels": {
+      "columns": {
+        "card_id": "INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE",
+        "label_id": "INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE"
+      },
+      "primary_key": [
+        "card_id",
+        "label_id"
+      ],
+      "notes": "A card can have any number of its board's labels."
     }
   },
   "api_board_shape": {
@@ -72,8 +91,10 @@
           "details": "...",
           "due_date": null,
           "priority": null,
-          "label": null,
-          "assignee": null
+          "assignee": null,
+          "labels": [
+            "label-4"
+          ]
         },
         "card-2": {
           "id": "card-2",
@@ -81,10 +102,17 @@
           "details": "...",
           "due_date": null,
           "priority": null,
-          "label": null,
-          "assignee": null
+          "assignee": null,
+          "labels": []
         }
-      }
+      },
+      "labels": [
+        {
+          "id": "label-4",
+          "name": "فوری",
+          "color": "red"
+        }
+      ]
     }
   }
 }

@@ -22,14 +22,18 @@ import * as api from "@/lib/api";
 import type { BoardStore } from "@/lib/useBoard";
 import {
   addCard,
+  addLabel,
   deleteCard,
   findColumn,
   moveCard,
+  removeLabel,
   renameColumn,
   updateCard,
+  updateLabel,
   type BoardState,
 } from "@/lib/board";
 import { ColumnView } from "./ColumnView";
+import { LabelsDialog } from "./LabelsDialog";
 import { CardView } from "./CardItem";
 
 function position(board: BoardState, cardId: string) {
@@ -40,6 +44,7 @@ function position(board: BoardState, cardId: string) {
 export function Board({ store }: { store: BoardStore }) {
   const { board, failed, apply, current, persist, notice, dismissNotice } = store;
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [labelsOpen, setLabelsOpen] = useState(false);
   const dragStart = useRef<BoardState | null>(null);
 
   const sensors = useSensors(
@@ -138,6 +143,19 @@ export function Board({ store }: { store: BoardStore }) {
           </button>
         </div>
       )}
+      <div className="mb-4 flex items-center gap-2 px-6 sm:px-10">
+        <button
+          type="button"
+          onClick={() => setLabelsOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-navy transition hover:border-primary hover:text-primary"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M3 10.5V4a1 1 0 011-1h6.5L17 9.5 10.5 16 3 10.5z" strokeLinejoin="round" />
+            <circle cx="7" cy="7" r="1.2" fill="currentColor" />
+          </svg>
+          برچسب‌ها
+        </button>
+      </div>
       <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
         {board.columns.map((column) => (
           <ColumnView
@@ -161,10 +179,27 @@ export function Board({ store }: { store: BoardStore }) {
               apply(updateCard(current(), cardId, changes));
               persist(api.updateCard(cardId, changes));
             }}
+            labels={board.labels}
+            onManageLabels={() => setLabelsOpen(true)}
           />
         ))}
       </div>
-      <DragOverlay>{activeCard && <CardView card={activeCard} overlay />}</DragOverlay>
+      <DragOverlay>{activeCard && <CardView card={activeCard} labels={board.labels} overlay />}</DragOverlay>
+      {labelsOpen && (
+        <LabelsDialog
+          labels={board.labels}
+          onCreate={(color) => persist(api.createLabel("", color).then((label) => apply(addLabel(current(), label))))}
+          onUpdate={(id, changes) => {
+            apply(updateLabel(current(), id, changes));
+            persist(api.updateLabel(id, changes));
+          }}
+          onDelete={(id) => {
+            apply(removeLabel(current(), id));
+            persist(api.deleteLabel(id));
+          }}
+          onClose={() => setLabelsOpen(false)}
+        />
+      )}
     </DndContext>
   );
 }

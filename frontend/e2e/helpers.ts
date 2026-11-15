@@ -39,6 +39,11 @@ export async function resetBoard(page: Page) {
   const api = page.request;
   const board = await (await api.get("/api/board")).json();
   for (const id of Object.keys(board.cards)) expect((await api.delete(`/api/cards/${id}`)).ok()).toBe(true);
+  // Labels too: back to one unnamed label per color.
+  for (const label of board.labels) expect((await api.delete(`/api/labels/${label.id}`)).ok()).toBe(true);
+  for (const color of ["green", "yellow", "orange", "red", "purple", "blue"]) {
+    expect((await api.post("/api/labels", { data: { color } })).ok()).toBe(true);
+  }
   for (const [i, [title, cards]] of SEED.entries()) {
     const columnId = board.columns[i].id;
     expect((await api.patch(`/api/columns/${columnId}`, { data: { title } })).ok()).toBe(true);

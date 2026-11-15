@@ -5,8 +5,11 @@ import {
   findColumn,
   initialBoard,
   moveCard,
+  addLabel,
+  removeLabel,
   renameColumn,
   updateCard,
+  updateLabel,
   type BoardState,
 } from "./board";
 
@@ -20,8 +23,12 @@ const board: BoardState = {
     "1": { id: "1", title: "one", details: "" },
     "2": { id: "2", title: "two", details: "" },
     "3": { id: "3", title: "three", details: "" },
-    "4": { id: "4", title: "four", details: "" },
+    "4": { id: "4", title: "four", details: "", labels: ["l1", "l2"] },
   },
+  labels: [
+    { id: "l1", name: "باگ", color: "red" },
+    { id: "l2", name: "", color: "green" },
+  ],
 };
 
 const ids = (b: BoardState) => b.columns.map((c) => c.cardIds);
@@ -107,5 +114,27 @@ describe("moveCard", () => {
   it("does not mutate the input", () => {
     moveCard(board, "1", "b", 1);
     expect(ids(board)).toEqual([["1", "2", "3"], ["4"], []]);
+  });
+});
+
+describe("labels", () => {
+  it("adding or deleting a card keeps the board labels", () => {
+    expect(addCard(board, "a", { id: "9", title: "x", details: "" }).labels).toBe(board.labels);
+    expect(deleteCard(board, "1").labels).toBe(board.labels);
+  });
+
+  it("adds and updates a label", () => {
+    const added = addLabel(board, { id: "l3", name: "طراحی", color: "blue" });
+    expect(added.labels.map((l) => l.id)).toEqual(["l1", "l2", "l3"]);
+    const renamed = updateLabel(added, "l1", { name: "خطا" });
+    expect(renamed.labels[0]).toEqual({ id: "l1", name: "خطا", color: "red" });
+    expect(board.labels[0].name).toBe("باگ");
+  });
+
+  it("removing a label also takes it off every card", () => {
+    const next = removeLabel(board, "l1");
+    expect(next.labels.map((l) => l.id)).toEqual(["l2"]);
+    expect(next.cards["4"].labels).toEqual(["l2"]);
+    expect(next.cards["1"]).toBe(board.cards["1"]);
   });
 });

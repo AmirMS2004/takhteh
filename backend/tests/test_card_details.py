@@ -4,7 +4,7 @@ import pytest
 
 from app import db
 
-DETAILS = {"due_date": "2026-12-01", "priority": "high", "label": "green", "assignee": "سارا"}
+DETAILS = {"due_date": "2026-12-01", "priority": "high", "assignee": "سارا"}
 
 
 def first_card(client) -> str:
@@ -39,7 +39,7 @@ def test_update_sets_and_clears_only_sent_fields(auth_client):
     assert response.status_code == 200
     c = card(auth_client, card_id)
     assert c["priority"] is None
-    assert (c["due_date"], c["label"], c["assignee"], c["title"]) == ("2026-12-01", "green", "سارا", "پژوهش رقبا")
+    assert (c["due_date"], c["assignee"], c["title"]) == ("2026-12-01", "سارا", "پژوهش رقبا")
 
 
 def test_blank_assignee_means_nobody(auth_client):
@@ -54,7 +54,7 @@ def test_blank_assignee_means_nobody(auth_client):
         {"due_date": "2026-13-01"},
         {"due_date": "tomorrow"},
         {"priority": "urgent"},
-        {"label": "pink"},
+        {"labels": None},
         {"assignee": "x" * 51},
         {"title": None},
     ],

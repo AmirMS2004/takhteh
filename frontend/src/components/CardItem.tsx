@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Card, Label, Priority } from "@/lib/board";
-import { LABELS, PRIORITIES, formatDue, today } from "@/lib/cardDetails";
+import type { BoardLabel, Card, Priority } from "@/lib/board";
+import { PRIORITIES, colorOf, formatDue, labelTitle, today } from "@/lib/cardDetails";
 
 type Props = {
   card: Card;
+  labels: BoardLabel[];
   onDelete?: (id: string) => void;
   onEdit?: () => void;
   overlay?: boolean;
@@ -52,8 +53,26 @@ function CardMeta({ card }: { card: Card }) {
   );
 }
 
-export function CardView({ card, onDelete, onEdit, overlay }: Props) {
-  const label = LABELS.find((l) => l.value === card.label);
+/** The card's labels in board order: named ones as pills, unnamed ones as short color strips. */
+function CardLabels({ card, labels }: { card: Card; labels: BoardLabel[] }) {
+  const own = labels.filter((l) => card.labels?.includes(l.id));
+  if (own.length === 0) return null;
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-1">
+      {own.map((l) =>
+        l.name ? (
+          <span key={l.id} title={labelTitle(l)} className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${colorOf(l.color).pill}`}>
+            {l.name}
+          </span>
+        ) : (
+          <span key={l.id} title={labelTitle(l)} className={`h-1.5 w-8 rounded-full ${colorOf(l.color).swatch}`} />
+        ),
+      )}
+    </div>
+  );
+}
+
+export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
   return (
     <div
       className={`group relative rounded-xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
@@ -61,7 +80,7 @@ export function CardView({ card, onDelete, onEdit, overlay }: Props) {
       }`}
     >
       <span className="absolute inset-y-3 right-0 w-1 rounded-l-full bg-accent opacity-0 transition-opacity group-hover:opacity-100" />
-      {label && <span title={`برچسب ${label.name}`} className={`mb-2 block h-1.5 w-10 rounded-full ${label.swatch}`} />}
+      <CardLabels card={card} labels={labels} />
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-[15px] font-semibold leading-6 text-navy">{card.title}</h3>
         <div className="-mt-1 -ml-1 flex shrink-0">
@@ -101,18 +120,23 @@ export function CardView({ card, onDelete, onEdit, overlay }: Props) {
 
 function CardEditForm({
   card,
+  labels,
   onSave,
   onCancel,
+  onManageLabels,
 }: {
   card: Card;
+  labels: BoardLabel[];
   onSave: (changes: CardChanges) => void;
   onCancel: () => void;
+  onManageLabels: () => void;
 }) {
   const [title, setTitle] = useState(card.title);
   const [details, setDetails] = useState(card.details);
   const [dueDate, setDueDate] = useState(card.due_date ?? "");
   const [priority, setPriority] = useState<Priority | "">(card.priority ?? "");
-  const [label, setLabel] = useState<Label | null>(card.label ?? null);
+  const [selected, setSelected] = useState<string[]>(card.labels ?? []);
+  const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const [assignee, setAssignee] = useState(card.assignee ?? "");
 
   return (
@@ -125,7 +149,7 @@ function CardEditForm({
           details: details.trim(),
           due_date: dueDate || null,
           priority: priority || null,
-          label,
+          labels: labels.filter((l) => selected.includes(l.id)).map((l) => l.id),
           assignee: assignee.trim() || null,
         });
       }}
@@ -170,27 +194,30 @@ function CardEditForm({
         <input maxLength={50} value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field} />
       </label>
       <fieldset className="space-y-1">
-        <legend className="text-xs text-gray-text">برچسب</legend>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label="بدون برچسب"
-            aria-pressed={label === null}
-            onClick={() => setLabel(null)}
-            className={`grid h-6 w-6 place-items-center rounded-full border text-xs text-gray-text ${label === null ? "border-navy" : "border-slate-200"}`}
-          >
-            ×
+        <legend className="flex w-full items-center justify-between text-xs text-gray-text">
+          برچسب‌ها
+          <button type="button" onClick={onManageLabels} className="font-medium text-primary hover:underline">
+            مدیریت برچسب‌ها
           </button>
-          {LABELS.map((l) => (
-            <button
-              key={l.value}
-              type="button"
-              aria-label={`برچسب ${l.name}`}
-              aria-pressed={label === l.value}
-              onClick={() => setLabel(l.value)}
-              className={`h-6 w-6 rounded-full ${l.swatch} ${label === l.value ? "ring-2 ring-navy ring-offset-2" : ""}`}
-            />
-          ))}
+        </legend>
+        <div className="flex flex-wrap gap-1.5">
+          {labels.map((l) => {
+            const on = selected.includes(l.id);
+            return (
+              <button
+                key={l.id}
+                type="button"
+                aria-label={labelTitle(l)}
+                aria-pressed={on}
+                onClick={() => toggle(l.id)}
+                className={`flex h-6 min-w-8 items-center rounded px-2 text-[11px] font-semibold transition ${colorOf(l.color).pill} ${
+                  on ? "ring-2 ring-navy ring-offset-1" : "opacity-40 hover:opacity-70"
+                }`}
+              >
+                {l.name}
+              </button>
+            );
+          })}
         </div>
       </fieldset>
       <div className="flex gap-2 pt-1">
@@ -215,12 +242,16 @@ function CardEditForm({
 
 export function CardItem({
   card,
+  labels,
   onDelete,
   onUpdate,
+  onManageLabels,
 }: {
   card: Card;
+  labels: BoardLabel[];
   onDelete: (id: string) => void;
   onUpdate: (changes: CardChanges) => void;
+  onManageLabels: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -240,6 +271,8 @@ export function CardItem({
       {editing ? (
         <CardEditForm
           card={card}
+          labels={labels}
+          onManageLabels={onManageLabels}
           onSave={(changes) => {
             onUpdate(changes);
             setEditing(false);
@@ -247,7 +280,7 @@ export function CardItem({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <CardView card={card} onDelete={onDelete} onEdit={() => setEditing(true)} />
+        <CardView card={card} labels={labels} onDelete={onDelete} onEdit={() => setEditing(true)} />
       )}
     </li>
   );

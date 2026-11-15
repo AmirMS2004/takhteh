@@ -1,4 +1,4 @@
-import type { BoardState, Card } from "./board";
+import type { BoardLabel, BoardState, Card } from "./board";
 
 /** Fired when the session is gone (e.g. expired) so the page can show the login form again. */
 export const UNAUTHORIZED_EVENT = "pm:unauthorized";
@@ -83,6 +83,18 @@ export async function moveCard(cardId: string, columnId: string, index: number):
 
 export async function deleteCard(cardId: string): Promise<void> {
   await request(`/api/cards/${cardId}`, { method: "DELETE" });
+}
+
+export function createLabel(name: string, color: BoardLabel["color"]): Promise<BoardLabel> {
+  return request<BoardLabel>("/api/labels", { method: "POST", body: JSON.stringify({ name, color }) });
+}
+
+export async function updateLabel(labelId: string, changes: Partial<Omit<BoardLabel, "id">>): Promise<void> {
+  await request(`/api/labels/${labelId}`, { method: "PATCH", body: JSON.stringify(changes) });
+}
+
+export async function deleteLabel(labelId: string): Promise<void> {
+  await request(`/api/labels/${labelId}`, { method: "DELETE" });
 }
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };

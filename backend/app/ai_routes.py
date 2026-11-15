@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app import ai, db
 from app import board_service as service
 from app.auth import User, current_user
-from app.board import Assignee, DueDate, Label, Priority
+from app.board import Assignee, DueDate, Priority
 
 router = APIRouter(prefix="/api/ai")
 
@@ -17,12 +17,13 @@ SYSTEM_PROMPT = """You are the assistant inside a kanban project-management app.
 talks to you in a sidebar.
 
 The current board is given below as JSON: "columns" in display order, each with "id", "title" and "cardIds" \
-(top to bottom), and "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), "priority" ("low", "medium" or "high"), "label" (a color: "red", "orange", "yellow", "green", "blue" or "purple") and "assignee" (a person's name); the last four may be null.
+(top to bottom), and "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), "priority" ("low", "medium" or "high"), "assignee" (a person's name) and "labels" (a list of label ids); the first three may be null. The board's labels are in "labels", each with "id", "name" (may be empty) and "color".
 
 You can change the board by returning operations:
-- create_card: column_id, title, details (use "" when there are no details), and optionally due_date, priority, label, assignee
-- update_card: card_id, and any of title, details, due_date, priority, label, assignee to change (null keeps the current value)
+- create_card: column_id, title, details (use "" when there are no details), and optionally due_date, priority, assignee, labels
+- update_card: card_id, and any of title, details, due_date, priority, assignee to change (null keeps the current value); "labels" replaces the card's whole label list (null keeps it), so include labels it should keep
 - move_card: card_id, column_id, index (0 is the top of the column; null puts it at the bottom)
+Only use label ids from the board's "labels"; you cannot create, rename or delete labels.
 Set every field an operation does not use to null. Only use ids that exist on the board. Columns cannot be \
 created, renamed or deleted, and cards cannot be deleted; if asked, say so.
 
@@ -53,7 +54,7 @@ RESPONSE_FORMAT = {
                         "additionalProperties": False,
                         "required": [
                             "type", "card_id", "column_id", "title", "details", "index",
-                            "due_date", "priority", "label", "assignee",
+                            "due_date", "priority", "assignee", "labels",
                         ],
                         "properties": {
                             "type": {"type": "string", "enum": ["create_card", "update_card", "move_card"]},
@@ -64,11 +65,8 @@ RESPONSE_FORMAT = {
                             "index": {"type": ["integer", "null"]},
                             "due_date": NULLABLE_STRING,
                             "priority": {"type": ["string", "null"], "enum": ["low", "medium", "high", None]},
-                            "label": {
-                                "type": ["string", "null"],
-                                "enum": ["red", "orange", "yellow", "green", "blue", "purple", None],
-                            },
                             "assignee": NULLABLE_STRING,
+                            "labels": {"type": ["array", "null"], "items": {"type": "string"}},
                         },
                     },
                 },
@@ -91,11 +89,11 @@ class Operation(BaseModel):
     index: int | None = None
     due_date: DueDate | None = None
     priority: Priority | None = None
-    label: Label | None = None
     assignee: Assignee | None = None
+    labels: list[str] | None = None
 
 
-DETAIL_FIELDS = ("due_date", "priority", "label", "assignee")
+DETAIL_FIELDS = ("due_date", "priority", "assignee", "labels")
 
 
 class AssistantReply(BaseModel):

@@ -6,7 +6,11 @@ import pytest
 from app import ai
 
 
-NULLS = ["card_id", "column_id", "title", "details", "index", "due_date", "priority", "label", "assignee"]
+NULLS = ["card_id", "column_id", "title", "details", "index", "due_date", "priority", "assignee", "labels"]
+
+
+def label_id(b: dict, color: str) -> str:
+    return next(label["id"] for label in b["labels"] if label["color"] == color)
 
 
 def op(type_: str, **fields) -> dict:
@@ -157,19 +161,31 @@ def test_create_and_update_card_details(auth_client, model):
     todo, first = b["columns"][1]["id"], b["columns"][0]["cardIds"][0]
     model.reply["operations"] = [
         op("create_card", column_id=todo, title="گزارش", details="", due_date="2026-12-05", priority="high"),
-        op("update_card", card_id=first, label="red", assignee="علی"),
+        op("update_card", card_id=first, labels=[label_id(b, "red")], assignee="علی"),
     ]
     result = send(auth_client).json()["board"]
     created = result["cards"][result["columns"][1]["cardIds"][-1]]
     assert (created["title"], created["due_date"], created["priority"]) == ("گزارش", "2026-12-05", "high")
-    assert (result["cards"][first]["label"], result["cards"][first]["assignee"]) == ("red", "علی")
+    assert (result["cards"][first]["labels"], result["cards"][first]["assignee"]) == ([label_id(b, "red")], "علی")
     assert result["cards"][first]["title"] == "پژوهش رقبا"  # null kept the title
 
 
-@pytest.mark.parametrize("bad", [{"priority": "urgent"}, {"label": "pink"}, {"due_date": "next week"}])
+@pytest.mark.parametrize("bad", [{"priority": "urgent"}, {"labels": "red"}, {"due_date": "next week"}])
 def test_invalid_detail_values_are_malformed_output(auth_client, model, bad):
     model.reply["operations"] = [op("update_card", card_id="card-1", **bad)]
     assert send(auth_client).status_code == 502
+
+
+def test_unknown_label_rolls_back(auth_client, model):
+    before = board(auth_client)
+    model.reply["operations"] = [op("update_card", card_id="card-1", labels=["label-999"])]
+    response = send(auth_client).json()
+    assert response["error"].startswith("Changes were not applied") and response["board"] == before
+
+
+def test_prompt_lists_the_board_labels(auth_client, model):
+    send(auth_client)
+    assert '"labels": [{"id": "label-1"' in model.calls[0]["messages"][0]["content"]
 
 
 # --- failures leave the board untouched ---
@@ -256,4 +272,5 @@ def test_live_sets_card_details(auth_client):
     body = send(auth_client, "برای کارت «پژوهش رقبا» اولویت را بالا و برچسب را قرمز بگذار و مسئولش را «سارا» کن.").json()
     assert body["error"] is None, body
     research = next(c for c in body["board"]["cards"].values() if c["title"] == "پژوهش رقبا")
-    assert (research["priority"], research["label"], research["assignee"]) == ("high", "red", "سارا"), body
+    red = label_id(body["board"], "red")
+    assert (research["priority"], research["labels"], research["assignee"]) == ("high", [red], "سارا"), body
