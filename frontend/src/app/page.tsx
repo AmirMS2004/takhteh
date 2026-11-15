@@ -2,13 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { Board } from "@/components/Board";
+import { ChatSidebar } from "@/components/ChatSidebar";
 import { LoginForm } from "@/components/LoginForm";
 import { getMe, logout } from "@/lib/api";
+import { useBoard } from "@/lib/useBoard";
 
 type Session = { status: "loading" } | { status: "anonymous" } | { status: "user"; username: string };
 
+/** The board and the AI chat share one board store, so AI changes show up on the board immediately. */
+function Workspace({ chatOpen }: { chatOpen: boolean }) {
+  const store = useBoard();
+  return (
+    <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row lg:items-start">
+      <div className="min-w-0 flex-1">
+        <Board store={store} />
+      </div>
+      {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
+      <div hidden={!chatOpen} className="px-6 sm:px-10 lg:pr-0 lg:pl-6">
+        <ChatSidebar onBoard={store.apply} />
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [session, setSession] = useState<Session>({ status: "loading" });
+  const [chatOpen, setChatOpen] = useState(true);
 
   useEffect(() => {
     getMe()
@@ -34,6 +53,14 @@ export default function Home() {
           </p>
         </div>
         <div className="flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            aria-pressed={chatOpen}
+            onClick={() => setChatOpen((o) => !o)}
+            className="rounded-lg bg-primary/10 px-3 py-1.5 font-medium text-primary transition hover:bg-primary/15"
+          >
+            {chatOpen ? "بستن دستیار" : "دستیار هوش مصنوعی"}
+          </button>
           <span className="text-gray-text" dir="ltr">
             {session.username}
           </span>
@@ -49,7 +76,7 @@ export default function Home() {
           </button>
         </div>
       </header>
-      <Board />
+      <Workspace chatOpen={chatOpen} />
     </main>
   );
 }

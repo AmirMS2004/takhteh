@@ -10,12 +10,19 @@ import {
 } from "@/lib/board";
 
 type Override = { status: number; body?: unknown };
+type ChatBody = { message: string; history: { role: string; content: string }[] };
+/** Scripted assistant: returns the reply and, optionally, the board after its changes. */
+type ChatScript = (body: ChatBody, board: BoardState) => { reply: string; board?: BoardState; error?: string };
 
 /**
  * Stubs global fetch with an in-memory version of the backend, seeded with initialBoard.
  * `overrides` force a response for "METHOD /path" (e.g. to simulate errors or 401s).
  */
-export function fakeApi({ loggedIn = true, overrides = {} as Record<string, Override> } = {}) {
+export function fakeApi({
+  loggedIn = true,
+  overrides = {} as Record<string, Override>,
+  chat = ((body) => ({ reply: `پاسخ به: ${body.message}` })) as ChatScript,
+} = {}) {
   const state = { board: structuredClone(initialBoard) as BoardState, loggedIn, nextId: 1 };
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -36,6 +43,12 @@ export function fakeApi({ loggedIn = true, overrides = {} as Record<string, Over
     const b = state.board;
     let m: RegExpMatchArray | null;
     if (method === "GET" && path === "/api/board") return json(b);
+    if (method === "POST" && path === "/api/ai/chat") {
+      const result = chat(body as unknown as ChatBody, b);
+      if (result.board && !result.error) state.board = result.board;
+      const applied = result.board && !result.error ? 1 : 0;
+      return json({ reply: result.reply, board: state.board, applied, error: result.error ?? null });
+    }
     if (method === "PATCH" && (m = path.match(/^\/api\/columns\/(.+)$/))) {
       state.board = renameColumn(b, m[1], body.title as string);
       return json({ ok: true });

@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeApi } from "@/test/fakeApi";
+import { useBoard } from "@/lib/useBoard";
 import { Board } from "./Board";
+
+function Harness() {
+  return <Board store={useBoard()} />;
+}
 
 const column = (id: string) => screen.getByTestId(`column-${id}`);
 
 async function renderBoard(options?: Parameters<typeof fakeApi>[0]) {
   const api = fakeApi(options);
-  render(<Board />);
+  render(<Harness />);
   await screen.findByTestId("column-backlog");
   return { api, user: userEvent.setup() };
 }
@@ -23,7 +28,7 @@ describe("Board", () => {
 
   it("shows an error when the board cannot be loaded", async () => {
     fakeApi({ overrides: { "GET /api/board": { status: 500 } } });
-    render(<Board />);
+    render(<Harness />);
     expect(await screen.findByText(/بارگذاری برد ناموفق بود/)).toBeInTheDocument();
   });
 

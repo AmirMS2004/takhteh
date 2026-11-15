@@ -65,3 +65,13 @@ export async function moveCard(cardId: string, columnId: string, index: number):
 export async function deleteCard(cardId: string): Promise<void> {
   await request(`/api/cards/${cardId}`, { method: "DELETE" });
 }
+
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ChatResponse = { reply: string; board: BoardState; applied: number; error: string | null };
+
+export function chat(message: string, history: ChatMessage[]): Promise<ChatResponse> {
+  return request<ChatResponse>("/api/ai/chat", {
+    method: "POST",
+    body: JSON.stringify({ message, history }),
+  });
+}

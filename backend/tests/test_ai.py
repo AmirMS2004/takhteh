@@ -40,10 +40,17 @@ def test_client_requires_key(monkeypatch):
         ai.client()
 
 
-def test_chat_sends_model_and_messages(fake):
+def test_chat_sends_model_and_messages(fake, monkeypatch):
+    monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
     messages = [{"role": "user", "content": "hi"}]
     assert ai.chat(messages) == "4"
-    assert fake.calls == [{"model": "openai/gpt-oss-120b", "messages": messages}]
+    assert fake.calls == [{"model": ai.DEFAULT_MODEL, "messages": messages}]
+
+
+def test_model_can_be_overridden(fake, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_MODEL", "some/model:free")
+    ai.chat([{"role": "user", "content": "hi"}])
+    assert fake.calls[0]["model"] == "some/model:free"
 
 
 def test_chat_passes_response_format(fake):

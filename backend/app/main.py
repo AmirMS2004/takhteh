@@ -33,6 +33,16 @@ app.include_router(board.router)
 app.include_router(ai_routes.router)
 
 
+@app.middleware("http")
+async def revalidate_pages(request: Request, call_next):
+    """Pages must be revalidated, or browsers keep an old index.html pointing at old JS after a rebuild.
+    Hashed files under /_next/static/ never change, so they may stay cached."""
+    response = await call_next(request)
+    if not request.url.path.startswith(("/api/", "/_next/static/")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.exception_handler(NotFound)
 def not_found(_: Request, exc: NotFound) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": f"Not found: {exc}"})

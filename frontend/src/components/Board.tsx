@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import * as api from "@/lib/api";
+import type { BoardStore } from "@/lib/useBoard";
 import {
   addCard,
   deleteCard,
@@ -35,12 +36,9 @@ function position(board: BoardState, cardId: string) {
   return { columnId: column.id, index: column.cardIds.indexOf(cardId) };
 }
 
-export function Board() {
-  const [board, setBoard] = useState<BoardState | null>(null);
-  const [failed, setFailed] = useState(false);
+export function Board({ store }: { store: BoardStore }) {
+  const { board, failed, apply, current, persist } = store;
   const [activeId, setActiveId] = useState<string | null>(null);
-  // Latest board, updated synchronously so drag handlers never read a stale render.
-  const boardRef = useRef<BoardState | null>(null);
   const dragStart = useRef<BoardState | null>(null);
 
   const sensors = useSensors(
@@ -48,35 +46,12 @@ export function Board() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const apply = (next: BoardState) => {
-    boardRef.current = next;
-    setBoard(next);
-  };
-
-  // The server is the source of truth: after any failed write, reload what it has.
-  const reload = () =>
-    api.getBoard().then(
-      (b) => {
-        apply(b);
-        setFailed(false);
-      },
-      () => setFailed(true),
-    );
-  const persist = (call: Promise<unknown>) => call.catch(reload);
-
-  useEffect(() => {
-    reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   if (failed && !board) {
     return <p className="px-6 text-sm text-red-700 sm:px-10">بارگذاری برد ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
   }
   if (!board) {
     return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;
   }
-
-  const current = () => boardRef.current!;
 
   // Target the column under the pointer; inside it, snap to the nearest card (or the column if empty).
   const collisionDetection: CollisionDetection = (args) => {

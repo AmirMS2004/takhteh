@@ -5,7 +5,13 @@ import os
 from openai import OpenAI, OpenAIError
 
 BASE_URL = "https://openrouter.ai/api/v1"
-MODEL = "openai/gpt-oss-120b"
+# Free model with strict structured output; chosen by running the live chat tests.
+DEFAULT_MODEL = "particle-ai/particle-1:free"
+
+
+def model() -> str:
+    """OPENROUTER_MODEL in .env overrides the default (e.g. a free ":free" model)."""
+    return os.environ.get("OPENROUTER_MODEL") or DEFAULT_MODEL
 
 
 class AIUnavailable(Exception):
@@ -26,7 +32,7 @@ def chat(messages: list[dict], response_format: dict | None = None) -> str:
         # Route only to OpenRouter providers that honour response_format.
         extra = {"response_format": response_format, "extra_body": {"provider": {"require_parameters": True}}}
     try:
-        response = client().chat.completions.create(model=MODEL, messages=messages, **extra)
+        response = client().chat.completions.create(model=model(), messages=messages, **extra)
     except OpenAIError as e:
         raise AIUnavailable(str(e)) from e
     return response.choices[0].message.content or ""
