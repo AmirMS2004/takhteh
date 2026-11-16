@@ -25,11 +25,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       await changePassword(current, next);
       setDone(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 403
-          ? "pw.wrongCurrent"
-          : "common.network",
-      );
+      setError(err instanceof ApiError && err.status === 403 ? "pw.wrongCurrent" : "common.network");
     } finally {
       setPending(false);
     }
@@ -39,10 +35,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
     <Modal title={t("pw.title")} narrow onClose={onClose}>
       {done ? (
         <>
-          <p
-            role="status"
-            className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700"
-          >
+          <p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700">
             {t("pw.done")}
           </p>
           <button
@@ -64,9 +57,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
             ] as const
           ).map(([label, value, set, autoComplete], i) => (
             <label key={label} className="block space-y-1.5">
-              <span className="text-sm font-medium text-gray-text">
-                {label}
-              </span>
+              <span className="text-sm font-medium text-gray-text">{label}</span>
               <input
                 type="password"
                 autoFocus={i === 0}
@@ -80,10 +71,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
             </label>
           ))}
           {error && (
-            <p
-              role="alert"
-              className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger"
-            >
+            <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">
               {t(error)}
             </p>
           )}
@@ -95,11 +83,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
             >
               {pending ? t("common.wait") : t("pw.save")}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2.5 text-sm text-gray-text hover:bg-mist"
-            >
+            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm text-gray-text hover:bg-mist">
               {t("common.cancel")}
             </button>
           </div>

@@ -16,7 +16,7 @@ import {
   type BoardState,
   type Card,
 } from "@/lib/board";
-import type { ActivityEntry, AppNotification } from "@/lib/api";
+import type { ActivityEntry, AppNotification, CardComment } from "@/lib/api";
 import type { Proposal } from "@/lib/proposal";
 
 type Override = { status: number; body?: unknown };
@@ -73,6 +73,9 @@ export function fakeApi({
     // Per proposal (by message id): the board it leads to, and the board before it once applied.
     proposals: {} as Record<string, { boardId: string; after: BoardState; before?: BoardState }>,
     username: "user",
+    // Archived cards per board, with the column they came from.
+    archived: {} as Record<string, { card: Card; columnId: string; at: string }[]>,
+    comments: {} as Record<string, CardComment[]>, // per card, oldest first
   };
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -296,6 +299,100 @@ export function fakeApi({
       put(renameColumn(boardOf(m[1]), m[1], body.title as string));
       return json({ ok: true });
     }
+    // --- comments, checklists, archive and my cards ---
+    if ((m = path.match(/^\/api\/cards\/([^/]+)\/comments$/))) {
+      const cardId = m[1];
+      const list = (state.comments[cardId] ??= []);
+      if (method === "GET") return json(list);
+      const comment: CardComment = {
+        id: `comment-${state.nextId++}`,
+        author: state.username,
+        author_avatar: 0,
+        body: String(body.body).trim(),
+        created_at: "2026-11-15 10:00:00",
+        mine: true,
+      };
+      list.push(comment);
+      const b = boardOf(cardId);
+      put(updateCard(b, cardId, { comments: list.length }));
+      return json(comment, 201);
+    }
+    if (method === "DELETE" && (m = path.match(/^\/api\/comments\/(.+)$/))) {
+      for (const [cardId, list] of Object.entries(state.comments)) {
+        const i = list.findIndex((c) => c.id === m![1]);
+        if (i >= 0) {
+          list.splice(i, 1);
+          put(updateCard(boardOf(cardId), cardId, { comments: list.length }));
+        }
+      }
+      return json({ ok: true });
+    }
+    if (method === "POST" && (m = path.match(/^\/api\/cards\/([^/]+)\/checklist$/))) {
+      const b = boardOf(m[1]);
+      const item = { id: `item-${state.nextId++}`, text: String(body.text).trim(), done: false };
+      put(updateCard(b, m[1], { checklist: [...(b.cards[m[1]].checklist ?? []), item] }));
+      return json(item, 201);
+    }
+    if ((m = path.match(/^\/api\/checklist\/(.+)$/))) {
+      const itemId = m[1];
+      const b = Object.values(state.boards).find((x) =>
+        Object.values(x.cards).some((c) => c.checklist?.some((i) => i.id === itemId)),
+      )!;
+      const card = Object.values(b.cards).find((c) => c.checklist?.some((i) => i.id === itemId))!;
+      const checklist =
+        method === "DELETE"
+          ? card.checklist!.filter((i) => i.id !== itemId)
+          : card.checklist!.map((i) => (i.id === itemId ? { ...i, ...body } : i));
+      put(updateCard(b, card.id, { checklist }));
+      return json({ ok: true });
+    }
+    if (method === "GET" && (m = path.match(/^\/api\/boards\/([^/]+)\/archive$/))) {
+      const b = state.boards[m[1]];
+      return json(
+        (state.archived[m[1]] ?? []).map(({ card, columnId, at }) => ({
+          id: card.id,
+          title: card.title,
+          column: b.columns.find((c) => c.id === columnId)?.title ?? "",
+          archived_at: at,
+        })),
+      );
+    }
+    if (method === "PATCH" && (m = path.match(/^\/api\/cards\/(.+)$/)) && body.archived !== undefined) {
+      const cardId = m[1];
+      if (body.archived) {
+        const b = boardOf(cardId);
+        const columnId = b.columns.find((c) => c.cardIds.includes(cardId))!.id;
+        (state.archived[b.id] ??= []).unshift({ card: { ...b.cards[cardId], archived: true }, columnId, at: "2026-11-15 10:00:00" });
+        put(deleteCard(b, cardId));
+      } else {
+        const [boardId, list] = Object.entries(state.archived).find(([, l]) => l.some((a) => a.card.id === cardId))!;
+        const found = list.find((a) => a.card.id === cardId)!;
+        state.archived[boardId] = list.filter((a) => a !== found);
+        put(addCard(state.boards[boardId], found.columnId, { ...found.card, archived: false }));
+      }
+      return json({ ok: true });
+    }
+    if (method === "GET" && path === "/api/my-cards") {
+      return json(
+        Object.values(state.boards).flatMap((b) =>
+          b.columns.slice(0, -1).flatMap((col) =>
+            col.cardIds
+              .map((id) => b.cards[id])
+              .filter((c) => c.assignee === state.username && !c.done)
+              .map((c) => ({
+                id: c.id,
+                title: c.title,
+                due_date: c.due_date ?? null,
+                priority: c.priority ?? null,
+                column: col.title,
+                board: b.id,
+                board_title: b.title,
+              })),
+          ),
+        ),
+      );
+    }
+
     if (method === "POST" && path === "/api/cards") {
       const fields = { ...body };
       delete fields.column_id;

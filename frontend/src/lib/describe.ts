@@ -23,6 +23,7 @@ function detailParts(p: Params, i18n: I18n): string[] {
     parts.push(labels.length ? labels.map((l) => label(l, i18n)).join(t("common.list")) : t("part.noLabels"));
   }
   if (p.done !== undefined) parts.push(p.done ? t("part.done") : t("part.open"));
+  if (p.archived !== undefined) parts.push(p.archived ? t("part.archived") : t("part.unarchived"));
   return parts;
 }
 
@@ -46,6 +47,13 @@ export function describeChange(item: { type: string; params: Params }, i18n: I18
     }
     case "move_card":
       return t("change.move_card", { card: s("card"), column: s("column") }) + (p.top ? t("change.top") : "");
+    case "update_checklist_item": {
+      const parts = [
+        ...(p.title !== undefined ? [t("part.title", { title: s("title") })] : []),
+        ...(p.done !== undefined ? [p.done ? t("part.done") : t("part.open")] : []),
+      ];
+      return t("change.update_checklist_item", { item: s("item"), card: s("card"), parts: parts.join(t("common.list")) });
+    }
     case "delete_column":
       return p.count
         ? t("change.delete_column_cards", { column: s("column"), count: Number(p.count) })
@@ -71,6 +79,7 @@ export function describeChange(item: { type: string; params: Params }, i18n: I18
 /** Notifications about the user's cards; the others are about a whole board. */
 export const CARD_NOTIFICATIONS = [
   "assigned", "card_updated", "card_moved", "card_deleted", "complete_card", "reopen_card", "due_soon", "overdue",
+  "mentioned", "commented", "archive_card", "unarchive_card",
 ];
 
 /** A notification's text, in the user's language. */

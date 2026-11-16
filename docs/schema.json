@@ -58,12 +58,13 @@
         "assignee_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
         "created_at": "TEXT",
         "moved_at": "TEXT",
-        "done_at": "TEXT"
+        "done_at": "TEXT",
+        "archived_at": "TEXT"
       },
       "indexes": [
         "CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"
       ],
-      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee_id must be a member of the card's board. These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels. created_at and moved_at (last change of column) are UTC 'YYYY-MM-DD HH:MM:SS', used for the weekly report; NULL for cards from before they existed. done_at is when the card was ticked as done (NULL while it is not); the API shows it as done: true/false. Done cards are left out of due-date notifications, the overdue filter and the open work in the weekly report."
+      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee_id must be a member of the card's board. These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels. created_at and moved_at (last change of column) are UTC 'YYYY-MM-DD HH:MM:SS', used for the weekly report; NULL for cards from before they existed. done_at is when the card was ticked as done (NULL while it is not); the API shows it as done: true/false. Done cards are left out of due-date notifications, the overdue filter and the open work in the weekly report. archived_at is when the card was archived: archived cards are off the board (not in a column's order, counts, due-date notifications or the weekly facts) and come back at the bottom of their column."
     },
     "labels": {
       "columns": {
@@ -138,6 +139,32 @@
         "idx_notifications_due UNIQUE (user_id, kind, card_id, due_date) WHERE due_date IS NOT NULL"
       ],
       "notes": "kind is assigned, card_updated, card_moved, card_deleted, added_to_board, removed_from_board, board_deleted, due_soon or overdue. params (JSON) holds the names for wording. board_id and card_id have no foreign key so notifications outlive deleted boards and cards. Due-date notifications (no actor) are made when the user reads notifications, once per card and due date."
+    },
+    "comments": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "card_id": "INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE",
+        "user_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
+        "body": "TEXT NOT NULL",
+        "created_at": "TEXT NOT NULL DEFAULT (datetime('now'))"
+      },
+      "indexes": [
+        "idx_comments (card_id, id)"
+      ],
+      "notes": "Comments on a card. @username mentions of board members notify them. Kept when a deleted card is restored and through an undo of the assistant."
+    },
+    "checklist_items": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "card_id": "INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE",
+        "text": "TEXT NOT NULL",
+        "done": "INTEGER NOT NULL DEFAULT 0",
+        "position": "INTEGER NOT NULL"
+      },
+      "indexes": [
+        "idx_checklist (card_id, position)"
+      ],
+      "notes": "A card's checklist, 0..n-1 by position. Part of the board snapshot the assistant's undo restores."
     }
   },
   "api_board_shape": {

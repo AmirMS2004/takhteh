@@ -14,17 +14,12 @@ type Props = {
   onClose: () => void;
 };
 
-function LabelRow({
-  label,
-  onUpdate,
-  onDelete,
-}: { label: BoardLabel } & Pick<Props, "onUpdate" | "onDelete">) {
+function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Props, "onUpdate" | "onDelete">) {
   const i18n = useI18n();
   const { t } = i18n;
   const title = labelTitle(label, i18n);
   const [name, setName] = useState(label.name);
-  const saveName = () =>
-    name.trim() !== label.name && onUpdate(label.id, { name: name.trim() });
+  const saveName = () => name.trim() !== label.name && onUpdate(label.id, { name: name.trim() });
 
   return (
     <li className="space-y-2 rounded-xl border border-line p-3">
@@ -48,29 +43,15 @@ function LabelRow({
         <button
           type="button"
           aria-label={t("labels.delete", { label: title })}
-          onClick={() =>
-            window.confirm(t("labels.confirmDelete", { label: title })) &&
-            onDelete(label.id)
-          }
+          onClick={() => window.confirm(t("labels.confirmDelete", { label: title })) && onDelete(label.id)}
           className="rounded-md p-1.5 text-gray-text hover:bg-danger-50 hover:text-danger"
         >
-          <svg
-            viewBox="0 0 20 20"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            aria-hidden
-          >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
           </svg>
         </button>
       </div>
-      <div
-        className="flex gap-1.5"
-        role="radiogroup"
-        aria-label={t("labels.colorOf", { label: title })}
-      >
+      <div className="flex gap-1.5" role="radiogroup" aria-label={t("labels.colorOf", { label: title })}>
         {LABEL_COLORS.map((c) => (
           <button
             key={c.value}
@@ -78,9 +59,7 @@ function LabelRow({
             role="radio"
             aria-checked={label.color === c.value}
             aria-label={t(`color.${c.value}` as Key)}
-            onClick={() =>
-              label.color !== c.value && onUpdate(label.id, { color: c.value })
-            }
+            onClick={() => label.color !== c.value && onUpdate(label.id, { color: c.value })}
             className={`h-6 w-6 rounded-full ${c.swatch} ${label.color === c.value ? "ring-2 ring-ink ring-offset-2 ring-offset-surface" : ""}`}
           />
         ))}
@@ -89,24 +68,13 @@ function LabelRow({
   );
 }
 
-export function LabelsDialog({
-  labels,
-  onCreate,
-  onUpdate,
-  onDelete,
-  onClose,
-}: Props) {
+export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: Props) {
   const { t } = useI18n();
   return (
     <Modal title={t("labels.title")} hint={t("labels.hint")} onClose={onClose}>
       <ul className="space-y-2 overflow-y-auto">
         {labels.map((label) => (
-          <LabelRow
-            key={label.id}
-            label={label}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-          />
+          <LabelRow key={label.id} label={label} onUpdate={onUpdate} onDelete={onDelete} />
         ))}
       </ul>
       <div className="flex gap-2">

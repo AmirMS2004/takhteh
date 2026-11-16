@@ -4,6 +4,7 @@ chat uses it so the model cannot reach the user's other boards)."""
 
 import hashlib
 import json
+import re
 import sqlite3
 
 from app import db
@@ -34,6 +35,14 @@ def column_key(column_id: int) -> str:
 
 def card_key(card_id: int) -> str:
     return f"card-{card_id}"
+
+
+def item_key(item_id: int) -> str:
+    return f"item-{item_id}"
+
+
+def comment_key(comment_id: int) -> str:
+    return f"comment-{comment_id}"
 
 
 def label_key(label_id: int) -> str:
@@ -113,6 +122,7 @@ FIELD_NAMES = {
     "assignee": "مسئول",
     "labels": "برچسب‌ها",
     "done": "انجام‌شده",
+    "archived": "بایگانی",
 }
 FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 COLOR_NAMES = {"red": "قرمز", "orange": "نارنجی", "yellow": "زرد", "green": "سبز", "blue": "آبی", "purple": "بنفش"}
@@ -182,14 +192,20 @@ def _card_rows(conn: sqlite3.Connection, where: str, args: tuple) -> dict:
             f"SELECT * FROM card_labels WHERE card_id IN ({', '.join('?' * len(ids))})", tuple(ids)
         )
     ] if ids else []
-    return {"cards": cards, "card_labels": links}
+    marks = ", ".join("?" * len(ids))
+    comments = [dict(r) for r in conn.execute(f"SELECT * FROM comments WHERE card_id IN ({marks})", tuple(ids))]
+    items = [dict(r) for r in conn.execute(f"SELECT * FROM checklist_items WHERE card_id IN ({marks})", tuple(ids))]
+    return {"cards": cards, "card_labels": links, "comments": comments, "checklist_items": items}
 
 
 # --- cards ---
 
 
 def _card_ids(conn: sqlite3.Connection, column_id: int) -> list[int]:
-    rows = conn.execute("SELECT id FROM cards WHERE column_id = ? ORDER BY position", (column_id,))
+    """The column's cards on the board, top to bottom (archived cards are not on the board)."""
+    rows = conn.execute(
+        "SELECT id FROM cards WHERE column_id = ? AND archived_at IS NULL ORDER BY position", (column_id,)
+    )
     return [row["id"] for row in rows]
 
 
@@ -207,18 +223,43 @@ EDITABLE = ("title", "details", "due_date", "priority")
 CARD_SELECT = "SELECT k.*, u.username AS assignee FROM cards k LEFT JOIN users u ON u.id = k.assignee_id"
 
 
-def _card_dict(row: sqlite3.Row, labels: list[int]) -> dict:
+def _item_dict(row: sqlite3.Row) -> dict:
+    return {"id": item_key(row["id"]), "text": row["text"], "done": bool(row["done"])}
+
+
+def _card_dict(row: sqlite3.Row, labels: list[int], checklist: list[dict] | None = None, comments: int = 0) -> dict:
     return (
         {"id": card_key(row["id"])}
         | {field: row[field] for field in EDITABLE}
         | {"assignee": row["assignee"], "labels": [label_key(i) for i in labels], "done": row["done_at"] is not None}
+        | {"archived": row["archived_at"] is not None, "checklist": checklist or [], "comments": comments}
     )
+
+
+def _checklists(conn: sqlite3.Connection, card_ids: list[int]) -> dict[int, list[dict]]:
+    found: dict[int, list[dict]] = {}
+    for row in conn.execute(
+        f"SELECT * FROM checklist_items WHERE card_id IN ({', '.join('?' * len(card_ids))}) ORDER BY card_id, position",
+        tuple(card_ids),
+    ):
+        found.setdefault(row["card_id"], []).append(_item_dict(row))
+    return found
+
+
+def _comment_counts(conn: sqlite3.Connection, card_ids: list[int]) -> dict[int, int]:
+    rows = conn.execute(
+        f"SELECT card_id, COUNT(*) AS n FROM comments WHERE card_id IN ({', '.join('?' * len(card_ids))})"
+        " GROUP BY card_id",
+        tuple(card_ids),
+    )
+    return {r["card_id"]: r["n"] for r in rows}
 
 
 def _load_card(conn: sqlite3.Connection, card_id: int) -> dict:
     row = conn.execute(f"{CARD_SELECT} WHERE k.id = ?", (card_id,)).fetchone()
     labels = conn.execute("SELECT label_id FROM card_labels WHERE card_id = ? ORDER BY label_id", (card_id,))
-    return _card_dict(row, [r[0] for r in labels])
+    checklist = _checklists(conn, [card_id]).get(card_id, [])
+    return _card_dict(row, [r[0] for r in labels], checklist, _comment_counts(conn, [card_id]).get(card_id, 0))
 
 
 def _set_labels(conn: sqlite3.Connection, user_id: int, board_id: int, card_id: int, keys: list[str]) -> None:
@@ -250,12 +291,13 @@ def _write_card(conn: sqlite3.Connection, user_id: int, board_id: int, card_id: 
         conn.execute(f"UPDATE cards SET {assignments} WHERE id = ?", (*columns.values(), card_id))
     if "labels" in changes:
         _set_labels(conn, user_id, board_id, card_id, changes["labels"])
-    if "done" in changes:
-        # Ticking a card that is already done keeps the time it was first done.
-        conn.execute(
-            "UPDATE cards SET done_at = CASE WHEN ? THEN COALESCE(done_at, datetime('now')) END WHERE id = ?",
-            (bool(changes["done"]), card_id),
-        )
+    # Ticking a card that is already done (or archiving an archived one) keeps the first time.
+    for field, column in (("done", "done_at"), ("archived", "archived_at")):
+        if field in changes:
+            conn.execute(
+                f"UPDATE cards SET {column} = CASE WHEN ? THEN COALESCE({column}, datetime('now')) END WHERE id = ?",
+                (bool(changes[field]), card_id),
+            )
 
 
 def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dict, board_id: int | None = None) -> dict:
@@ -288,9 +330,19 @@ def update_card(conn: sqlite3.Connection, user_id: int, card: str, changes: dict
     _write_card(conn, user_id, board, row["id"], changes)
     after = _load_card(conn, row["id"])
     fields = [f for f in FIELD_NAMES if before[f] != after[f]]
-    if fields == ["done"]:
-        action = "complete_card" if after["done"] else "reopen_card"
-        what = "را انجام‌شده علامت زد" if after["done"] else "را دوباره باز کرد"
+    if "archived" in fields:
+        # Archived cards leave the column's order; a card brought back goes to the bottom.
+        column = row["column_id"]
+        order = [i for i in _card_ids(conn, column) if i != row["id"]]
+        _write_order(conn, column, order + ([] if after["archived"] else [row["id"]]))
+    # Ticking done and archiving get their own history line and notification.
+    single = {"done": ("complete_card", "reopen_card"), "archived": ("archive_card", "unarchive_card")}
+    if len(fields) == 1 and fields[0] in single:
+        action = single[fields[0]][0 if after[fields[0]] else 1]
+        what = {
+            "complete_card": "را انجام‌شده علامت زد", "reopen_card": "را دوباره باز کرد",
+            "archive_card": "را بایگانی کرد", "unarchive_card": "را از بایگانی برگرداند",
+        }[action]
         log(conn, user_id, board, action, f"کارت «{after['title']}» {what}", row["id"], params={"card": after["title"]})
         about = {"card": after["title"], "board": _board_title(conn, board)}
         notify(conn, _assignee_of(conn, row["id"]), user_id, board, action, about, row["id"])
@@ -365,6 +417,8 @@ _SNAPSHOT_TABLES = {
     "card_labels": "SELECT cl.* FROM card_labels cl JOIN labels l ON l.id = cl.label_id WHERE l.board_id = ?"
     " ORDER BY cl.card_id, cl.label_id",
     "members": "SELECT * FROM board_members WHERE board_id = ? ORDER BY user_id",
+    "checklist_items": "SELECT i.* FROM checklist_items i JOIN cards k ON k.id = i.card_id"
+    " JOIN columns c ON c.id = k.column_id WHERE c.board_id = ? ORDER BY i.id",
 }
 
 
@@ -389,6 +443,15 @@ def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict, user_i
             names = ", ".join(row)
             conn.execute(f"INSERT INTO {table} ({names}) VALUES ({', '.join('?' * len(row))})", tuple(row.values()))
 
+    # Comments are not undone: keep those of cards that come back.
+    comments = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT m.* FROM comments m JOIN cards k ON k.id = m.card_id JOIN columns c ON c.id = k.column_id"
+            " WHERE c.board_id = ?",
+            (board_id,),
+        )
+    ]
     conn.execute("UPDATE boards SET title = ? WHERE id = ?", (snap["title"], board_id))
     # Cards and their labels go with their columns, card labels with their labels (ON DELETE CASCADE).
     conn.execute("DELETE FROM columns WHERE board_id = ?", (board_id,))
@@ -397,6 +460,9 @@ def restore_snapshot(conn: sqlite3.Connection, board_id: int, snap: dict, user_i
     insert("columns", snap["columns"])
     insert("cards", snap["cards"])
     insert("card_labels", snap["card_labels"])
+    insert("checklist_items", snap.get("checklist_items", []))  # absent in snapshots from before checklists
+    card_ids = {c["id"] for c in snap["cards"]}
+    insert("comments", [m for m in comments if m["card_id"] in card_ids])
     wanted = {m["user_id"] for m in snap["members"]}
     conn.execute(
         f"DELETE FROM board_members WHERE board_id = ? AND role != 'owner'"
@@ -541,9 +607,10 @@ def list_boards(conn: sqlite3.Connection, user_id: int) -> list[dict]:
     rows = conn.execute(
         "SELECT b.id, b.title, m.role, u.username AS owner,"
         " (SELECT COUNT(*) FROM board_members WHERE board_id = b.id) AS members,"
-        " (SELECT COUNT(*) FROM cards k JOIN columns c ON c.id = k.column_id WHERE c.board_id = b.id) AS cards,"
         " (SELECT COUNT(*) FROM cards k JOIN columns c ON c.id = k.column_id"
-        "  WHERE c.board_id = b.id AND k.assignee_id = m.user_id) AS my_cards"
+        "  WHERE c.board_id = b.id AND k.archived_at IS NULL) AS cards,"
+        " (SELECT COUNT(*) FROM cards k JOIN columns c ON c.id = k.column_id"
+        "  WHERE c.board_id = b.id AND k.assignee_id = m.user_id AND k.archived_at IS NULL) AS my_cards"
         " FROM boards b"
         " JOIN board_members m ON m.board_id = b.id AND m.user_id = ?"
         " JOIN users u ON u.id = b.owner_id ORDER BY b.id",
@@ -565,7 +632,8 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
         "SELECT id, title FROM columns WHERE board_id = ? ORDER BY position", (board_id,)
     ).fetchall()
     cards = conn.execute(
-        f"{CARD_SELECT} JOIN columns c ON c.id = k.column_id WHERE c.board_id = ? ORDER BY k.column_id, k.position",
+        f"{CARD_SELECT} JOIN columns c ON c.id = k.column_id WHERE c.board_id = ? AND k.archived_at IS NULL"
+        " ORDER BY k.column_id, k.position",
         (board_id,),
     ).fetchall()
     labels = conn.execute("SELECT * FROM labels WHERE board_id = ? ORDER BY id", (board_id,)).fetchall()
@@ -576,6 +644,8 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
         (board_id,),
     ):
         card_labels.setdefault(card_id, []).append(label_id)
+    ids = [k["id"] for k in cards]
+    checklists, counts = _checklists(conn, ids), _comment_counts(conn, ids)
     members = conn.execute(
         "SELECT u.username, u.avatar, m.role FROM board_members m JOIN users u ON u.id = m.user_id"
         " WHERE m.board_id = ? ORDER BY m.role = 'owner' DESC, u.username",
@@ -594,7 +664,10 @@ def get_board(conn: sqlite3.Connection, user_id: int, board: str) -> dict:
             }
             for col in columns
         ],
-        "cards": {card_key(k["id"]): _card_dict(k, card_labels.get(k["id"], [])) for k in cards},
+        "cards": {
+            card_key(k["id"]): _card_dict(k, card_labels.get(k["id"], []), checklists.get(k["id"]), counts.get(k["id"], 0))
+            for k in cards
+        },
         "labels": [_label_dict(label) for label in labels],
     }
 
@@ -667,3 +740,150 @@ def remove_member(conn: sqlite3.Connection, user_id: int, board: str, username: 
         " AND column_id IN (SELECT id FROM columns WHERE board_id = ?)",
         (row["user_id"], board_id),
     )
+
+
+# --- archive ---
+
+
+def list_archived(conn: sqlite3.Connection, user_id: int, board: str) -> list[dict]:
+    """The board's archived cards, most recently archived first."""
+    board_id = member_board(conn, user_id, board)
+    rows = conn.execute(
+        "SELECT k.id, k.title, k.archived_at, c.title AS column_title FROM cards k JOIN columns c ON c.id = k.column_id"
+        " WHERE c.board_id = ? AND k.archived_at IS NOT NULL ORDER BY k.archived_at DESC, k.id DESC",
+        (board_id,),
+    )
+    return [
+        {"id": card_key(r["id"]), "title": r["title"], "column": r["column_title"], "archived_at": r["archived_at"]}
+        for r in rows
+    ]
+
+
+# --- my cards ---
+
+
+def my_cards(conn: sqlite3.Connection, user_id: int) -> list[dict]:
+    """Open cards assigned to the user on all their boards: not done, not archived and not in a board's last
+    column. Soonest due first; cards without a due date last."""
+    rows = conn.execute(
+        "SELECT k.id, k.title, k.due_date, k.priority, c.title AS column_title, b.id AS board_id, b.title AS board_title"
+        " FROM cards k JOIN columns c ON c.id = k.column_id JOIN boards b ON b.id = c.board_id"
+        " JOIN board_members m ON m.board_id = b.id AND m.user_id = k.assignee_id"
+        " WHERE k.assignee_id = ? AND k.done_at IS NULL AND k.archived_at IS NULL"
+        " AND c.position < (SELECT MAX(position) FROM columns WHERE board_id = b.id)"
+        " ORDER BY k.due_date IS NULL, k.due_date, b.id, c.position, k.position",
+        (user_id,),
+    )
+    return [
+        {
+            "id": card_key(r["id"]), "title": r["title"], "due_date": r["due_date"], "priority": r["priority"],
+            "column": r["column_title"], "board": board_key(r["board_id"]), "board_title": r["board_title"],
+        }
+        for r in rows
+    ]
+
+
+# --- comments ---
+
+MENTION = re.compile(r"(?<![\w@])@([A-Za-z0-9_]{3,32})")
+
+
+def _comment_dict(row: sqlite3.Row, user_id: int) -> dict:
+    return {
+        "id": comment_key(row["id"]), "author": row["username"], "author_avatar": row["avatar"] or 0,
+        "body": row["body"], "created_at": row["created_at"], "mine": row["user_id"] == user_id,
+    }
+
+
+COMMENT_SELECT = "SELECT m.*, u.username, u.avatar FROM comments m LEFT JOIN users u ON u.id = m.user_id"
+
+
+def list_comments(conn: sqlite3.Connection, user_id: int, card: str) -> list[dict]:
+    """The card's comments, oldest first."""
+    row, _ = _card(conn, user_id, card)
+    rows = conn.execute(f"{COMMENT_SELECT} WHERE m.card_id = ? ORDER BY m.id", (row["id"],))
+    return [_comment_dict(r, user_id) for r in rows]
+
+
+def add_comment(conn: sqlite3.Connection, user_id: int, card: str, body: str) -> dict:
+    """Adds a comment. Members named as @username are notified (`mentioned`); the card's assignee hears about
+    the comment otherwise (`commented`). Nobody is notified about their own comment."""
+    row, board = _card(conn, user_id, card)
+    comment_id = conn.execute(
+        "INSERT INTO comments (card_id, user_id, body) VALUES (?, ?, ?)", (row["id"], user_id, body)
+    ).lastrowid
+    log(conn, user_id, board, "comment_card", f"روی کارت «{row['title']}» نظر داد", row["id"], params={"card": row["title"]})
+    about = {"card": row["title"], "board": _board_title(conn, board)}
+    names = {name.lower() for name in MENTION.findall(body)}
+    mentioned = {
+        r["id"]
+        for r in conn.execute(
+            f"SELECT u.id FROM users u JOIN board_members m ON m.user_id = u.id"
+            f" WHERE m.board_id = ? AND u.username IN ({', '.join('?' * len(names))})",
+            (board, *names),
+        )
+    } if names else set()
+    for member in mentioned:
+        notify(conn, member, user_id, board, "mentioned", about, row["id"])
+    if row["assignee_id"] not in mentioned:
+        notify(conn, row["assignee_id"], user_id, board, "commented", about, row["id"])
+    touch(board)
+    return _comment_dict(conn.execute(f"{COMMENT_SELECT} WHERE m.id = ?", (comment_id,)).fetchone(), user_id)
+
+
+def delete_comment(conn: sqlite3.Connection, user_id: int, comment: str) -> None:
+    """Only the author deletes a comment."""
+    found = conn.execute(
+        "SELECT m.user_id, c.board_id FROM comments m JOIN cards k ON k.id = m.card_id"
+        " JOIN columns c ON c.id = k.column_id WHERE m.id = ?",
+        (parse_key(comment, "comment"),),
+    ).fetchone()
+    if not found or not _role(conn, user_id, found["board_id"]):
+        raise NotFound(comment)
+    if found["user_id"] != user_id:
+        raise Forbidden("only the author deletes a comment")
+    conn.execute("DELETE FROM comments WHERE id = ?", (parse_key(comment, "comment"),))
+    touch(found["board_id"])
+
+
+# --- checklist ---
+
+
+def _item(conn: sqlite3.Connection, user_id: int, key: str, board_id: int | None = None) -> tuple[sqlite3.Row, int]:
+    row = conn.execute(
+        "SELECT i.*, c.board_id FROM checklist_items i JOIN cards k ON k.id = i.card_id"
+        " JOIN columns c ON c.id = k.column_id WHERE i.id = ?",
+        (parse_key(key, "item"),),
+    ).fetchone()
+    return row, _check(conn, user_id, key, row and row["board_id"], board_id)
+
+
+def add_item(conn: sqlite3.Connection, user_id: int, card: str, text: str, board_id: int | None = None) -> dict:
+    row, board = _card(conn, user_id, card, board_id)
+    position = conn.execute("SELECT COUNT(*) FROM checklist_items WHERE card_id = ?", (row["id"],)).fetchone()[0]
+    item_id = conn.execute(
+        "INSERT INTO checklist_items (card_id, text, position) VALUES (?, ?, ?)", (row["id"], text, position)
+    ).lastrowid
+    touch(board)
+    return _item_dict(conn.execute("SELECT * FROM checklist_items WHERE id = ?", (item_id,)).fetchone())
+
+
+def update_item(conn: sqlite3.Connection, user_id: int, item: str, changes: dict, board_id: int | None = None) -> dict:
+    """`changes` holds text and/or done."""
+    row, board = _item(conn, user_id, item, board_id)
+    if "text" in changes:
+        conn.execute("UPDATE checklist_items SET text = ? WHERE id = ?", (changes["text"], row["id"]))
+    if "done" in changes:
+        conn.execute("UPDATE checklist_items SET done = ? WHERE id = ?", (int(bool(changes["done"])), row["id"]))
+    touch(board)
+    return _item_dict(conn.execute("SELECT * FROM checklist_items WHERE id = ?", (row["id"],)).fetchone())
+
+
+def delete_item(conn: sqlite3.Connection, user_id: int, item: str, board_id: int | None = None) -> None:
+    row, board = _item(conn, user_id, item, board_id)
+    conn.execute("DELETE FROM checklist_items WHERE id = ?", (row["id"],))
+    rest = [r["id"] for r in conn.execute(
+        "SELECT id FROM checklist_items WHERE card_id = ? ORDER BY position", (row["card_id"],)
+    )]
+    conn.executemany("UPDATE checklist_items SET position = ? WHERE id = ?", [(i, x) for i, x in enumerate(rest)])
+    touch(board)

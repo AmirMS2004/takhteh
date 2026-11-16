@@ -22,14 +22,19 @@ talks to you in a sidebar.
 The current board is given below as JSON: "title"; "columns" in display order, each with "id", "title" and \
 "cardIds" (top to bottom); "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), \
 "priority" ("low", "medium" or "high"), "assignee" (the username of a board member), "labels" (a list of \
-label ids) and "done" (ticked as done), the first three possibly null; "labels", each with "id", "name" (may be empty) and "color" \
+label ids), "done" (ticked as done), "checklist" (items with "id", "text" and "done") and "comments" (how many \
+comments it has; you cannot read or write comments), the first three possibly null; archived cards are not on \
+the board; "labels", each with "id", "name" (may be empty) and "color" \
 (red, orange, yellow, green, blue or purple); and "members", each with "username" and "role" (owner or member).
 
 You can do anything on this board that the user can, by returning operations:
 - create_card: column_id, title, details (use "" when there are no details), and optionally due_date, priority, assignee, labels
-- update_card: card_id, and any of title, details, due_date, priority, assignee, done (true ticks the card as done, false reopens it) to change (null keeps the current value); "labels" replaces the card's whole label list (null keeps it), so include labels it should keep
+- update_card: card_id, and any of title, details, due_date, priority, assignee, done (true ticks the card as done, false reopens it), archived (true archives the card: it leaves the board but is kept) to change (null keeps the current value); "labels" replaces the card's whole label list (null keeps it), so include labels it should keep
 - move_card: card_id, column_id, index (0 is the top of the column; null puts it at the bottom)
 - delete_card: card_id
+- add_checklist_item: card_id, title (the item's text)
+- update_checklist_item: item_id, and title and/or done to change
+- delete_checklist_item: item_id
 - create_column: title, and optionally index (its place among the columns; null puts it at the end)
 - rename_column: column_id, title
 - move_column: column_id, index (0 is the first column)
@@ -48,6 +53,17 @@ To break a card into smaller tasks, propose create_card operations: usually 3 to
 concrete titles that together cover the original, in the original card's column unless the user says \
 otherwise, keeping its assignee, due date and labels when they still fit. Keep the original card unless the \
 user asks to replace it.
+
+To prioritise, use the board and the facts: name the few cards to work on first, in order, each with a \
+short reason (overdue or due soon, high priority, blocking other work, waiting longest), and who is \
+overloaded. Propose operations only if the user asks to change priorities or due dates.
+
+To set up a board from a description of a project, propose the whole structure in one reply: rename, \
+create or delete columns so they fit the project's workflow (keep 3 to 6), create a few named labels for its \
+areas of work, and create 8 to 15 concrete starter cards in the right columns (most in the first ones), \
+with details, labels and a sensible priority; use "new:" ids for the columns and labels you create and \
+the existing ids for columns you rename. The starter cards are the main part: a setup without create_card \
+operations is incomplete. Write the titles in the user's language.
 
 For a summary or weekly report, use the "facts" below, which the app computed (a week is the last 7 days, \
 and cards in the board's last column or ticked as done count as done): what was done this week, what is new, what is in progress, \
@@ -73,13 +89,14 @@ Today is {today}.
 NULLABLE_STRING = {"type": ["string", "null"]}
 OPERATION_TYPES = [
     "create_card", "update_card", "move_card", "delete_card",
+    "add_checklist_item", "update_checklist_item", "delete_checklist_item",
     "create_column", "rename_column", "move_column", "delete_column",
     "create_label", "update_label", "delete_label",
     "rename_board", "add_member", "remove_member",
 ]
 OPERATION_FIELDS = [
-    "type", "card_id", "column_id", "label_id", "title", "details", "index",
-    "due_date", "priority", "assignee", "labels", "done", "name", "color", "username",
+    "type", "card_id", "column_id", "label_id", "item_id", "title", "details", "index",
+    "due_date", "priority", "assignee", "labels", "done", "archived", "name", "color", "username",
 ]
 
 RESPONSE_FORMAT = {
@@ -104,6 +121,7 @@ RESPONSE_FORMAT = {
                             "card_id": NULLABLE_STRING,
                             "column_id": NULLABLE_STRING,
                             "label_id": NULLABLE_STRING,
+                            "item_id": NULLABLE_STRING,
                             "title": NULLABLE_STRING,
                             "details": NULLABLE_STRING,
                             "index": {"type": ["integer", "null"]},
@@ -112,6 +130,7 @@ RESPONSE_FORMAT = {
                             "assignee": NULLABLE_STRING,
                             "labels": {"type": ["array", "null"], "items": {"type": "string"}},
                             "done": {"type": ["boolean", "null"]},
+                            "archived": {"type": ["boolean", "null"]},
                             "name": NULLABLE_STRING,
                             "color": {
                                 "type": ["string", "null"],
@@ -134,6 +153,7 @@ class InvalidOperation(Exception):
 class Operation(BaseModel):
     type: Literal[
         "create_card", "update_card", "move_card", "delete_card",
+        "add_checklist_item", "update_checklist_item", "delete_checklist_item",
         "create_column", "rename_column", "move_column", "delete_column",
         "create_label", "update_label", "delete_label",
         "rename_board", "add_member", "remove_member",
@@ -141,6 +161,7 @@ class Operation(BaseModel):
     card_id: str | None = None
     column_id: str | None = None
     label_id: str | None = None
+    item_id: str | None = None
     title: str | None = None
     details: str | None = None
     index: int | None = None
@@ -149,6 +170,7 @@ class Operation(BaseModel):
     assignee: Assignee | None = None
     labels: list[str] | None = None
     done: bool | None = None
+    archived: bool | None = None
     name: str | None = None
     color: LabelColor | None = None
     username: str | None = None
@@ -218,6 +240,8 @@ class Applier:
                 changes["title"] = _require(op.title, "title", op)
             if op.details is not None:
                 changes["details"] = op.details.strip()
+            if op.archived is not None:
+                changes["archived"] = op.archived
             service.update_card(conn, user, self.card(op.card_id, op), changes, board)
         elif op.type == "move_card":
             index = op.index if op.index is not None else 10**9  # null means "at the bottom"
@@ -226,6 +250,17 @@ class Applier:
             service.move_card(conn, user, self.card(op.card_id, op), self.column(op.column_id, op), index, board)
         elif op.type == "delete_card":
             service.delete_card(conn, user, self.card(op.card_id, op))
+        elif op.type == "add_checklist_item":
+            service.add_item(conn, user, self.card(op.card_id, op), _require(op.title, "title", op), board)
+        elif op.type == "update_checklist_item":
+            changes = {}
+            if op.title is not None:
+                changes["text"] = _require(op.title, "title", op)
+            if op.done is not None:
+                changes["done"] = op.done
+            service.update_item(conn, user, _require(op.item_id, "item_id", op), changes, board)
+        elif op.type == "delete_checklist_item":
+            service.delete_item(conn, user, _require(op.item_id, "item_id", op), board)
         elif op.type == "create_column":
             title = _require(op.title, "title", op)
             created = service.create_column(conn, user, board_key, title)
@@ -295,6 +330,14 @@ def describe_item(op: Operation, board: dict) -> dict:
     def card(key: str | None) -> str | None:
         return board["cards"][key]["title"] if key in board["cards"] else key
 
+    def item(key: str | None) -> tuple[str, str]:
+        """(card title, item text) of a checklist item on the board."""
+        for found in board["cards"].values():
+            for entry in found.get("checklist", []):
+                if entry["id"] == key:
+                    return found["title"], entry["text"]
+        return "", key or ""
+
     def label(key: str) -> dict:
         if key.startswith("new:"):
             return {"name": key[4:], "color": None}
@@ -307,6 +350,7 @@ def describe_item(op: Operation, board: dict) -> dict:
             "assignee": op.assignee,
             "labels": [label(k) for k in op.labels] if op.labels is not None else None,
             "done": op.done,
+            "archived": op.archived,
         }
         return {k: v for k, v in found.items() if v is not None}
 
@@ -324,6 +368,15 @@ def describe_item(op: Operation, board: dict) -> dict:
         params = {"card": card(op.card_id), "column": column(op.column_id), "top": op.index == 0}
     elif t == "delete_card":
         params = {"card": card(op.card_id)}
+    elif t == "add_checklist_item":
+        params = {"card": card(op.card_id), "item": op.title}
+    elif t in ("update_checklist_item", "delete_checklist_item"):
+        found = item(op.item_id)
+        params = {"card": found[0], "item": found[1]}
+        if t == "update_checklist_item":
+            params |= ({"title": op.title} if op.title is not None else {}) | (
+                {"done": op.done} if op.done is not None else {}
+            )
     elif t == "create_column":
         params = {"title": op.title}
     elif t == "rename_column":
@@ -383,6 +436,8 @@ def describe(op: Operation, board: dict) -> str:
             parts.append("، ".join(label(key) for key in op.labels) if op.labels else "بدون برچسب")
         if op.done is not None:
             parts.append("انجام‌شده" if op.done else "باز")
+        if op.archived is not None:
+            parts.append("بایگانی" if op.archived else "بیرون از بایگانی")
         return parts
 
     t = op.type
@@ -398,6 +453,19 @@ def describe(op: Operation, board: dict) -> str:
         return f"انتقال {card(op.card_id)} به {column(op.column_id)}" + (" (بالای ستون)" if op.index == 0 else "")
     if t == "delete_card":
         return f"حذف کارت {card(op.card_id)}"
+    if t == "add_checklist_item":
+        return f"افزودن «{op.title}» به چک‌لیست {card(op.card_id)}"
+    if t in ("update_checklist_item", "delete_checklist_item"):
+        owner, text = next(
+            ((f"«{c['title']}»", e["text"]) for c in board["cards"].values() for e in c.get("checklist", []) if e["id"] == op.item_id),
+            ("", op.item_id or ""),
+        )
+        if t == "delete_checklist_item":
+            return f"حذف «{text}» از چک‌لیست {owner}"
+        parts = ([f"متن «{op.title}»"] if op.title is not None else []) + (
+            ["انجام‌شده" if op.done else "باز"] if op.done is not None else []
+        )
+        return f"ویرایش «{text}» در چک‌لیست {owner}: {'، '.join(parts)}"
     if t == "create_column":
         return f"ستون تازه «{op.title}»"
     if t == "rename_column":
@@ -489,7 +557,7 @@ def board_facts(conn: sqlite3.Connection, board_id: int, today: datetime.date) -
     cards = conn.execute(
         "SELECT k.title, k.column_id, k.due_date, k.created_at, k.moved_at, k.done_at, u.username AS assignee"
         " FROM cards k JOIN columns c ON c.id = k.column_id LEFT JOIN users u ON u.id = k.assignee_id"
-        " WHERE c.board_id = ? ORDER BY c.position, k.position",
+        " WHERE c.board_id = ? AND k.archived_at IS NULL ORDER BY c.position, k.position",
         (board_id,),
     ).fetchall()
     week_ago = (today - datetime.timedelta(days=7)).isoformat()

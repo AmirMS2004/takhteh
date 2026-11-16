@@ -45,6 +45,8 @@ import { AddColumn, ColumnPreview, ColumnView } from "./ColumnView";
 import { FilterBar } from "./FilterBar";
 import { LabelsDialog } from "./LabelsDialog";
 import { CardView } from "./CardItem";
+import { CardPanel } from "./CardPanel";
+import { OpenCard } from "@/lib/workspace";
 
 function position(board: BoardState, cardId: string) {
   const column = findColumn(board, cardId)!;
@@ -67,6 +69,8 @@ export function Board({ store }: { store: BoardStore }) {
   const offerRestore = (text: string) => (entry: string) => setDeleted({ entry, text });
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const dragStart = useRef<BoardState | null>(null);
+  // The card whose panel (checklist and comments) is open.
+  const [openCard, setOpenCard] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -238,46 +242,48 @@ export function Board({ store }: { store: BoardStore }) {
           {t("board.dragPaused")}
         </p>
       )}
-      <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
-        <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
-          {board.columns.map((column) => (
-            <ColumnView
-              key={column.id}
-              column={column}
-              cards={visibleCards(column.cardIds)}
-              filtering={filtering}
-              onRename={(title) => {
-                apply(renameColumn(current(), column.id, title));
-                persist(api.renameColumn(column.id, title));
-              }}
-              onAdd={(fields) =>
-                persist(api.createCard(column.id, fields).then((card) => apply(addCard(current(), column.id, card))))
-              }
-              onDelete={(cardId) => {
-                const title = current().cards[cardId].title;
-                apply(deleteCard(current(), cardId));
-                persist(api.deleteCard(cardId).then(offerRestore(t("board.cardDeleted", { title }))));
-              }}
-              onUpdate={(cardId, changes) => {
-                apply(updateCard(current(), cardId, changes));
-                persist(api.updateCard(cardId, changes));
-              }}
-              labels={board.labels}
-              members={board.members}
-              onManageLabels={() => setLabelsOpen(true)}
-              onDeleteColumn={() => {
-                apply(removeColumn(current(), column.id));
-                persist(api.deleteColumn(column.id).then(offerRestore(t("board.columnDeleted", { title: column.title }))));
-              }}
-            />
-          ))}
-        </SortableContext>
-        <AddColumn
-          onAdd={(title) =>
-            persist(api.createColumn(current().id, title).then((column) => apply(addColumn(current(), column))))
-          }
-        />
-      </div>
+      <OpenCard value={setOpenCard}>
+        <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
+          <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
+            {board.columns.map((column) => (
+              <ColumnView
+                key={column.id}
+                column={column}
+                cards={visibleCards(column.cardIds)}
+                filtering={filtering}
+                onRename={(title) => {
+                  apply(renameColumn(current(), column.id, title));
+                  persist(api.renameColumn(column.id, title));
+                }}
+                onAdd={(fields) =>
+                  persist(api.createCard(column.id, fields).then((card) => apply(addCard(current(), column.id, card))))
+                }
+                onDelete={(cardId) => {
+                  const title = current().cards[cardId].title;
+                  apply(deleteCard(current(), cardId));
+                  persist(api.deleteCard(cardId).then(offerRestore(t("board.cardDeleted", { title }))));
+                }}
+                onUpdate={(cardId, changes) => {
+                  apply(updateCard(current(), cardId, changes));
+                  persist(api.updateCard(cardId, changes));
+                }}
+                labels={board.labels}
+                members={board.members}
+                onManageLabels={() => setLabelsOpen(true)}
+                onDeleteColumn={() => {
+                  apply(removeColumn(current(), column.id));
+                  persist(api.deleteColumn(column.id).then(offerRestore(t("board.columnDeleted", { title: column.title }))));
+                }}
+              />
+            ))}
+          </SortableContext>
+          <AddColumn
+            onAdd={(title) =>
+              persist(api.createColumn(current().id, title).then((column) => apply(addColumn(current(), column))))
+            }
+          />
+        </div>
+      </OpenCard>
       {deleted && (
         <div
           role="status"
@@ -299,6 +305,32 @@ export function Board({ store }: { store: BoardStore }) {
             ×
           </button>
         </div>
+      )}
+      {openCard && board.cards[openCard] && (
+        <CardPanel
+          card={board.cards[openCard]}
+          members={board.members}
+          onChecklist={(checklist, saved) => {
+            apply(updateCard(current(), openCard, { checklist }));
+            persist(saved);
+          }}
+          onAddItem={async (text) => {
+            await persist(
+              api.addChecklistItem(openCard, text).then((item) => {
+                const card = current().cards[openCard];
+                apply(updateCard(current(), openCard, { checklist: [...(card?.checklist ?? []), item] }));
+              }),
+            );
+          }}
+          onComments={(comments) => apply(updateCard(current(), openCard, { comments }))}
+          onArchive={() => {
+            const id = openCard;
+            setOpenCard(null);
+            apply(deleteCard(current(), id));
+            persist(api.updateCard(id, { archived: true }));
+          }}
+          onClose={() => setOpenCard(null)}
+        />
       )}
       <DragOverlay>
         {activeCard && <CardView card={activeCard} labels={board.labels} overlay />}

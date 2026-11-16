@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS cards (
     assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT,
     moved_at TEXT,
-    done_at TEXT
+    done_at TEXT,
+    archived_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position);
 CREATE TABLE IF NOT EXISTS labels (
@@ -92,6 +93,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications ON notifications(user_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_due ON notifications(user_id, kind, card_id, due_date)
     WHERE due_date IS NOT NULL;
+CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY,
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_comments ON comments(card_id, id);
+CREATE TABLE IF NOT EXISTS checklist_items (
+    id INTEGER PRIMARY KEY,
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    done INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_checklist ON checklist_items(card_id, position);
 CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY,
     board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
@@ -106,8 +123,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages ON chat_messages(board_id, user_id,
 # Card fields added after the first release; init_db adds them to older databases.
 # Optional TEXT columns added to older databases. created_at and moved_at (when the card last changed
 # column) are UTC "YYYY-MM-DD HH:MM:SS"; NULL for cards from before they existed. done_at is when the card was
-# ticked as done (NULL while it is not).
-CARD_DETAIL_COLUMNS = ["due_date", "priority", "created_at", "moved_at", "done_at"]
+# ticked as done (NULL while it is not); archived_at when it was archived (off the board, kept).
+CARD_DETAIL_COLUMNS = ["due_date", "priority", "created_at", "moved_at", "done_at", "archived_at"]
 
 # Like Trello, every board starts with one unnamed label per color.
 LABEL_COLORS = ["green", "yellow", "orange", "red", "purple", "blue"]

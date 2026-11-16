@@ -1,4 +1,4 @@
-import type { BoardLabel, BoardState, BoardSummary, Card, Column } from "./board";
+import type { BoardLabel, BoardState, BoardSummary, Card, ChecklistItem, Column } from "./board";
 import { CLIENT_ID } from "./live";
 import type { Proposal } from "./proposal";
 
@@ -268,4 +268,60 @@ export function chat(boardId: string, message: string): Promise<ChatResponse> {
     method: "POST",
     body: JSON.stringify({ board_id: boardId, message }),
   });
+}
+
+// --- archive, my cards, comments and checklists ---
+
+export type ArchivedCard = { id: string; title: string; column: string; archived_at: string };
+
+export function listArchived(boardId: string): Promise<ArchivedCard[]> {
+  return request<ArchivedCard[]>(`/api/boards/${boardId}/archive`);
+}
+
+/** An open card assigned to the signed-in user, on any of their boards. */
+export type MyCard = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  priority: Card["priority"];
+  column: string;
+  board: string;
+  board_title: string;
+};
+
+export function getMyCards(): Promise<MyCard[]> {
+  return request<MyCard[]>("/api/my-cards");
+}
+
+export type CardComment = {
+  id: string;
+  author: string | null;
+  author_avatar: number;
+  body: string;
+  created_at: string;
+  mine: boolean;
+};
+
+export function getComments(cardId: string): Promise<CardComment[]> {
+  return request<CardComment[]>(`/api/cards/${cardId}/comments`);
+}
+
+export function addComment(cardId: string, body: string): Promise<CardComment> {
+  return request<CardComment>(`/api/cards/${cardId}/comments`, { method: "POST", body: JSON.stringify({ body }) });
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  await request(`/api/comments/${commentId}`, { method: "DELETE" });
+}
+
+export function addChecklistItem(cardId: string, text: string): Promise<ChecklistItem> {
+  return request<ChecklistItem>(`/api/cards/${cardId}/checklist`, { method: "POST", body: JSON.stringify({ text }) });
+}
+
+export async function updateChecklistItem(itemId: string, changes: Partial<Omit<ChecklistItem, "id">>): Promise<void> {
+  await request(`/api/checklist/${itemId}`, { method: "PATCH", body: JSON.stringify(changes) });
+}
+
+export async function deleteChecklistItem(itemId: string): Promise<void> {
+  await request(`/api/checklist/${itemId}`, { method: "DELETE" });
 }

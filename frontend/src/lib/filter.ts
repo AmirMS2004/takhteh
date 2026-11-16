@@ -19,7 +19,7 @@ export function normalize(text: string) {
 }
 
 /** "YYYY-MM-DD" of the date `days` after `day`. */
-function addDays(day: string, days: number) {
+export function addDays(day: string, days: number) {
   const d = new Date(`${day}T00:00:00`);
   d.setDate(d.getDate() + days);
   return d.toLocaleDateString("en-CA");

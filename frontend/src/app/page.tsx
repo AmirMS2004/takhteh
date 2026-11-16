@@ -7,17 +7,19 @@ import { Dashboard } from "@/components/Dashboard";
 import { LogoMark } from "@/components/Logo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { LoginForm } from "@/components/LoginForm";
+import { MyTasks } from "@/components/MyTasks";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UNAUTHORIZED_EVENT, getMe, logout, updateProfile, type Profile } from "@/lib/api";
 import { I18nContext, applyLang, browserLang, makeI18n, useI18n, type Lang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
+type View = "board" | "dashboard" | "tasks";
 type Session = { status: "loading" } | { status: "anonymous" } | { status: "user"; profile: Profile };
 
 export default function Home() {
   const [session, setSession] = useState<Session>({ status: "loading" });
   const [chatOpen, setChatOpen] = useState(true);
-  const [view, setView] = useState<"board" | "dashboard">("board");
+  const [view, setView] = useState<View>("board");
   // The browser's last choice until the profile says otherwise.
   const [lang, setLangState] = useState<Lang>(browserLang);
   const i18n = useMemo(() => makeI18n(lang), [lang]);
@@ -94,9 +96,9 @@ function Workspace({
   onSignOut,
 }: {
   profile: Profile;
-  view: "board" | "dashboard";
+  view: View;
   chatOpen: boolean;
-  onView: (view: "board" | "dashboard") => void;
+  onView: (view: View) => void;
   onChat: (open: boolean) => void;
   onLanguage: (lang: Lang) => void;
   onProfile: (p: Profile) => void;
@@ -104,6 +106,7 @@ function Workspace({
 }) {
   const { t } = useI18n();
   const dashboard = view === "dashboard";
+  const tasks = view === "tasks";
   // Bumped to remount the boards area, which then opens the board remembered by rememberBoard.
   const [boardsKey, setBoardsKey] = useState(0);
   const openBoard = (id: string) => {
@@ -119,14 +122,14 @@ function Workspace({
           <div className="flex items-center gap-2.5">
             <LogoMark size={36} />
             {/* The brand name is the board view's heading; the dashboard has its own. */}
-            {dashboard ? (
+            {dashboard || tasks ? (
               <span className="text-2xl font-black tracking-tight">{t("brand.name")}</span>
             ) : (
               <h1 className="text-2xl font-black tracking-tight">{t("brand.name")}</h1>
             )}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            {dashboard ? (
+            {dashboard || tasks ? (
               <button
                 type="button"
                 onClick={() => onView("board")}
@@ -149,6 +152,19 @@ function Workspace({
                 {chatOpen ? t("app.closeAssistant") : t("app.assistant")}
               </button>
             )}
+            <button
+              type="button"
+              aria-pressed={tasks}
+              onClick={() => onView("tasks")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
+                tasks ? "bg-white/15 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <path d="M8 5.5h9M8 10h9M8 14.5h9M3 5.5l1 1 2-2M3 10l1 1 2-2M3 14.5l1 1 2-2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {t("tasks.button")}
+            </button>
             <button
               type="button"
               title={t("app.dashboard")}
@@ -177,7 +193,9 @@ function Workspace({
           </div>
         </div>
       </header>
-      {dashboard ? (
+      {tasks ? (
+        <MyTasks onOpenBoard={openBoard} />
+      ) : dashboard ? (
         <Dashboard
           profile={profile}
           onProfile={onProfile}

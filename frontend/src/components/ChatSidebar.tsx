@@ -3,7 +3,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import * as api from "@/lib/api";
 import { ApiError, chatStream, clearHistory, getHistory, type ChatMessage } from "@/lib/api";
-import { weeklyReport } from "@/lib/assistant";
+import { prioritizeRequest, weeklyReport } from "@/lib/assistant";
 import type { BoardState } from "@/lib/board";
 import { describeChange } from "@/lib/describe";
 import { useI18n, type I18n, type Key } from "@/lib/i18n";
@@ -234,6 +234,14 @@ export function ChatSidebar({
           className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-ink transition hover:bg-accent-50 disabled:opacity-50"
         >
           {t("chat.weeklyReport")}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => send(prioritizeRequest(i18n))}
+          className="rounded-full border border-accent/70 px-3 py-1 text-xs font-medium text-ink transition hover:bg-accent-50 disabled:opacity-50"
+        >
+          {t("chat.prioritize")}
         </button>
       </div>
       <form

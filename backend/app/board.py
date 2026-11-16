@@ -53,13 +53,30 @@ class CardCreate(CardFields):
 class CardUpdate(CardFields):
     title: Title | None = None
     details: Details | None = None
+    archived: bool | None = None
 
     @model_validator(mode="after")
     def not_null(self):
-        for field in ("title", "labels", "done"):
+        for field in ("title", "labels", "done", "archived"):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
         return self
+
+
+ItemText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class CommentCreate(BaseModel):
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
+class ItemCreate(BaseModel):
+    text: ItemText
+
+
+class ItemUpdate(BaseModel):
+    text: ItemText | None = None
+    done: bool | None = None
 
 
 class LabelCreate(BaseModel):
@@ -207,3 +224,53 @@ def delete_label(label_id: str, user: CurrentUser) -> dict:
         entry = service.delete_label(conn, user.id, label_id)
     return {"ok": True, "activity": f"act-{entry}"}
 
+
+
+@router.get("/boards/{board_id}/archive")
+def list_archived(board_id: str, user: CurrentUser) -> list[dict]:
+    with db.connect() as conn:
+        return service.list_archived(conn, user.id, board_id)
+
+
+@router.get("/my-cards")
+def my_cards(user: CurrentUser) -> list[dict]:
+    with db.connect() as conn:
+        return service.my_cards(conn, user.id)
+
+
+@router.get("/cards/{card_id}/comments")
+def list_comments(card_id: str, user: CurrentUser) -> list[dict]:
+    with db.connect() as conn:
+        return service.list_comments(conn, user.id, card_id)
+
+
+@router.post("/cards/{card_id}/comments", status_code=201)
+def add_comment(card_id: str, body: CommentCreate, user: CurrentUser) -> dict:
+    with db.connect() as conn:
+        return service.add_comment(conn, user.id, card_id, body.body)
+
+
+@router.delete("/comments/{comment_id}")
+def delete_comment(comment_id: str, user: CurrentUser) -> dict[str, bool]:
+    with db.connect() as conn:
+        service.delete_comment(conn, user.id, comment_id)
+    return {"ok": True}
+
+
+@router.post("/cards/{card_id}/checklist", status_code=201)
+def add_item(card_id: str, body: ItemCreate, user: CurrentUser) -> dict:
+    with db.connect() as conn:
+        return service.add_item(conn, user.id, card_id, body.text)
+
+
+@router.patch("/checklist/{item_id}")
+def update_item(item_id: str, body: ItemUpdate, user: CurrentUser) -> dict:
+    with db.connect() as conn:
+        return service.update_item(conn, user.id, item_id, body.model_dump(exclude_unset=True, exclude_none=True))
+
+
+@router.delete("/checklist/{item_id}")
+def delete_item(item_id: str, user: CurrentUser) -> dict[str, bool]:
+    with db.connect() as conn:
+        service.delete_item(conn, user.id, item_id)
+    return {"ok": True}

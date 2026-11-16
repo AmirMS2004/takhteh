@@ -8,9 +8,10 @@ import type { BoardSummary } from "@/lib/board";
 import { useBoard, type BoardStore } from "@/lib/useBoard";
 import { Avatar } from "./Avatar";
 import { Board } from "./Board";
-import { AskAssistant } from "@/lib/assistant";
+import { AskAssistant, setupRequest } from "@/lib/assistant";
 import { ShowHistory } from "@/lib/workspace";
 import { HistoryDialog } from "./HistoryDialog";
+import { ArchiveDialog } from "./ArchiveDialog";
 import { ChatSidebar, type ChatHandle } from "./ChatSidebar";
 import { input } from "./LoginForm";
 import { Modal } from "./Modal";
@@ -34,9 +35,16 @@ export function rememberBoard(id: string) {
   } catch {}
 }
 
-function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Promise<void>; onClose: () => void }) {
+function NewBoardDialog({
+  onCreate,
+  onClose,
+}: {
+  onCreate: (title: string, description: string) => Promise<void>;
+  onClose: () => void;
+}) {
   const { t } = useI18n();
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [pending, setPending] = useState(false);
   return (
     <Modal title={t("boards.new")} onClose={onClose}>
@@ -45,13 +53,29 @@ function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Pr
         onSubmit={async (e) => {
           e.preventDefault();
           setPending(true);
-          await onCreate(title.trim()).finally(() => setPending(false));
+          await onCreate(title.trim(), description.trim()).finally(() => setPending(false));
         }}
       >
         <label className="block space-y-1.5">
           <span className="text-sm font-medium text-gray-text">{t("boards.name")}</span>
           <input autoFocus maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} className={input} />
         </label>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-gray-text">{t("boards.description")}</span>
+          <textarea
+            dir="auto"
+            rows={3}
+            maxLength={2000}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t("boards.descriptionPlaceholder")}
+            aria-describedby="board-description-hint"
+            className={`${input} resize-y`}
+          />
+        </label>
+        <p id="board-description-hint" className="-mt-1.5 text-xs text-gray-text">
+          {t("boards.descriptionHint")}
+        </p>
         <div className="flex gap-2">
           <button type="submit" disabled={pending || !title.trim()} className={`${purpleButton} flex-1`}>
             {t("boards.create")}
@@ -226,7 +250,9 @@ function Workspace({
   onSelect,
   onNew,
   onBoardsChanged,
+  firstRequest,
 }: {
+  firstRequest?: string;
   boardId: string;
   boards: BoardSummary[];
   username: string;
@@ -241,12 +267,22 @@ function Workspace({
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The history dialog: the whole board, or one card.
   const [history, setHistory] = useState<{ card?: { id: string; title: string } } | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const members = store.board?.members.length ?? 0;
   const chat = useRef<ChatHandle>(null);
   const ask = (message: string) => {
     onOpenChat();
     chat.current?.ask(message);
   };
+  // A board made from a description: ask the assistant to set it up, once.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (firstRequest && !asked.current) {
+      asked.current = true;
+      ask(firstRequest);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstRequest]);
   // Changes by others arrive live: reload the board (and the board list, whose titles may have changed).
   const [updates, setUpdates] = useState(0);
   const live = useLive(boardId, () => {
@@ -303,6 +339,18 @@ function Workspace({
         </button>
         <button
           type="button"
+          onClick={() => setArchiveOpen(true)}
+          disabled={!store.board}
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <rect x="2.5" y="3.5" width="15" height="4" rx="1" />
+            <path d="M4 7.5V16h12V7.5M8 11h4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {t("archive.button")}
+        </button>
+        <button
+          type="button"
           onClick={onNew}
           className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50"
         >
@@ -332,6 +380,7 @@ function Workspace({
         </div>
       </div>
 
+      {archiveOpen && <ArchiveDialog boardId={boardId} onBoard={store.apply} onClose={() => setArchiveOpen(false)} />}
       {history && (
         <HistoryDialog
           boardId={boardId}
@@ -390,6 +439,8 @@ export function BoardsArea({
   const [boards, setBoards] = useState<BoardSummary[] | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [firstRequest, setFirstRequest] = useState<{ board: string; text: string } | null>(null);
+  const i18n = useI18n();
 
   /** Shows `list` and opens `prefer`, the board saved in this browser, or the first one. */
   const show = (list: BoardSummary[], prefer?: string | null) => {
@@ -405,8 +456,9 @@ export function BoardsArea({
     api.listBoards().then(show, () => setBoards([]));
   }, []);
 
-  const create = async (title: string) => {
+  const create = async (title: string, description: string) => {
     const created = await api.createBoard(title);
+    if (description) setFirstRequest({ board: created.id, text: setupRequest(description, i18n) });
     setNewOpen(false);
     await load(created.id);
   };
@@ -428,6 +480,7 @@ export function BoardsArea({
             rememberBoard(id);
           }}
           onNew={() => setNewOpen(true)}
+          firstRequest={firstRequest?.board === current ? firstRequest.text : undefined}
           onBoardsChanged={(removed) => load(removed ? null : current)}
         />
       ) : (

@@ -80,6 +80,10 @@ def _restore_cards(conn: sqlite3.Connection, board_id: int, data: dict, column_i
             conn.execute(
                 "INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)", (ids[link["card_id"]], link["label_id"])
             )
+    # Entries from before comments and checklists have neither.
+    for table in ("comments", "checklist_items"):
+        for row in data.get(table, []):
+            _insert(conn, table, row | {"card_id": ids[row["card_id"]]})
     return ids
 
 

@@ -43,6 +43,7 @@ def check_due(conn: sqlite3.Connection, user_id: int, today: datetime.date) -> N
         "SELECT k.id, k.title, k.due_date, c.board_id, b.title AS board FROM cards k"
         " JOIN columns c ON c.id = k.column_id JOIN boards b ON b.id = c.board_id"
         " WHERE k.assignee_id = ? AND k.due_date IS NOT NULL AND k.due_date <= ? AND k.done_at IS NULL"
+        " AND k.archived_at IS NULL"
         " AND c.position < (SELECT MAX(position) FROM columns WHERE board_id = c.board_id)",
         (user_id, tomorrow),
     ).fetchall()

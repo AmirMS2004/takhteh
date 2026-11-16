@@ -5,7 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardLabel, Card, Member, Priority } from "@/lib/board";
 import { AskAssistant, splitRequest } from "@/lib/assistant";
-import { ShowHistory } from "@/lib/workspace";
+import { OpenCard, ShowHistory } from "@/lib/workspace";
 import { PRIORITIES, colorOf, formatDue, labelTitle, priorityName, today } from "@/lib/cardDetails";
 import { useI18n } from "@/lib/i18n";
 
@@ -28,12 +28,36 @@ const field =
 
 function CardMeta({ card }: { card: Card }) {
   const i18n = useI18n();
-  const { t } = i18n;
+  const { t, num } = i18n;
   const priority = PRIORITIES.find((p) => p.value === card.priority);
   const overdue = !!card.due_date && !card.done && card.due_date < today();
-  if (!priority && !card.due_date && !card.assignee) return null;
+  const items = card.checklist ?? [];
+  const checked = items.filter((i) => i.done).length;
+  if (!priority && !card.due_date && !card.assignee && !items.length && !card.comments) return null;
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+      {items.length > 0 && (
+        <span
+          title={t("checklist.title")}
+          className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${
+            checked === items.length ? "bg-label-green text-white" : "bg-mist text-ink/80"
+          }`}
+        >
+          <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+            <rect x="3" y="3" width="14" height="14" rx="3" />
+            <path d="M6.5 10l2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {t("checklist.progress", { done: checked, total: items.length })}
+        </span>
+      )}
+      {!!card.comments && (
+        <span title={t("comments.title")} className="flex items-center gap-1 rounded-full bg-mist px-2 py-0.5 text-ink/80">
+          <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M4 5h12v8H8l-4 3V5z" strokeLinejoin="round" />
+          </svg>
+          <span className="sr-only">{t("comments.title")}:</span> {num(card.comments)}
+        </span>
+      )}
       {priority && <span className={`rounded-full px-2 py-0.5 ${priority.chip}`}>{priorityName(priority.value, i18n)}</span>}
       {card.due_date && (
         <span
@@ -83,6 +107,7 @@ function CardLabels({ card, labels }: { card: Card; labels: BoardLabel[] }) {
 
 export function CardView({ card, labels, onDelete, onEdit, onToggleDone, overlay }: Props) {
   const ask = useContext(AskAssistant);
+  const open = useContext(OpenCard);
   const i18n = useI18n();
   const { t } = i18n;
   return (
@@ -135,6 +160,21 @@ export function CardView({ card, labels, onDelete, onEdit, onToggleDone, overlay
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M4 10h5m0 0l7-5M9 10l7 5M14 5h2v2M14 15h2v-2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          {open && !overlay && (
+            <button
+              type="button"
+              aria-label={t("card.open", { title: card.title })}
+              title={t("card.openTitle")}
+              onClick={() => open(card.id)}
+              onPointerDown={(e) => e.stopPropagation()}
+              className={`${iconButton} hover:bg-primary-50 hover:text-primary-700`}
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="3.5" y="3.5" width="13" height="13" rx="2.5" />
+                <path d="M7 8h6M7 11h6M7 14h3" strokeLinecap="round" />
               </svg>
             </button>
           )}

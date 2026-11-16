@@ -11,7 +11,11 @@ export type Card = {
   labels?: string[];
   assignee?: string | null; // username of a board member
   done?: boolean; // ticked as done: its due date no longer matters
+  archived?: boolean; // off the board, kept in the board's archive
+  checklist?: ChecklistItem[];
+  comments?: number; // how many comments it has
 };
+export type ChecklistItem = { id: string; text: string; done: boolean };
 export type Column = { id: string; title: string; cardIds: string[] };
 export type Role = "owner" | "member";
 export type Member = { username: string; role: Role; avatar?: number };

@@ -7,3 +7,5 @@ export const AskAssistant = createContext<((message: string) => void) | null>(nu
 /** Requests sent to the assistant from buttons, in the user's language. */
 export const splitRequest = (title: string, { t }: I18n) => t("assistant.split", { title });
 export const weeklyReport = ({ t }: I18n) => t("assistant.weekly");
+export const prioritizeRequest = ({ t }: I18n) => t("assistant.prioritize");
+export const setupRequest = (description: string, { t }: I18n) => t("assistant.setup", { description });
