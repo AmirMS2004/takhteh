@@ -22,7 +22,7 @@ export class ApiError extends Error {
 }
 
 /** The signed-in user's account. avatar is 0 (first letter of the username) or a preset picture 1..8. */
-export type Profile = { username: string; name: string; email: string; avatar: number };
+export type Profile = { username: string; name: string; email: string; avatar: number; language: "fa" | "en" };
 
 export async function getMe(): Promise<Profile | null> {
   try {
@@ -156,7 +156,8 @@ export type ActivityEntry = {
   user: string | null;
   avatar: number;
   action: string;
-  summary: string;
+  summary: string; // Persian; for entries recorded before params existed
+  params: Record<string, unknown> | null;
   via: string | null;
   created_at: string; // UTC "YYYY-MM-DD HH:MM:SS"
   restorable: boolean;

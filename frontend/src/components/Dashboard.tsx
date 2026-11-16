@@ -3,20 +3,20 @@
 import { useEffect, useState } from "react";
 import { ApiError, listBoards, updateProfile, type Profile } from "@/lib/api";
 import type { BoardSummary } from "@/lib/board";
+import { useI18n, type Key } from "@/lib/i18n";
 import { AVATAR_COUNT, Avatar } from "./Avatar";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { input } from "./LoginForm";
 
-const fa = (n: number) => n.toLocaleString("fa-IR");
-
-/** Same rules as the backend, checked first so the user gets a specific message. */
-function profileProblem(username: string, email: string) {
-  if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) return "نام کاربری باید ۳ تا ۳۲ حرف انگلیسی، عدد یا _ باشد.";
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "ایمیل معتبر نیست.";
+/** Same rules as the backend, checked first so the user gets a specific message (a dictionary key). */
+function profileProblem(username: string, email: string): Key | "" {
+  if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) return "auth.usernameRule";
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "dash.emailInvalid";
   return "";
 }
 
 function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: Profile) => void }) {
+  const { t } = useI18n();
   const [name, setName] = useState(profile.name);
   const [username, setUsername] = useState(profile.username);
   const [email, setEmail] = useState(profile.email);
@@ -39,21 +39,21 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const problem = profileProblem(form.username, form.email);
-    if (problem) return setMessage({ ok: false, text: problem });
+    if (problem) return setMessage({ ok: false, text: t(problem) });
     setPending(true);
     setMessage(null);
     try {
       const saved = await updateProfile(changes);
       onProfile(saved);
       setUsername(saved.username);
-      setMessage({ ok: true, text: "تغییرات ذخیره شد." });
+      setMessage({ ok: true, text: t("dash.saved") });
     } catch (err) {
       setMessage({
         ok: false,
         text:
           err instanceof ApiError && err.status === 409
-            ? `نام کاربری «${form.username}» گرفته شده است.`
-            : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
+            ? t("dash.usernameTaken", { username: form.username })
+            : t("common.network"),
       });
     } finally {
       setPending(false);
@@ -71,7 +71,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
           <h2 id="profile-title" className="truncate text-lg font-bold text-ink">
             {profile.name || profile.username}
           </h2>
-          <p dir="ltr" className="text-right text-sm text-gray-text">
+          <p dir="ltr" className="text-sm text-gray-text [text-align:end]">
             @{profile.username}
           </p>
         </div>
@@ -79,13 +79,13 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
 
       <form onSubmit={save} className="space-y-4">
         <fieldset>
-          <legend className="mb-2 text-sm font-medium text-gray-text">عکس پروفایل</legend>
+          <legend className="mb-2 text-sm font-medium text-gray-text">{t("dash.picture")}</legend>
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: AVATAR_COUNT + 1 }, (_, i) => (
               <button
                 key={i}
                 type="button"
-                aria-label={i === 0 ? "بدون عکس (حرف اول نام کاربری)" : `عکس ${fa(i)}`}
+                aria-label={i === 0 ? t("dash.noPicture") : t("dash.pictureN", { n: i })}
                 aria-pressed={avatar === i}
                 onClick={() => setAvatar(i)}
                 className={`rounded-[34%] p-0.5 transition ${
@@ -99,11 +99,11 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
         </fieldset>
 
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام</span>
+          <span className="text-sm font-medium text-gray-text">{t("dash.name")}</span>
           <input maxLength={100} value={name} onChange={(e) => setName(e.target.value)} className={input} />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام کاربری</span>
+          <span className="text-sm font-medium text-gray-text">{t("common.username")}</span>
           <input
             dir="ltr"
             maxLength={32}
@@ -114,7 +114,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">ایمیل</span>
+          <span className="text-sm font-medium text-gray-text">{t("dash.email")}</span>
           <input
             inputMode="email"
             dir="ltr"
@@ -141,14 +141,14 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
             disabled={pending || !changed}
             className="rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {pending ? "لطفاً صبر کنید…" : "ذخیره تغییرات"}
+            {pending ? t("common.wait") : t("dash.saveChanges")}
           </button>
           <button
             type="button"
             onClick={() => setPasswordOpen(true)}
             className="rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary-50"
           >
-            تغییر رمز
+            {t("dash.changePassword")}
           </button>
         </div>
       </form>
@@ -158,6 +158,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
 }
 
 function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
+  const { t, num } = useI18n();
   const [boards, setBoards] = useState<BoardSummary[] | null>(null);
   useEffect(() => {
     listBoards().then(setBoards, () => setBoards([]));
@@ -171,45 +172,46 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
       <div className="flex items-center gap-2">
         <span className="h-5 w-1 rounded-full bg-accent" />
         <h2 id="boards-title" className="font-bold text-ink">
-          تخته‌های من
+          {t("dash.myBoards")}
         </h2>
-        {boards && <span className="text-sm text-gray-text">({fa(boards.length)})</span>}
+        {boards && <span className="text-sm text-gray-text">({num(boards.length)})</span>}
       </div>
       {!boards ? (
-        <p className="text-sm text-gray-text">در حال بارگذاری…</p>
+        <p className="text-sm text-gray-text">{t("common.loading")}</p>
       ) : boards.length === 0 ? (
-        <p className="text-sm text-gray-text">هنوز در هیچ تخته‌ای نیستید.</p>
+        <p className="text-sm text-gray-text">{t("dash.noBoards")}</p>
       ) : (
         <ul className="space-y-2">
           {boards.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-mist px-4 py-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate font-semibold text-ink">{b.title}</span>
+                  <span dir="auto" className="truncate font-semibold text-ink">{b.title}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
                       b.role === "owner" ? "bg-accent/15 text-ink" : "bg-primary/10 text-primary"
                     }`}
                   >
-                    {b.role === "owner" ? "مالک" : "عضو"}
+                    {b.role === "owner" ? t("common.owner") : t("common.member")}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-gray-text">
                   {b.role === "member" && (
                     <>
-                      مالک: <span dir="ltr">{b.owner}</span> ·{" "}
+                      {t("dash.ownerIs")}
+                      <span dir="ltr">{b.owner}</span> ·{" "}
                     </>
                   )}
-                  {fa(b.members)} عضو · {fa(b.cards)} کارت · {fa(b.my_cards)} کارت با مسئولیت من
+                  {t("dash.counts", { members: b.members, cards: b.cards, mine: b.my_cards })}
                 </p>
               </div>
               <button
                 type="button"
-                aria-label={`باز کردن ${b.title}`}
+                aria-label={t("dash.openBoard", { title: b.title })}
                 onClick={() => onOpenBoard(b.id)}
                 className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
               >
-                باز کردن
+                {t("dash.open")}
               </button>
             </li>
           ))}
@@ -229,14 +231,15 @@ export function Dashboard({
   onProfile: (p: Profile) => void;
   onOpenBoard: (id: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-6 px-6 pb-10 sm:px-10">
       <div>
         <div className="flex items-center gap-2">
           <span className="h-6 w-1 rounded-full bg-accent" />
-          <h1 className="text-2xl font-extrabold text-ink">داشبورد من</h1>
+          <h1 className="text-2xl font-extrabold text-ink">{t("app.dashboard")}</h1>
         </div>
-        <p className="mt-1 pr-3 text-sm text-gray-text">پروفایل، عکس و رمز خود را تغییر دهید و تخته‌هایتان را ببینید.</p>
+        <p className="mt-1 ps-3 text-sm text-gray-text">{t("dash.subtitle")}</p>
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
         <ProfileForm profile={profile} onProfile={onProfile} />

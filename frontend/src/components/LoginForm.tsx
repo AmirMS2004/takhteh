@@ -1,26 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { BRAND, LogoMark } from "./Logo";
+import { LanguageToggle } from "./LanguageToggle";
+import { LogoMark } from "./Logo";
 import { ApiError, login, signup } from "@/lib/api";
+import { useI18n, type Key, type Lang } from "@/lib/i18n";
 
 export const input =
   "w-full rounded-lg border border-line px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
 
-/** Same rules as the backend, checked first so the user gets a specific message. */
-export function signupProblem(username: string, password: string, repeat: string) {
-  if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) return "نام کاربری باید ۳ تا ۳۲ حرف انگلیسی، عدد یا _ باشد.";
-  if (password.length < 8) return "رمز عبور باید دست‌کم ۸ کاراکتر باشد.";
-  if (password !== repeat) return "تکرار رمز عبور با رمز یکسان نیست.";
+/** Same rules as the backend, checked first so the user gets a specific message (a dictionary key). */
+export function signupProblem(username: string, password: string, repeat: string): Key | "" {
+  if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) return "auth.usernameRule";
+  if (password.length < 8) return "auth.passwordRule";
+  if (password !== repeat) return "auth.repeatMismatch";
   return "";
 }
 
-export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) {
+/** `onLogin(created)`: signed in, with a new account when `created`. */
+export function LoginForm({ onLogin, onLanguage }: { onLogin: (created: boolean) => void; onLanguage: (lang: Lang) => void }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Key | "">("");
   const [pending, setPending] = useState(false);
   const isSignup = mode === "signup";
 
@@ -41,16 +45,11 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
     setPending(true);
     setError("");
     try {
-      onLogin(await (isSignup ? signup : login)(username, password));
+      await (isSignup ? signup : login)(username, password);
+      onLogin(isSignup);
     } catch (err) {
       const status = err instanceof ApiError ? err.status : 0;
-      setError(
-        status === 401
-          ? "نام کاربری یا رمز عبور نادرست است."
-          : status === 409
-            ? "این نام کاربری قبلاً ثبت شده است."
-            : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
-      );
+      setError(status === 401 ? "auth.wrong" : status === 409 ? "auth.taken" : "common.network");
       setPending(false);
     }
   };
@@ -65,19 +64,20 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
         <div className="on-bar -mx-8 -mt-8 mb-6 flex items-center gap-3 rounded-t-2xl bg-bar px-8 py-6 text-white">
           <LogoMark size={48} />
           <div>
-            <p className="text-2xl leading-none font-black tracking-tight">{BRAND.name}</p>
-            <p className="mt-1.5 text-xs text-white/70">{BRAND.tagline}</p>
+            <p className="text-2xl leading-none font-black tracking-tight">{t("brand.name")}</p>
+            <p className="mt-1.5 text-xs text-white/70">{t("brand.tagline")}</p>
           </div>
-          <span className="mr-auto h-10 w-1 rounded-full bg-accent" />
+          <div className="ms-auto flex items-center gap-3">
+            <LanguageToggle onLanguage={onLanguage} />
+            <span className="h-10 w-1 rounded-full bg-accent" />
+          </div>
         </div>
         <div>
-          <h1 className="text-xl font-extrabold text-ink">{isSignup ? "ساخت حساب تازه" : "ورود به تخته"}</h1>
-          <p className="mt-1 text-sm text-gray-text">
-            {isSignup ? "یک تخته خالی برای پروژه‌تان ساخته می‌شود." : "برای دیدن تخته، وارد حساب خود شوید."}
-          </p>
+          <h1 className="text-xl font-extrabold text-ink">{isSignup ? t("auth.signupTitle") : t("auth.loginTitle")}</h1>
+          <p className="mt-1 text-sm text-gray-text">{isSignup ? t("auth.signupHint") : t("auth.loginHint")}</p>
         </div>
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام کاربری</span>
+          <span className="text-sm font-medium text-gray-text">{t("common.username")}</span>
           <input
             autoFocus
             autoComplete="username"
@@ -89,7 +89,7 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">رمز عبور</span>
+          <span className="text-sm font-medium text-gray-text">{t("common.password")}</span>
           <input
             type="password"
             autoComplete={isSignup ? "new-password" : "current-password"}
@@ -102,7 +102,7 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
         </label>
         {isSignup && (
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-text">تکرار رمز عبور</span>
+            <span className="text-sm font-medium text-gray-text">{t("auth.repeatPassword")}</span>
             <input
               type="password"
               autoComplete="new-password"
@@ -116,7 +116,7 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
         )}
         {error && (
           <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">
-            {error}
+            {t(error)}
           </p>
         )}
         <button
@@ -124,12 +124,12 @@ export function LoginForm({ onLogin }: { onLogin: (username: string) => void }) 
           disabled={pending || !username || !password || (isSignup && !repeat)}
           className="w-full rounded-lg bg-secondary py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {pending ? "لطفاً صبر کنید…" : isSignup ? "ساخت حساب" : "ورود"}
+          {pending ? t("common.wait") : isSignup ? t("auth.createAccount") : t("auth.login")}
         </button>
         <p className="text-center text-sm text-gray-text">
-          {isSignup ? "حساب دارید؟ " : "حساب ندارید؟ "}
+          {isSignup ? t("auth.haveAccount") : t("auth.noAccount")}
           <button type="button" onClick={switchMode} className="font-medium text-primary hover:underline">
-            {isSignup ? "وارد شوید" : "ثبت‌نام کنید"}
+            {isSignup ? t("auth.toLogin") : t("auth.toSignup")}
           </button>
         </p>
       </form>

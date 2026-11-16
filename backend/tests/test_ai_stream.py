@@ -91,7 +91,8 @@ def test_stream_proposes_operations(auth_client, stream):
     op |= {k: None for k in ["card_id", "index", "due_date", "priority", "assignee", "labels"]}
     stream["pieces"] = pieces(model_json([op]))
     done = events(send(auth_client))[-1]
-    assert done["proposal"] == {"changes": ["کارت تازه «از جریان» در «برای انجام»"], "status": "pending"}
+    assert done["proposal"]["changes"] == ["کارت تازه «از جریان» در «برای انجام»"]
+    assert done["proposal"]["items"] == [{"type": "create_card", "params": {"title": "از جریان", "column": "برای انجام"}}]
     assert done["error"] is None
     assert auth_client.get(board_path(auth_client)).json() == before
 

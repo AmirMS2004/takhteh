@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { useLive, type LiveStatus } from "@/lib/live";
 import * as api from "@/lib/api";
 import type { BoardSummary } from "@/lib/board";
@@ -34,10 +35,11 @@ export function rememberBoard(id: string) {
 }
 
 function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Promise<void>; onClose: () => void }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [pending, setPending] = useState(false);
   return (
-    <Modal title="تخته تازه" onClose={onClose}>
+    <Modal title={t("boards.new")} onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={async (e) => {
@@ -47,15 +49,15 @@ function NewBoardDialog({ onCreate, onClose }: { onCreate: (title: string) => Pr
         }}
       >
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام تخته</span>
+          <span className="text-sm font-medium text-gray-text">{t("boards.name")}</span>
           <input autoFocus maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} className={input} />
         </label>
         <div className="flex gap-2">
           <button type="submit" disabled={pending || !title.trim()} className={`${purpleButton} flex-1`}>
-            ساخت تخته
+            {t("boards.create")}
           </button>
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-text hover:bg-mist">
-            انصراف
+            {t("common.cancel")}
           </button>
         </div>
       </form>
@@ -76,6 +78,7 @@ function BoardSettingsDialog({
   onRenamed: () => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const board = store.board!;
   const owner = board.role === "owner";
   const [title, setTitle] = useState(board.title);
@@ -88,7 +91,7 @@ function BoardSettingsDialog({
       await call();
       return true;
     } catch (e) {
-      setError((e instanceof api.ApiError && messages[e.status]) || "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.");
+      setError((e instanceof api.ApiError && messages[e.status]) || t("common.network"));
       return false;
     }
   };
@@ -105,8 +108,8 @@ function BoardSettingsDialog({
     e.preventDefault();
     const name = newMember.trim();
     const ok = await run(() => api.addMember(board.id, name), {
-      404: `کاربری با نام «${name}» نیست.`,
-      409: `«${name}» از قبل عضو این تخته است.`,
+      404: t("boards.noUser", { name }),
+      409: t("boards.alreadyMember", { name }),
     });
     if (ok) {
       setNewMember("");
@@ -115,23 +118,23 @@ function BoardSettingsDialog({
   };
 
   const removeMember = async (name: string) => {
-    if (!window.confirm(`«${name}» از این تخته حذف شود؟ کارت‌هایی که مسئولش است بدون مسئول می‌شوند.`)) return;
+    if (!window.confirm(t("boards.confirmRemove", { name }))) return;
     if (await run(() => api.removeMember(board.id, name))) await store.reload();
   };
 
   const leaveOrDelete = async () => {
     const question = owner
-      ? `تخته «${board.title}» با همه کارت‌هایش برای همه اعضا حذف شود؟ این کار برگشت‌پذیر نیست.`
-      : `از تخته «${board.title}» خارج می‌شوید؟`;
+      ? t("boards.confirmDelete", { title: board.title })
+      : t("boards.confirmLeave", { title: board.title });
     if (!window.confirm(question)) return;
     if (await run(() => (owner ? api.deleteBoard(board.id) : api.removeMember(board.id, username)))) onLeft();
   };
 
   return (
-    <Modal title="تنظیمات تخته" onClose={onClose}>
+    <Modal title={t("boards.settings")} onClose={onClose}>
       {owner ? (
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-text">نام تخته</span>
+          <span className="text-sm font-medium text-gray-text">{t("boards.name")}</span>
           <input
             maxLength={100}
             value={title}
@@ -143,12 +146,14 @@ function BoardSettingsDialog({
         </label>
       ) : (
         <p className="text-sm text-gray-text">
-          مالک این تخته <span dir="ltr">{board.members.find((m) => m.role === "owner")?.username}</span> است.
+          {t("boards.ownerBefore")}
+          <span dir="ltr">{board.members.find((m) => m.role === "owner")?.username}</span>
+          {t("boards.ownerAfter")}
         </p>
       )}
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-ink">اعضا</h3>
+        <h3 className="text-sm font-semibold text-ink">{t("boards.members")}</h3>
         <ul className="space-y-1.5">
           {board.members.map((m) => (
             <li key={m.username} className="flex items-center gap-2 rounded-lg bg-mist px-3 py-2 text-sm">
@@ -156,15 +161,15 @@ function BoardSettingsDialog({
               <span dir="ltr" className="text-ink">
                 {m.username}
               </span>
-              <span className="text-xs text-gray-text">{m.role === "owner" ? "مالک" : "عضو"}</span>
+              <span className="text-xs text-gray-text">{m.role === "owner" ? t("common.owner") : t("common.member")}</span>
               {owner && m.role !== "owner" && (
                 <button
                   type="button"
-                  aria-label={`حذف ${m.username} از تخته`}
+                  aria-label={t("boards.removeMember", { name: m.username })}
                   onClick={() => removeMember(m.username)}
-                  className="mr-auto rounded-md px-2 py-0.5 text-xs text-gray-text hover:bg-danger-50 hover:text-danger"
+                  className="ms-auto rounded-md px-2 py-0.5 text-xs text-gray-text hover:bg-danger-50 hover:text-danger"
                 >
-                  حذف
+                  {t("common.delete")}
                 </button>
               )}
             </li>
@@ -173,8 +178,8 @@ function BoardSettingsDialog({
         {owner && (
           <form onSubmit={addMember} className="flex gap-2">
             <input
-              aria-label="نام کاربری عضو تازه"
-              placeholder="نام کاربری"
+              aria-label={t("boards.newMember")}
+              placeholder={t("common.username")}
               dir="ltr"
               maxLength={32}
               value={newMember}
@@ -182,7 +187,7 @@ function BoardSettingsDialog({
               className={`${input} py-2`}
             />
             <button type="submit" disabled={!newMember.trim()} className={purpleButton}>
-              افزودن
+              {t("common.add")}
             </button>
           </form>
         )}
@@ -196,7 +201,7 @@ function BoardSettingsDialog({
 
       <div className="flex items-center justify-between gap-2 border-t border-line/70 pt-3">
         <button type="button" onClick={leaveOrDelete} className="rounded-lg px-3 py-2 text-sm font-medium text-danger hover:bg-danger-50">
-          {owner ? "حذف تخته" : "خروج از تخته"}
+          {owner ? t("boards.delete") : t("boards.leave")}
         </button>
         <button
           type="button"
@@ -204,7 +209,7 @@ function BoardSettingsDialog({
           onClick={onClose}
           className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
         >
-          بستن
+          {t("common.close")}
         </button>
       </div>
     </Modal>
@@ -231,6 +236,7 @@ function Workspace({
   onNew: () => void;
   onBoardsChanged: (removed: boolean) => void;
 }) {
+  const { t, num } = useI18n();
   const store = useBoard(boardId);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The history dialog: the whole board, or one card.
@@ -257,14 +263,14 @@ function Workspace({
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2 px-6 sm:px-10">
         <select
-          aria-label="انتخاب تخته"
+          aria-label={t("boards.select")}
           value={boardId}
           onChange={(e) => onSelect(e.target.value)}
           className="max-w-64 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
         >
           {boards.map((b) => (
             <option key={b.id} value={b.id}>
-              {b.role === "owner" ? b.title : `${b.title} (از ${b.owner})`}
+              {b.role === "owner" ? b.title : t("boards.fromOwner", { title: b.title, owner: b.owner })}
             </option>
           ))}
         </select>
@@ -278,9 +284,9 @@ function Workspace({
             <circle cx="7.5" cy="7" r="2.5" />
             <path d="M2.5 16c.5-2.8 2.5-4.5 5-4.5s4.5 1.7 5 4.5M13 4.8a2.5 2.5 0 010 4.4M15 11.8c1.4.6 2.3 2 2.5 4.2" strokeLinecap="round" />
           </svg>
-          اعضا و تنظیمات
+          {t("boards.membersAndSettings")}
           {members > 1 && (
-            <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{members.toLocaleString("fa-IR")}</span>
+            <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{num(members)}</span>
           )}
         </button>
         <button
@@ -293,24 +299,22 @@ function Workspace({
             <path d="M3.5 10a6.5 6.5 0 106.5-6.5A6.5 6.5 0 004.8 6M3.5 3.5V6.5h3" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M10 6.5V10l2.5 1.5" strokeLinecap="round" />
           </svg>
-          تاریخچه
+          {t("boards.history")}
         </button>
         <button
           type="button"
           onClick={onNew}
           className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
         >
-          + تخته تازه
+          {t("boards.newButton")}
         </button>
-        <div className="mr-auto flex items-center gap-3">
-          <p className="hidden text-xs text-gray-text xl:block">
-            کارت‌ها را بکشید و جابه‌جا کنید؛ برای تغییر نام ستون روی عنوانش کلیک کنید.
-          </p>
+        <div className="ms-auto flex items-center gap-3">
+          <p className="hidden text-xs text-gray-text xl:block">{t("boards.hint")}</p>
           <LiveBadge status={live} />
         </div>
         {/* Tells screen readers when the board changed because of someone else. */}
         <p aria-live="polite" className="sr-only">
-          {updates > 0 ? `تخته با تغییرات دیگران به‌روز شد (${updates.toLocaleString("fa-IR")})` : ""}
+          {updates > 0 ? t("boards.updated", { n: updates }) : ""}
         </p>
       </div>
 
@@ -323,7 +327,7 @@ function Workspace({
           </AskAssistant>
         </div>
         {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
-        <div hidden={!chatOpen} className="px-6 sm:px-10 lg:pr-0 lg:pl-6">
+        <div hidden={!chatOpen} className="px-6 sm:px-10 lg:ps-0 lg:pe-6">
           <ChatSidebar ref={chat} boardId={boardId} board={store.board} onBoard={store.apply} />
         </div>
       </div>
@@ -354,12 +358,9 @@ function Workspace({
 
 /** Whether changes by others show up live; a dot and a word, with the details in the tooltip. */
 function LiveBadge({ status }: { status: LiveStatus }) {
-  const text = { live: "هم‌گام", connecting: "در حال اتصال…", offline: "قطع" }[status];
-  const title = {
-    live: "تغییرات اعضای دیگر و تب‌های دیگر همین حالا دیده می‌شوند.",
-    connecting: "در حال اتصال برای دیدن زنده تغییرات دیگران…",
-    offline: "اتصال زنده قطع است؛ دوباره وصل می‌شود و تخته را به‌روز می‌کند.",
-  }[status];
+  const { t } = useI18n();
+  const text = t(`live.${status}`);
+  const title = t(`live.${status}Title`);
   return (
     <span
       title={title}
@@ -385,6 +386,7 @@ export function BoardsArea({
   chatOpen: boolean;
   onOpenChat: () => void;
 }) {
+  const { t } = useI18n();
   const [boards, setBoards] = useState<BoardSummary[] | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
@@ -409,7 +411,7 @@ export function BoardsArea({
     await load(created.id);
   };
 
-  if (!boards) return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;
+  if (!boards) return <p className="px-6 text-sm text-gray-text sm:px-10">{t("common.loading")}</p>;
 
   return (
     <>
@@ -430,9 +432,9 @@ export function BoardsArea({
         />
       ) : (
         <div className="mx-6 rounded-2xl border border-dashed border-ink/20 px-6 py-12 text-center sm:mx-10">
-          <p className="text-sm text-gray-text">هنوز تخته‌ای ندارید.</p>
+          <p className="text-sm text-gray-text">{t("boards.none")}</p>
           <button type="button" onClick={() => setNewOpen(true)} className={`${purpleButton} mt-4`}>
-            ساخت اولین تخته
+            {t("boards.createFirst")}
           </button>
         </div>
       )}

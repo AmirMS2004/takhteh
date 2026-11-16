@@ -65,7 +65,7 @@ export function fakeApi({
     nextId: 1,
     users: { user: "password" } as Record<string, string>,
     // name, email and picture per username; missing means empty
-    profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number }>>,
+    profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number; language: "fa" | "en" }>>,
     chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
     // Activity log, oldest first. Deletions keep the board as it was, which restoring puts back.
     activity: [] as (ActivityEntry & { boardId: string; card?: string; before?: BoardState })[],
@@ -91,7 +91,14 @@ export function fakeApi({
     cards: Object.keys(b.cards).length,
     my_cards: Object.values(b.cards).filter((c) => c.assignee === state.username).length,
   });
-  const profile = () => ({ username: state.username, name: "", email: "", avatar: 0, ...state.profiles[state.username] });
+  const profile = () => ({
+    username: state.username,
+    name: "",
+    email: "",
+    avatar: 0,
+    language: "fa" as "fa" | "en",
+    ...state.profiles[state.username],
+  });
 
   /** Stores the turn like the backend (with any valid proposal) and returns the chat result. */
   const finish = (boardId: string, message: string, result: ReturnType<ChatScript>) => {
@@ -121,6 +128,7 @@ export function fakeApi({
       avatar: 0,
       action: extra.before ? "delete" : "change",
       summary,
+      params: null,
       via: null,
       created_at: "2026-11-15 10:00:00",
       restorable: !!extra.before,

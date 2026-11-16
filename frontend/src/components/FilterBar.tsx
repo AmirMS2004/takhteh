@@ -1,8 +1,9 @@
 "use client";
 
 import type { BoardLabel, Priority } from "@/lib/board";
-import { PRIORITIES, colorOf, labelTitle } from "@/lib/cardDetails";
+import { PRIORITIES, colorOf, labelTitle, priorityName } from "@/lib/cardDetails";
 import { emptyFilter, isActive, type DueFilter, type Filter } from "@/lib/filter";
+import { useI18n } from "@/lib/i18n";
 
 const control =
   "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10";
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
+  const i18n = useI18n();
+  const { t } = i18n;
   const set = (changes: Partial<Filter>) => onChange({ ...filter, ...changes });
   const toggleLabel = (id: string) =>
     set({ labels: filter.labels.includes(id) ? filter.labels.filter((l) => l !== id) : [...filter.labels, id] });
@@ -25,7 +28,7 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
       <div className="relative">
         <svg
           viewBox="0 0 20 20"
-          className="pointer-events-none absolute top-1/2 right-2.5 h-4 w-4 -translate-y-1/2 text-gray-text"
+          className="pointer-events-none absolute top-1/2 start-2.5 h-4 w-4 -translate-y-1/2 text-gray-text"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.8"
@@ -36,16 +39,16 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
         </svg>
         <input
           type="search"
-          aria-label="جست‌وجوی کارت‌ها"
-          placeholder="جست‌وجو در کارت‌ها…"
+          aria-label={t("filter.search")}
+          placeholder={t("filter.searchPlaceholder")}
           value={filter.query}
           onChange={(e) => set({ query: e.target.value })}
           onKeyDown={(e) => e.key === "Escape" && set({ query: "" })}
-          className={`${control} w-56 pr-8`}
+          className={`${control} w-56 ps-8`}
         />
       </div>
 
-      <div className="flex items-center gap-1" role="group" aria-label="فیلتر برچسب">
+      <div className="flex items-center gap-1" role="group" aria-label={t("filter.labels")}>
         {labels.map((l) => {
           const on = filter.labels.includes(l.id);
           return (
@@ -53,8 +56,8 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
               key={l.id}
               type="button"
               aria-pressed={on}
-              aria-label={`فیلتر ${labelTitle(l)}`}
-              title={labelTitle(l)}
+              aria-label={t("filter.label", { label: labelTitle(l, i18n) })}
+              title={labelTitle(l, i18n)}
               onClick={() => toggleLabel(l.id)}
               className={`flex h-6 min-w-6 items-center rounded px-1.5 text-[11px] font-semibold transition ${colorOf(l.color).pill} ${
                 on ? "ring-2 ring-ink ring-offset-1 ring-offset-surface" : "opacity-35 hover:opacity-70"
@@ -67,42 +70,42 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
       </div>
 
       <select
-        aria-label="فیلتر اولویت"
+        aria-label={t("filter.priority")}
         value={filter.priority ?? ""}
         onChange={(e) => set({ priority: (e.target.value || null) as Priority | null })}
         className={control}
       >
-        <option value="">همه اولویت‌ها</option>
+        <option value="">{t("filter.allPriorities")}</option>
         {PRIORITIES.map((p) => (
           <option key={p.value} value={p.value}>
-            {p.name}
+            {priorityName(p.value, i18n)}
           </option>
         ))}
       </select>
 
       <select
-        aria-label="فیلتر سررسید"
+        aria-label={t("filter.due")}
         value={filter.due ?? ""}
         onChange={(e) => set({ due: (e.target.value || null) as DueFilter | null })}
         className={control}
       >
-        <option value="">همه سررسیدها</option>
-        <option value="overdue">سررسید گذشته</option>
-        <option value="week">تا ۷ روز آینده</option>
-        <option value="none">بدون سررسید</option>
+        <option value="">{t("filter.allDue")}</option>
+        <option value="overdue">{t("filter.overdue")}</option>
+        <option value="week">{t("filter.week")}</option>
+        <option value="none">{t("filter.noDue")}</option>
       </select>
 
       {isActive(filter) && (
         <>
           <span role="status" className="text-sm text-gray-text">
-            {shown.toLocaleString("fa-IR")} کارت از {total.toLocaleString("fa-IR")}
+            {t("filter.shown", { shown, total })}
           </span>
           <button
             type="button"
             onClick={() => onChange(emptyFilter)}
             className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary hover:bg-primary-50"
           >
-            پاک کردن فیلترها
+            {t("filter.clear")}
           </button>
         </>
       )}

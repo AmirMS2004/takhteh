@@ -64,6 +64,9 @@ for the user, in the user's language (usually Persian), answering their question
 you propose; never say a change is done, because it is not applied until the user confirms it (for example \
 "I suggest creating ..." rather than "I created ...").
 
+The user's interface language is {language}: write the reply in it, unless the user writes to you in \
+another language.
+
 Today is {today}.
 """
 
@@ -270,9 +273,78 @@ class Applier:
             self.apply(op)
 
 
+LANGUAGE_NAMES = {"fa": "Persian", "en": "English"}
 PRIORITY_NAMES = {"low": "پایین", "medium": "متوسط", "high": "بالا"}
 FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 COLOR_NAMES = {"red": "قرمز", "orange": "نارنجی", "yellow": "زرد", "green": "سبز", "blue": "آبی", "purple": "بنفش"}
+
+
+def describe_item(op: Operation, board: dict) -> dict:
+    """One proposed change as {"type", "params"} with the names on the board as it is now; the client
+    words it in the user's language (see `describe` for the Persian sentence)."""
+    columns = {c["id"]: c["title"] for c in board["columns"]}
+    labels = {label["id"]: {"name": label["name"], "color": label["color"]} for label in board["labels"]}
+
+    def column(key: str | None) -> str | None:
+        if key and key.startswith("new:"):
+            return key[4:]
+        return columns.get(key, key)
+
+    def card(key: str | None) -> str | None:
+        return board["cards"][key]["title"] if key in board["cards"] else key
+
+    def label(key: str) -> dict:
+        if key.startswith("new:"):
+            return {"name": key[4:], "color": None}
+        return labels.get(key, {"name": key, "color": None})
+
+    def details() -> dict:
+        found = {
+            "due_date": op.due_date.isoformat() if op.due_date else None,
+            "priority": op.priority,
+            "assignee": op.assignee,
+            "labels": [label(k) for k in op.labels] if op.labels is not None else None,
+        }
+        return {k: v for k, v in found.items() if v is not None}
+
+    t = op.type
+    params: dict = {}
+    if t == "create_card":
+        params = {"title": op.title, "column": column(op.column_id)} | details()
+    elif t == "update_card":
+        params = {"card": card(op.card_id)} | details()
+        if op.title is not None:
+            params["title"] = op.title
+        if op.details is not None:
+            params["details"] = True
+    elif t == "move_card":
+        params = {"card": card(op.card_id), "column": column(op.column_id), "top": op.index == 0}
+    elif t == "delete_card":
+        params = {"card": card(op.card_id)}
+    elif t == "create_column":
+        params = {"title": op.title}
+    elif t == "rename_column":
+        params = {"column": column(op.column_id), "title": op.title}
+    elif t == "move_column":
+        params = {"column": column(op.column_id), "position": (op.index or 0) + 1}
+    elif t == "delete_column":
+        cards = len(next((c["cardIds"] for c in board["columns"] if c["id"] == op.column_id), []))
+        params = {"column": column(op.column_id), "count": cards}
+    elif t == "create_label":
+        params = {"label": {"name": op.name or "", "color": op.color}}
+    elif t == "update_label":
+        params = {"label": label(op.label_id or "")}
+        if op.name is not None:
+            params["name"] = op.name
+        if op.color:
+            params["color"] = op.color
+    elif t == "delete_label":
+        params = {"label": label(op.label_id or "")}
+    elif t == "rename_board":
+        params = {"title": op.title}
+    else:  # add_member, remove_member
+        params = {"member": op.username}
+    return {"type": t, "params": params}
 
 
 def describe(op: Operation, board: dict) -> str:
@@ -447,10 +519,11 @@ def _prepare(body: ChatRequest, user: User) -> tuple[list[dict], int]:
         history = _history(conn, board_id, user.id, MAX_HISTORY)
         today = datetime.date.today()
         facts = board_facts(conn, board_id, today)
+        language = conn.execute("SELECT language FROM users WHERE id = ?", (user.id,)).fetchone()["language"]
     messages = [
         {
             "role": "system",
-            "content": SYSTEM_PROMPT.format(today=today.isoformat())
+            "content": SYSTEM_PROMPT.format(today=today.isoformat(), language=LANGUAGE_NAMES[language])
             + "Current board:\n"
             + json.dumps(board, ensure_ascii=False)
             + "\nFacts for summaries:\n"
@@ -489,6 +562,7 @@ def _finish(raw: str, body: ChatRequest, user: User, board_id: int) -> dict:
         proposal = {
             "operations": [op.model_dump(mode="json") for op in result.operations],
             "changes": [describe(op, board) for op in result.operations],
+            "items": [describe_item(op, board) for op in result.operations],
             "status": "pending",
         }
 
@@ -516,7 +590,10 @@ def message_key(message_id: int) -> str:
 
 def _shown_proposal(proposal: dict | None) -> dict | None:
     """What the chat panel sees of a proposal: the changes in words and where it stands."""
-    return {"changes": proposal["changes"], "status": proposal["status"]} if proposal else None
+    if not proposal:
+        return None
+    # Proposals stored before items existed only have the Persian sentences.
+    return {"changes": proposal["changes"], "items": proposal.get("items"), "status": proposal["status"]}
 
 
 def _proposal(conn: sqlite3.Connection, user: User, key: str) -> tuple[int, int, dict]:

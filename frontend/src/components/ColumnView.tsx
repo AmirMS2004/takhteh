@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardLabel, Card, Column, Member } from "@/lib/board";
+import { useI18n } from "@/lib/i18n";
 import { CardEditForm, CardItem, type CardChanges } from "./CardItem";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string) => void }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
 
@@ -34,7 +36,8 @@ function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string)
     return (
       <input
         autoFocus
-        aria-label="نام ستون"
+        dir="auto"
+        aria-label={t("column.name")}
         maxLength={200}
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -53,12 +56,13 @@ function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string)
   return (
     <button
       type="button"
-      title="برای تغییر نام کلیک کنید"
+      dir="auto"
+      title={t("column.renameHint")}
       onClick={() => {
         setValue(title);
         setEditing(true);
       }}
-      className="truncate rounded-md px-2 py-1 text-right text-base font-bold text-ink transition hover:bg-surface/70"
+      className="truncate rounded-md px-2 py-1 text-start text-base font-bold text-ink transition hover:bg-surface/70"
     >
       {title}
     </button>
@@ -73,6 +77,7 @@ function AddCardForm({
   members,
   onManageLabels,
 }: Pick<Props, "onAdd" | "labels" | "members" | "onManageLabels">) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -83,7 +88,7 @@ function AddCardForm({
         className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/20 py-2.5 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-surface hover:text-primary"
       >
         <span className="text-lg leading-none">+</span>
-        افزودن کارت
+        {t("column.addCard")}
       </button>
     );
   }
@@ -119,6 +124,7 @@ export function ColumnView({
   // The column is sortable (columns can be reordered) and also the drop target for cards.
   const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging, isOver } =
     useSortable({ id: column.id, data: { type: "column" } });
+  const { t, num } = useI18n();
   const total = column.cardIds.length;
 
   return (
@@ -136,7 +142,7 @@ export function ColumnView({
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          aria-label={`جابه‌جایی ستون ${column.title}`}
+          aria-label={t("column.move", { title: column.title })}
           className="shrink-0 cursor-grab rounded-md p-1 text-gray-text transition hover:bg-surface/70 hover:text-ink active:cursor-grabbing"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden>
@@ -153,11 +159,11 @@ export function ColumnView({
         </div>
         <button
           type="button"
-          aria-label={`حذف ستون ${column.title}`}
+          aria-label={t("column.delete", { title: column.title })}
           onClick={() => {
             const question = total
-              ? `ستون «${column.title}» با ${total.toLocaleString("fa-IR")} کارتش حذف شود؟ این کار برگشت‌پذیر نیست.`
-              : `ستون «${column.title}» حذف شود؟`;
+              ? t("column.confirmDeleteCards", { title: column.title, count: total })
+              : t("column.confirmDelete", { title: column.title });
             if (window.confirm(question)) onDeleteColumn();
           }}
           className="shrink-0 rounded-md p-1 text-gray-text opacity-0 transition group-hover/column:opacity-100 group-focus-within/column:opacity-100 hover:bg-danger-50 hover:text-danger focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
@@ -170,14 +176,14 @@ export function ColumnView({
           data-testid="card-count"
           className="min-w-7 rounded-full bg-surface px-2 py-0.5 text-center text-xs font-semibold text-ink/70 ring-1 ring-line"
         >
-          {cards.length.toLocaleString("fa-IR")}
+          {num(cards.length)}
         </span>
       </header>
       <SortableContext items={column.cardIds} strategy={verticalListSortingStrategy}>
         <ul className="flex min-h-24 flex-1 flex-col gap-2.5 px-3 pb-3">
           {cards.length === 0 && (
             <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-ink/20 px-3 py-6 text-center text-xs text-gray-text">
-              {filtering ? "کارتی با این فیلتر نیست." : "کارتی نیست؛ کارت را اینجا رها کنید."}
+              {filtering ? t("column.emptyFiltered") : t("column.empty")}
             </li>
           )}
           {cards.map((card) => (
@@ -203,11 +209,12 @@ export function ColumnView({
 
 /** What follows the pointer while a column is dragged. */
 export function ColumnPreview({ title, count }: { title: string; count: number }) {
+  const { t } = useI18n();
   return (
     <div className="w-64 rotate-2 rounded-2xl border border-primary/40 bg-mist shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)]">
       <div className="flex items-center justify-between px-5 py-4">
         <span className="font-bold text-ink">{title}</span>
-        <span className="text-xs text-primary">{count.toLocaleString("fa-IR")} کارت</span>
+        <span className="text-xs text-primary">{t("column.cards", { count })}</span>
       </div>
     </div>
   );
@@ -215,6 +222,7 @@ export function ColumnPreview({ title, count }: { title: string; count: number }
 
 /** A ghost column at the end of the board for adding a column. */
 export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const close = () => {
@@ -229,7 +237,7 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
         onClick={() => setOpen(true)}
         className="h-12 w-64 shrink-0 rounded-2xl border border-dashed border-ink/20 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-surface hover:text-primary"
       >
-        + ستون تازه
+        {t("column.new")}
       </button>
     );
   }
@@ -246,8 +254,8 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
     >
       <input
         autoFocus
-        aria-label="نام ستون تازه"
-        placeholder="نام ستون"
+        aria-label={t("column.newName")}
+        placeholder={t("column.name")}
         maxLength={200}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -259,10 +267,10 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
           disabled={!title.trim()}
           className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          افزودن ستون
+          {t("column.add")}
         </button>
         <button type="button" onClick={close} className="rounded-lg px-3 py-2 text-sm text-gray-text transition hover:bg-mist">
-          انصراف
+          {t("common.cancel")}
         </button>
       </div>
     </form>

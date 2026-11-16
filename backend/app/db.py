@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL DEFAULT '',
     email TEXT NOT NULL DEFAULT '',
-    avatar INTEGER NOT NULL DEFAULT 0
+    avatar INTEGER NOT NULL DEFAULT 0,
+    language TEXT NOT NULL DEFAULT 'fa'
 );
 CREATE TABLE IF NOT EXISTS boards (
     id INTEGER PRIMARY KEY,
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS activity (
     summary TEXT NOT NULL,
     card_id INTEGER,
     via TEXT,
+    params TEXT,
     data TEXT,
     restored INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -191,13 +193,20 @@ def _rebuild_boards(conn: sqlite3.Connection) -> None:
     )
 
 
-PROFILE_COLUMNS = {"name": "TEXT NOT NULL DEFAULT ''", "email": "TEXT NOT NULL DEFAULT ''", "avatar": "INTEGER NOT NULL DEFAULT 0"}
+PROFILE_COLUMNS = {
+    "name": "TEXT NOT NULL DEFAULT ''",
+    "email": "TEXT NOT NULL DEFAULT ''",
+    "avatar": "INTEGER NOT NULL DEFAULT 0",
+    "language": "TEXT NOT NULL DEFAULT 'fa'",
+}
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
     """Brings databases from earlier versions up to date; does nothing on a current one."""
     if "user_id" in {row["name"] for row in conn.execute("PRAGMA table_info(boards)")}:
         _rebuild_boards(conn)
+    if "params" not in {row["name"] for row in conn.execute("PRAGMA table_info(activity)")}:
+        conn.execute("ALTER TABLE activity ADD COLUMN params TEXT")
     if "proposal" not in {row["name"] for row in conn.execute("PRAGMA table_info(chat_messages)")}:
         conn.execute("ALTER TABLE chat_messages ADD COLUMN proposal TEXT")
     user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}

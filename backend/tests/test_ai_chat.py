@@ -94,7 +94,11 @@ def test_changes_are_proposed_not_applied(auth_client, model):
     model.reply["operations"] = [op("create_card", column_id=todo, title="نوشتن تست", details="")]
     response = send(auth_client).json()
     assert response["error"] is None
-    assert response["proposal"] == {"changes": ["کارت تازه «نوشتن تست» در «برای انجام»"], "status": "pending"}
+    assert response["proposal"] == {
+        "changes": ["کارت تازه «نوشتن تست» در «برای انجام»"],
+        "items": [{"type": "create_card", "params": {"title": "نوشتن تست", "column": "برای انجام"}}],
+        "status": "pending",
+    }
     assert stored_operations(response["message_id"]) == [op("create_card", column_id=todo, title="نوشتن تست", details="")]
     assert board(auth_client) == before
 

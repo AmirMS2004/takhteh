@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/vazirmatn";
+import { langScript } from "@/lib/i18n";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -13,7 +14,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // The theme script sets class="dark" before React loads, so the server markup differs on purpose.
     <html lang="fa" dir="rtl" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript + langScript }} />
       </head>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>

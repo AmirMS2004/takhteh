@@ -44,6 +44,7 @@ def list_activity(
             "avatar": r["avatar"] or 0,
             "action": r["action"],
             "summary": r["summary"],
+            "params": json.loads(r["params"]) if r["params"] else None,
             "via": r["via"],
             "created_at": r["created_at"],
             "restorable": r["data"] is not None and not r["restored"],
@@ -103,7 +104,10 @@ def restore(conn: sqlite3.Connection, user_id: int, board: str, entry: str) -> N
         order = [i for i in service._card_ids(conn, target) if i != new_id]
         order.insert(min(card["position"], len(order)), new_id)
         service._write_order(conn, target, order)
-        service.log(conn, user_id, board_id, "restore", f"کارت «{card['title']}» را بازگرداند", new_id)
+        service.log(
+            conn, user_id, board_id, "restore_card", f"کارت «{card['title']}» را بازگرداند", new_id,
+            params={"card": card["title"]},
+        )
     elif row["action"] == "delete_column":
         column = data["column"]
         new_column = _insert(conn, "columns", column | {"board_id": board_id})
@@ -111,7 +115,10 @@ def restore(conn: sqlite3.Connection, user_id: int, board: str, entry: str) -> N
         order.insert(min(column["position"], len(order)), new_column)
         service._write_column_order(conn, order)
         _restore_cards(conn, board_id, data, new_column)
-        service.log(conn, user_id, board_id, "restore", f"ستون «{column['title']}» را بازگرداند")
+        service.log(
+            conn, user_id, board_id, "restore_column", f"ستون «{column['title']}» را بازگرداند",
+            params={"column": column["title"]},
+        )
     else:  # delete_label
         label = data["label"]
         new_label = _insert(conn, "labels", label | {"board_id": board_id})
@@ -121,7 +128,10 @@ def restore(conn: sqlite3.Connection, user_id: int, board: str, entry: str) -> N
             ).fetchone()
             if card_board and card_board["board_id"] == board_id:
                 conn.execute("INSERT OR IGNORE INTO card_labels (card_id, label_id) VALUES (?, ?)", (link["card_id"], new_label))
-        service.log(conn, user_id, board_id, "restore", f"برچسب «{service._label_name(label)}» را بازگرداند")
+        service.log(
+            conn, user_id, board_id, "restore_label", f"برچسب «{service._label_name(label)}» را بازگرداند",
+            params={"label": service.label_ref(label)},
+        )
 
     conn.execute("UPDATE activity SET restored = 1 WHERE id = ?", (row["id"],))
     touch(board_id)

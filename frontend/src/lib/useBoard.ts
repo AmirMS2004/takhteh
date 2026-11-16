@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "./api";
 import type { BoardState } from "./board";
+import type { Key } from "./i18n";
 
 /**
  * Board state loaded from the server. Every change goes through `apply`, which also updates a ref
@@ -11,7 +12,8 @@ import type { BoardState } from "./board";
 export function useBoard(boardId: string) {
   const [board, setBoard] = useState<BoardState | null>(null);
   const [failed, setFailed] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  // A message for the user, as a dictionary key.
+  const [notice, setNotice] = useState<Key | null>(null);
   const ref = useRef<BoardState | null>(null);
   // The board was deleted, or the user is no longer on it.
   const [gone, setGone] = useState(false);
@@ -65,7 +67,7 @@ export function useBoard(boardId: string) {
     dismissNotice: () => setNotice(null),
     persist: (call: Promise<unknown>) =>
       call.catch(() => {
-        setNotice("ذخیره تغییر ناموفق بود؛ تخته از سرور دوباره بارگذاری شد.");
+        setNotice("board.saveFailed");
         return reload();
       }),
   };

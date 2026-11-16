@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BoardLabel, LabelColor } from "@/lib/board";
 import { LABEL_COLORS, colorOf, labelTitle } from "@/lib/cardDetails";
+import { useI18n, type Key } from "@/lib/i18n";
 
 type Props = {
   labels: BoardLabel[];
@@ -13,6 +14,9 @@ type Props = {
 };
 
 function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Props, "onUpdate" | "onDelete">) {
+  const i18n = useI18n();
+  const { t } = i18n;
+  const title = labelTitle(label, i18n);
   const [name, setName] = useState(label.name);
   const saveName = () => name.trim() !== label.name && onUpdate(label.id, { name: name.trim() });
 
@@ -20,8 +24,8 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
     <li className="space-y-2 rounded-xl border border-line p-3">
       <div className="flex items-center gap-2">
         <input
-          aria-label={`نام ${labelTitle(label)}`}
-          placeholder="بدون نام"
+          aria-label={t("labels.nameOf", { label: title })}
+          placeholder={t("labels.unnamed")}
           maxLength={30}
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -37,8 +41,8 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
         />
         <button
           type="button"
-          aria-label={`حذف ${labelTitle(label)}`}
-          onClick={() => window.confirm(`${labelTitle(label)} از تخته و همه کارت‌ها حذف شود؟`) && onDelete(label.id)}
+          aria-label={t("labels.delete", { label: title })}
+          onClick={() => window.confirm(t("labels.confirmDelete", { label: title })) && onDelete(label.id)}
           className="rounded-md p-1.5 text-gray-text hover:bg-danger-50 hover:text-danger"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -46,14 +50,14 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
           </svg>
         </button>
       </div>
-      <div className="flex gap-1.5" role="radiogroup" aria-label={`رنگ ${labelTitle(label)}`}>
+      <div className="flex gap-1.5" role="radiogroup" aria-label={t("labels.colorOf", { label: title })}>
         {LABEL_COLORS.map((c) => (
           <button
             key={c.value}
             type="button"
             role="radio"
             aria-checked={label.color === c.value}
-            aria-label={c.name}
+            aria-label={t(`color.${c.value}` as Key)}
             onClick={() => label.color !== c.value && onUpdate(label.id, { color: c.value })}
             className={`h-6 w-6 rounded-full ${c.swatch} ${label.color === c.value ? "ring-2 ring-ink ring-offset-2 ring-offset-surface" : ""}`}
           />
@@ -64,6 +68,7 @@ function LabelRow({ label, onUpdate, onDelete }: { label: BoardLabel } & Pick<Pr
 }
 
 export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: Props) {
+  const { t } = useI18n();
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-navy/30 px-6"
@@ -78,9 +83,9 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
       >
         <div>
           <h2 id="labels-title" className="text-lg font-bold text-ink">
-            برچسب‌های تخته
+            {t("labels.title")}
           </h2>
-          <p className="mt-1 text-xs text-gray-text">نام اختیاری است؛ تغییرها روی همه کارت‌های دارای این برچسب اعمال می‌شود.</p>
+          <p className="mt-1 text-xs text-gray-text">{t("labels.hint")}</p>
         </div>
         <ul className="space-y-2 overflow-y-auto">
           {labels.map((label) => (
@@ -93,7 +98,7 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
             onClick={() => onCreate("green")}
             className="flex-1 rounded-lg border border-dashed border-ink/20 py-2 text-sm font-medium text-primary hover:border-primary hover:bg-primary-50"
           >
-            + برچسب تازه
+            {t("labels.new")}
           </button>
           <button
             type="button"
@@ -101,7 +106,7 @@ export function LabelsDialog({ labels, onCreate, onUpdate, onDelete, onClose }: 
             onClick={onClose}
             className="rounded-lg bg-secondary px-5 py-2 text-sm font-semibold text-white hover:brightness-110"
           >
-            بستن
+            {t("common.close")}
           </button>
         </div>
       </div>

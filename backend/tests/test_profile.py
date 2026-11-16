@@ -11,19 +11,19 @@ def change(client, **fields):
 
 
 def test_profile_starts_empty(auth_client):
-    assert auth_client.get("/api/auth/me").json() == {"username": "user", "name": "", "email": "", "avatar": 0}
+    assert auth_client.get("/api/auth/me").json() == {"username": "user", "name": "", "email": "", "avatar": 0, "language": "fa"}
 
 
 def test_changing_name_email_and_avatar(auth_client):
     response = change(auth_client, name="  امیر  ", email="amir@example.com", avatar=3)
     assert response.status_code == 200
-    assert response.json() == {"username": "user", "name": "امیر", "email": "amir@example.com", "avatar": 3}
+    assert response.json() == {"username": "user", "name": "امیر", "email": "amir@example.com", "avatar": 3, "language": "fa"}
     assert auth_client.get("/api/auth/me").json() == response.json()
 
 
 def test_only_sent_fields_change(auth_client):
     change(auth_client, name="امیر", avatar=2)
-    assert change(auth_client, email="a@b.co").json() == {"username": "user", "name": "امیر", "email": "a@b.co", "avatar": 2}
+    assert change(auth_client, email="a@b.co").json() == {"username": "user", "name": "امیر", "email": "a@b.co", "avatar": 2, "language": "fa"}
     assert change(auth_client, email="").json()["email"] == ""  # empty clears it
 
 

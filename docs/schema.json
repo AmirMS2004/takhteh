@@ -12,9 +12,10 @@
         "password_hash": "TEXT NOT NULL",
         "name": "TEXT NOT NULL DEFAULT ''",
         "email": "TEXT NOT NULL DEFAULT ''",
-        "avatar": "INTEGER NOT NULL DEFAULT 0"
+        "avatar": "INTEGER NOT NULL DEFAULT 0",
+        "language": "TEXT NOT NULL DEFAULT 'fa'"
       },
-      "notes": "name and email are optional (empty). avatar is 0 (first letter of the username) or a preset picture 1..8 drawn by the frontend. The three profile columns are added to older databases at startup."
+      "notes": "name and email are optional (empty). avatar is 0 (first letter of the username) or a preset picture 1..8 drawn by the frontend. The three profile columns are added to older databases at startup. language is the interface language, fa or en."
     },
     "boards": {
       "columns": {
@@ -95,7 +96,7 @@
       "indexes": [
         "idx_chat_messages (board_id, user_id, id)"
       ],
-      "notes": "Each user's conversation with the assistant on a board, oldest first by id. role is user|assistant. Only completed turns are stored. Leaving a board deletes that user's messages on it. proposal (JSON, assistant replies only): operations, changes (Persian descriptions), status pending|applied|rejected|undone; once applied also before (the board's rows before the change) and after (a fingerprint), for undo. Added to older databases at startup."
+      "notes": "Each user's conversation with the assistant on a board, oldest first by id. role is user|assistant. Only completed turns are stored. Leaving a board deletes that user's messages on it. proposal (JSON, assistant replies only): operations, changes (Persian descriptions), status pending|applied|rejected|undone; once applied also before (the board's rows before the change) and after (a fingerprint), for undo. Added to older databases at startup. New proposals also have items: each change as {type, params} for any language."
     },
     "activity": {
       "columns": {
@@ -105,6 +106,7 @@
         "action": "TEXT NOT NULL",
         "summary": "TEXT NOT NULL",
         "card_id": "INTEGER",
+        "params": "TEXT",
         "via": "TEXT",
         "data": "TEXT",
         "restored": "INTEGER NOT NULL DEFAULT 0",
@@ -114,7 +116,7 @@
         "idx_activity (board_id, id)",
         "idx_activity_card (card_id)"
       ],
-      "notes": "Every change to a board with who, a Persian summary and when. via is 'assistant' for applied proposals. Deletions of cards, columns (with their cards) and labels keep the removed rows in data (JSON) so they can be restored once (restored = 1)."
+      "notes": "Every change to a board with who, a Persian summary and when. via is 'assistant' for applied proposals. Deletions of cards, columns (with their cards) and labels keep the removed rows in data (JSON) so they can be restored once (restored = 1). params (JSON) holds the names in the change so the client can word it in any language; summary is the Persian sentence, shown for entries recorded before params existed."
     }
   },
   "api_board_shape": {

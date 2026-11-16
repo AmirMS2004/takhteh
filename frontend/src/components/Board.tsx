@@ -20,6 +20,7 @@ import {
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import * as api from "@/lib/api";
 import type { BoardStore } from "@/lib/useBoard";
+import { useI18n } from "@/lib/i18n";
 import {
   addCard,
   addColumn,
@@ -49,6 +50,8 @@ function position(board: BoardState, cardId: string) {
 
 export function Board({ store }: { store: BoardStore }) {
   const { board, failed, apply, current, persist, notice, dismissNotice } = store;
+  const i18n = useI18n();
+  const { t } = i18n;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [labelsOpen, setLabelsOpen] = useState(false);
   // The latest deletion, offered for restoring for a few seconds.
@@ -70,10 +73,10 @@ export function Board({ store }: { store: BoardStore }) {
   );
 
   if (failed && !board) {
-    return <p className="px-6 text-sm text-danger sm:px-10">بارگذاری تخته ناموفق بود. صفحه را دوباره بارگذاری کنید.</p>;
+    return <p className="px-6 text-sm text-danger sm:px-10">{t("board.loadFailed")}</p>;
   }
   if (!board) {
-    return <p className="px-6 text-sm text-gray-text sm:px-10">در حال بارگذاری…</p>;
+    return <p className="px-6 text-sm text-gray-text sm:px-10">{t("common.loading")}</p>;
   }
 
   const isColumn = (id: string) => current().columns.some((c) => c.id === id);
@@ -181,9 +184,9 @@ export function Board({ store }: { store: BoardStore }) {
     >
       {notice && (
         <div role="alert" className="mx-6 mb-4 flex items-center justify-between gap-3 rounded-xl bg-danger-50 px-4 py-2.5 text-sm text-danger sm:mx-10">
-          {notice}
+          {t(notice)}
           <button type="button" onClick={dismissNotice} className="font-medium hover:underline">
-            بستن
+            {t("common.close")}
           </button>
         </div>
       )}
@@ -205,12 +208,12 @@ export function Board({ store }: { store: BoardStore }) {
             <path d="M3 10.5V4a1 1 0 011-1h6.5L17 9.5 10.5 16 3 10.5z" strokeLinejoin="round" />
             <circle cx="7" cy="7" r="1.2" fill="currentColor" />
           </svg>
-          برچسب‌ها
+          {t("board.labels")}
         </button>
       </div>
       {filtering && (
         <p className="-mt-2 mb-3 px-6 text-xs text-gray-text sm:px-10">
-          تا وقتی فیلتر فعال است، کارت‌ها جابه‌جا نمی‌شوند؛ ویرایش ممکن است.
+          {t("board.dragPaused")}
         </p>
       )}
       <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
@@ -231,7 +234,7 @@ export function Board({ store }: { store: BoardStore }) {
               onDelete={(cardId) => {
                 const title = current().cards[cardId].title;
                 apply(deleteCard(current(), cardId));
-                persist(api.deleteCard(cardId).then(offerRestore(`کارت «${title}» حذف شد.`)));
+                persist(api.deleteCard(cardId).then(offerRestore(t("board.cardDeleted", { title }))));
               }}
               onUpdate={(cardId, changes) => {
                 apply(updateCard(current(), cardId, changes));
@@ -242,7 +245,7 @@ export function Board({ store }: { store: BoardStore }) {
               onManageLabels={() => setLabelsOpen(true)}
               onDeleteColumn={() => {
                 apply(removeColumn(current(), column.id));
-                persist(api.deleteColumn(column.id).then(offerRestore(`ستون «${column.title}» حذف شد.`)));
+                persist(api.deleteColumn(column.id).then(offerRestore(t("board.columnDeleted", { title: column.title }))));
               }}
             />
           ))}
@@ -268,9 +271,9 @@ export function Board({ store }: { store: BoardStore }) {
             }}
             className="rounded-md px-2 py-1 font-semibold text-accent transition hover:bg-white/10"
           >
-            بازگرداندن
+            {t("common.restore")}
           </button>
-          <button type="button" aria-label="بستن" onClick={() => setDeleted(null)} className="rounded-md px-1.5 text-white/60 hover:text-white">
+          <button type="button" aria-label={t("common.close")} onClick={() => setDeleted(null)} className="rounded-md px-1.5 text-white/60 hover:text-white">
             ×
           </button>
         </div>
@@ -290,7 +293,7 @@ export function Board({ store }: { store: BoardStore }) {
           onDelete={(id) => {
             const label = current().labels.find((l) => l.id === id)!;
             apply(removeLabel(current(), id));
-            persist(api.deleteLabel(id).then(offerRestore(`${labelTitle(label)} حذف شد.`)));
+            persist(api.deleteLabel(id).then(offerRestore(t("board.labelDeleted", { label: labelTitle(label, i18n) }))));
           }}
           onClose={() => setLabelsOpen(false)}
         />

@@ -80,6 +80,10 @@ def test_the_history_shows_each_proposal_with_its_changes(auth_client, model):
     assert history[1]["id"].startswith("msg-")
     assert history[1]["proposal"] == {
         "changes": ["حذف کارت «پژوهش رقبا»", "تغییر نام تخته به «نام نو»"],
+        "items": [
+            {"type": "delete_card", "params": {"card": "پژوهش رقبا"}},
+            {"type": "rename_board", "params": {"title": "نام نو"}},
+        ],
         "status": "pending",
     }
 

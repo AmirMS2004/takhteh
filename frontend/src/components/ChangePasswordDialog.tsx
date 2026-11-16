@@ -2,31 +2,29 @@
 
 import { useState } from "react";
 import { ApiError, changePassword } from "@/lib/api";
+import { useI18n, type Key } from "@/lib/i18n";
 import { input } from "./LoginForm";
 
 export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Key | "">("");
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (next.length < 8) return setError("رمز تازه باید دست‌کم ۸ کاراکتر باشد.");
-    if (next !== repeat) return setError("تکرار رمز تازه با آن یکسان نیست.");
+    if (next.length < 8) return setError("pw.newRule");
+    if (next !== repeat) return setError("pw.mismatch");
     setPending(true);
     setError("");
     try {
       await changePassword(current, next);
       setDone(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 403
-          ? "رمز فعلی نادرست است."
-          : "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.",
-      );
+      setError(err instanceof ApiError && err.status === 403 ? "pw.wrongCurrent" : "common.network");
     } finally {
       setPending(false);
     }
@@ -47,13 +45,13 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2">
           <span className="h-5 w-1 rounded-full bg-accent" />
           <h2 id="change-password-title" className="text-lg font-bold text-ink">
-            تغییر رمز عبور
+            {t("pw.title")}
           </h2>
         </div>
         {done ? (
           <>
             <p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700">
-              رمز عبور تغییر کرد.
+              {t("pw.done")}
             </p>
             <button
               type="button"
@@ -61,16 +59,16 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
               onClick={onClose}
               className="w-full rounded-lg bg-secondary py-2.5 text-sm font-semibold text-white hover:brightness-110"
             >
-              بستن
+              {t("common.close")}
             </button>
           </>
         ) : (
           <form onSubmit={submit} className="space-y-3">
             {(
               [
-                ["رمز فعلی", current, setCurrent, "current-password"],
-                ["رمز تازه", next, setNext, "new-password"],
-                ["تکرار رمز تازه", repeat, setRepeat, "new-password"],
+                [t("pw.current"), current, setCurrent, "current-password"],
+                [t("pw.new"), next, setNext, "new-password"],
+                [t("pw.repeat"), repeat, setRepeat, "new-password"],
               ] as const
             ).map(([label, value, set, autoComplete], i) => (
               <label key={label} className="block space-y-1.5">
@@ -89,7 +87,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
             ))}
             {error && (
               <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">
-                {error}
+                {t(error)}
               </p>
             )}
             <div className="flex gap-2 pt-1">
@@ -98,10 +96,10 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
                 disabled={pending || !current || !next || !repeat}
                 className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {pending ? "لطفاً صبر کنید…" : "ذخیره رمز تازه"}
+                {pending ? t("common.wait") : t("pw.save")}
               </button>
               <button type="button" onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm text-gray-text hover:bg-mist">
-                انصراف
+                {t("common.cancel")}
               </button>
             </div>
           </form>

@@ -19,7 +19,7 @@ def test_signup_creates_account_signs_in_and_gives_empty_board(client):
     response = signup(client)
     assert response.status_code == 201
     assert response.json() == {"username": "alice"}
-    assert client.get("/api/auth/me").json() == {"username": "alice", "name": "", "email": "", "avatar": 0}
+    assert client.get("/api/auth/me").json() == {"username": "alice", "name": "", "email": "", "avatar": 0, "language": "fa"}
 
     board = client.get(board_path(client)).json()
     assert [c["title"] for c in board["columns"]] == db.DEFAULT_COLUMNS

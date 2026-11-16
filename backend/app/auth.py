@@ -1,6 +1,6 @@
 import sqlite3
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import AfterValidator, BaseModel, Field
@@ -49,6 +49,7 @@ class ProfileChange(BaseModel):
     # Empty clears the email; otherwise a plain address check (no confirmation mail in the MVP).
     email: Annotated[str, AfterValidator(str.strip), Field(pattern=r"^$|^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)] | None = None
     avatar: Annotated[int, Field(ge=0, le=AVATARS)] | None = None
+    language: Literal["fa", "en"] | None = None
 
 
 class PasswordChange(BaseModel):
@@ -109,7 +110,7 @@ def logout(request: Request) -> dict[str, bool]:
 
 
 def profile(conn: sqlite3.Connection, user_id: int) -> dict:
-    row = conn.execute("SELECT username, name, email, avatar FROM users WHERE id = ?", (user_id,)).fetchone()
+    row = conn.execute("SELECT username, name, email, avatar, language FROM users WHERE id = ?", (user_id,)).fetchone()
     return dict(row)
 
 

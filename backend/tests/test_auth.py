@@ -41,7 +41,7 @@ def test_me_with_session(client):
     login(client)
     response = client.get("/api/auth/me")
     assert response.status_code == 200
-    assert response.json() == {"username": "user", "name": "", "email": "", "avatar": 0}
+    assert response.json() == {"username": "user", "name": "", "email": "", "avatar": 0, "language": "fa"}
 
 
 def test_logout_ends_session(client):

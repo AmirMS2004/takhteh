@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeApi } from "@/test/fakeApi";
+import { makeI18n } from "@/lib/i18n";
 import { timeAgo } from "@/lib/time";
 import Home from "@/app/page";
 
@@ -72,6 +73,6 @@ describe("timeAgo", () => {
     ["2026-11-15 09:00:00", "۳ ساعت پیش"],
     ["2026-11-14 12:00:00", "دیروز"],
   ])("%s -> %s", (utc, text) => {
-    expect(timeAgo(utc, now)).toBe(text);
+    expect(timeAgo(utc, makeI18n("fa"), now)).toBe(text);
   });
 });

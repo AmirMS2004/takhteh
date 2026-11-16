@@ -18,5 +18,3 @@ export function LogoMark({ size = 40 }: { size?: number }) {
     </svg>
   );
 }
-
-export const BRAND = { name: "تخته", tagline: "همه کارها روی یک تخته" } as const;
