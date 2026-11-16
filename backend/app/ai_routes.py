@@ -21,13 +21,13 @@ talks to you in a sidebar.
 
 The current board is given below as JSON: "title"; "columns" in display order, each with "id", "title" and \
 "cardIds" (top to bottom); "cards" keyed by card id, each with "title", "details", "due_date" ("YYYY-MM-DD"), \
-"priority" ("low", "medium" or "high"), "assignee" (the username of a board member) and "labels" (a list of \
-label ids), the first three possibly null; "labels", each with "id", "name" (may be empty) and "color" \
+"priority" ("low", "medium" or "high"), "assignee" (the username of a board member), "labels" (a list of \
+label ids) and "done" (ticked as done), the first three possibly null; "labels", each with "id", "name" (may be empty) and "color" \
 (red, orange, yellow, green, blue or purple); and "members", each with "username" and "role" (owner or member).
 
 You can do anything on this board that the user can, by returning operations:
 - create_card: column_id, title, details (use "" when there are no details), and optionally due_date, priority, assignee, labels
-- update_card: card_id, and any of title, details, due_date, priority, assignee to change (null keeps the current value); "labels" replaces the card's whole label list (null keeps it), so include labels it should keep
+- update_card: card_id, and any of title, details, due_date, priority, assignee, done (true ticks the card as done, false reopens it) to change (null keeps the current value); "labels" replaces the card's whole label list (null keeps it), so include labels it should keep
 - move_card: card_id, column_id, index (0 is the top of the column; null puts it at the bottom)
 - delete_card: card_id
 - create_column: title, and optionally index (its place among the columns; null puts it at the end)
@@ -49,8 +49,8 @@ concrete titles that together cover the original, in the original card's column 
 otherwise, keeping its assignee, due date and labels when they still fit. Keep the original card unless the \
 user asks to replace it.
 
-For a summary or weekly report, use the "facts" below, which the app computed (a week is the last 7 days \
-and the board's last column counts as done): what was done this week, what is new, what is in progress, \
+For a summary or weekly report, use the "facts" below, which the app computed (a week is the last 7 days, \
+and cards in the board's last column or ticked as done count as done): what was done this week, what is new, what is in progress, \
 what is overdue or due soon, the open work per member, and one or two suggestions on what to focus on. \
 Return no operations for a report. Write it entirely in the user's language; do not copy the English \
 keys of the facts.
@@ -79,7 +79,7 @@ OPERATION_TYPES = [
 ]
 OPERATION_FIELDS = [
     "type", "card_id", "column_id", "label_id", "title", "details", "index",
-    "due_date", "priority", "assignee", "labels", "name", "color", "username",
+    "due_date", "priority", "assignee", "labels", "done", "name", "color", "username",
 ]
 
 RESPONSE_FORMAT = {
@@ -111,6 +111,7 @@ RESPONSE_FORMAT = {
                             "priority": {"type": ["string", "null"], "enum": ["low", "medium", "high", None]},
                             "assignee": NULLABLE_STRING,
                             "labels": {"type": ["array", "null"], "items": {"type": "string"}},
+                            "done": {"type": ["boolean", "null"]},
                             "name": NULLABLE_STRING,
                             "color": {
                                 "type": ["string", "null"],
@@ -147,12 +148,13 @@ class Operation(BaseModel):
     priority: Priority | None = None
     assignee: Assignee | None = None
     labels: list[str] | None = None
+    done: bool | None = None
     name: str | None = None
     color: LabelColor | None = None
     username: str | None = None
 
 
-DETAIL_FIELDS = ("due_date", "priority", "assignee", "labels")
+DETAIL_FIELDS = ("due_date", "priority", "assignee", "labels", "done")
 # Errors that mean "this change does not fit the board (any more)".
 CHANGE_ERRORS = (InvalidOperation, service.NotFound, service.Forbidden, service.Conflict)
 
@@ -304,6 +306,7 @@ def describe_item(op: Operation, board: dict) -> dict:
             "priority": op.priority,
             "assignee": op.assignee,
             "labels": [label(k) for k in op.labels] if op.labels is not None else None,
+            "done": op.done,
         }
         return {k: v for k, v in found.items() if v is not None}
 
@@ -378,6 +381,8 @@ def describe(op: Operation, board: dict) -> str:
             parts.append(f"مسئول {op.assignee}")
         if op.labels is not None:
             parts.append("، ".join(label(key) for key in op.labels) if op.labels else "بدون برچسب")
+        if op.done is not None:
+            parts.append("انجام‌شده" if op.done else "باز")
         return parts
 
     t = op.type
@@ -482,7 +487,7 @@ def board_facts(conn: sqlite3.Connection, board_id: int, today: datetime.date) -
         "SELECT id, title FROM columns WHERE board_id = ? ORDER BY position", (board_id,)
     ).fetchall()
     cards = conn.execute(
-        "SELECT k.title, k.column_id, k.due_date, k.created_at, k.moved_at, u.username AS assignee"
+        "SELECT k.title, k.column_id, k.due_date, k.created_at, k.moved_at, k.done_at, u.username AS assignee"
         " FROM cards k JOIN columns c ON c.id = k.column_id LEFT JOIN users u ON u.id = k.assignee_id"
         " WHERE c.board_id = ? ORDER BY c.position, k.position",
         (board_id,),
@@ -490,7 +495,8 @@ def board_facts(conn: sqlite3.Connection, board_id: int, today: datetime.date) -
     week_ago = (today - datetime.timedelta(days=7)).isoformat()
     soon = (today + datetime.timedelta(days=7)).isoformat()
     done = columns[-1]["id"] if columns else None
-    open_cards = [c for c in cards if c["column_id"] != done]
+    finished = [c for c in cards if c["column_id"] == done or c["done_at"]]
+    open_cards = [c for c in cards if c not in finished]
     workload: dict[str, int] = {}
     for c in open_cards:
         workload[c["assignee"] or "(unassigned)"] = workload.get(c["assignee"] or "(unassigned)", 0) + 1
@@ -501,7 +507,7 @@ def board_facts(conn: sqlite3.Connection, board_id: int, today: datetime.date) -
     return {
         "cards_per_column": {col["title"]: sum(c["column_id"] == col["id"] for c in cards) for col in columns},
         "done_column": columns[-1]["title"] if columns else None,
-        "done_this_week": titles(c for c in cards if c["column_id"] == done and (c["moved_at"] or "") >= week_ago),
+        "done_this_week": titles(c for c in finished if (c["done_at"] or c["moved_at"] or "") >= week_ago),
         "created_this_week": titles(c for c in cards if (c["created_at"] or "") >= week_ago),
         "overdue": titles(c for c in open_cards if c["due_date"] and c["due_date"] < today.isoformat()),
         "due_in_next_7_days": titles(

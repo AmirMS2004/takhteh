@@ -112,6 +112,7 @@ FIELD_NAMES = {
     "priority": "اولویت",
     "assignee": "مسئول",
     "labels": "برچسب‌ها",
+    "done": "انجام‌شده",
 }
 FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 COLOR_NAMES = {"red": "قرمز", "orange": "نارنجی", "yellow": "زرد", "green": "سبز", "blue": "آبی", "purple": "بنفش"}
@@ -210,7 +211,7 @@ def _card_dict(row: sqlite3.Row, labels: list[int]) -> dict:
     return (
         {"id": card_key(row["id"])}
         | {field: row[field] for field in EDITABLE}
-        | {"assignee": row["assignee"], "labels": [label_key(i) for i in labels]}
+        | {"assignee": row["assignee"], "labels": [label_key(i) for i in labels], "done": row["done_at"] is not None}
     )
 
 
@@ -249,6 +250,12 @@ def _write_card(conn: sqlite3.Connection, user_id: int, board_id: int, card_id: 
         conn.execute(f"UPDATE cards SET {assignments} WHERE id = ?", (*columns.values(), card_id))
     if "labels" in changes:
         _set_labels(conn, user_id, board_id, card_id, changes["labels"])
+    if "done" in changes:
+        # Ticking a card that is already done keeps the time it was first done.
+        conn.execute(
+            "UPDATE cards SET done_at = CASE WHEN ? THEN COALESCE(done_at, datetime('now')) END WHERE id = ?",
+            (bool(changes["done"]), card_id),
+        )
 
 
 def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dict, board_id: int | None = None) -> dict:
@@ -281,7 +288,13 @@ def update_card(conn: sqlite3.Connection, user_id: int, card: str, changes: dict
     _write_card(conn, user_id, board, row["id"], changes)
     after = _load_card(conn, row["id"])
     fields = [f for f in FIELD_NAMES if before[f] != after[f]]
-    if fields:
+    if fields == ["done"]:
+        action = "complete_card" if after["done"] else "reopen_card"
+        what = "را انجام‌شده علامت زد" if after["done"] else "را دوباره باز کرد"
+        log(conn, user_id, board, action, f"کارت «{after['title']}» {what}", row["id"], params={"card": after["title"]})
+        about = {"card": after["title"], "board": _board_title(conn, board)}
+        notify(conn, _assignee_of(conn, row["id"]), user_id, board, action, about, row["id"])
+    elif fields:
         changed = [FIELD_NAMES[f] for f in fields]
         what = f"کارت «{after['title']}» را ویرایش کرد: {'، '.join(changed)}"
         params = {"card": before["title"], "fields": fields}

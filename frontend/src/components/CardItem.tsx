@@ -14,6 +14,7 @@ type Props = {
   labels: BoardLabel[];
   onDelete?: (id: string) => void;
   onEdit?: () => void;
+  onToggleDone?: () => void;
   overlay?: boolean;
 };
 
@@ -29,15 +30,17 @@ function CardMeta({ card }: { card: Card }) {
   const i18n = useI18n();
   const { t } = i18n;
   const priority = PRIORITIES.find((p) => p.value === card.priority);
-  const overdue = !!card.due_date && card.due_date < today();
+  const overdue = !!card.due_date && !card.done && card.due_date < today();
   if (!priority && !card.due_date && !card.assignee) return null;
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
       {priority && <span className={`rounded-full px-2 py-0.5 ${priority.chip}`}>{priorityName(priority.value, i18n)}</span>}
       {card.due_date && (
         <span
-          title={overdue ? t("card.overdue") : t("card.due")}
-          className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${overdue ? "bg-danger text-white" : "bg-primary-50 text-primary"}`}
+          title={card.done ? t("card.dueDone") : overdue ? t("card.overdue") : t("card.due")}
+          className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${
+            card.done ? "bg-mist text-gray-text line-through" : overdue ? "bg-danger text-white" : "bg-primary-50 text-primary"
+          }`}
         >
           <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <rect x="3" y="4.5" width="14" height="12" rx="2" />
@@ -78,12 +81,13 @@ function CardLabels({ card, labels }: { card: Card; labels: BoardLabel[] }) {
   );
 }
 
-export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
+export function CardView({ card, labels, onDelete, onEdit, onToggleDone, overlay }: Props) {
   const ask = useContext(AskAssistant);
   const i18n = useI18n();
   const { t } = i18n;
   return (
     <div
+      data-done={card.done || undefined}
       className={`group relative rounded-xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(3,33,71,0.06)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(3,33,71,0.35)] ${
         overlay ? "rotate-2 cursor-grabbing shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)] ring-2 ring-primary/40" : "cursor-grab"
       }`}
@@ -91,7 +95,34 @@ export function CardView({ card, labels, onDelete, onEdit, overlay }: Props) {
       <span className="absolute inset-y-3 start-0 w-1 rounded-e-full bg-accent opacity-0 transition-opacity group-hover:opacity-100" />
       <CardLabels card={card} labels={labels} />
       <div className="flex items-start justify-between gap-3">
-        <h3 dir="auto" className="text-[15px] font-semibold leading-6 text-ink">{card.title}</h3>
+        <div className="flex min-w-0 items-start gap-2">
+          {(onToggleDone || overlay) && (
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={!!card.done}
+              aria-label={t("card.done", { title: card.title })}
+              title={card.done ? t("card.markOpen") : t("card.markDone")}
+              onClick={onToggleDone}
+              onPointerDown={(e) => e.stopPropagation()}
+              className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 transition ${
+                card.done
+                  ? "border-label-green bg-label-green text-white"
+                  : "border-line text-transparent hover:border-label-green hover:text-label-green"
+              }`}
+            >
+              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden>
+                <path d="M4.5 10.5l3.5 3.5 7.5-8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          <h3
+            dir="auto"
+            className={`text-[15px] font-semibold leading-6 ${card.done ? "text-gray-text line-through" : "text-ink"}`}
+          >
+            {card.title}
+          </h3>
+        </div>
         <div className="-mt-1 -me-1 flex shrink-0">
           {ask && !overlay && (
             <button
@@ -304,7 +335,7 @@ export function CardItem({
   labels: BoardLabel[];
   members: Member[];
   onDelete: (id: string) => void;
-  onUpdate: (changes: CardChanges) => void;
+  onUpdate: (changes: Partial<CardChanges>) => void;
   onManageLabels: () => void;
   dragDisabled?: boolean;
 }) {
@@ -337,7 +368,13 @@ export function CardItem({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <CardView card={card} labels={labels} onDelete={onDelete} onEdit={() => setEditing(true)} />
+        <CardView
+          card={card}
+          labels={labels}
+          onDelete={onDelete}
+          onEdit={() => setEditing(true)}
+          onToggleDone={() => onUpdate({ done: !card.done })}
+        />
       )}
     </li>
   );

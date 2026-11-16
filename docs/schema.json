@@ -57,12 +57,13 @@
         "priority": "TEXT",
         "assignee_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
         "created_at": "TEXT",
-        "moved_at": "TEXT"
+        "moved_at": "TEXT",
+        "done_at": "TEXT"
       },
       "indexes": [
         "CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position)"
       ],
-      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee_id must be a member of the card's board. These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels. created_at and moved_at (last change of column) are UTC 'YYYY-MM-DD HH:MM:SS', used for the weekly report; NULL for cards from before they existed."
+      "notes": "position is 0..n-1 within a column, rewritten on every insert, move and delete. due_date is 'YYYY-MM-DD'; priority is low|medium|high; assignee_id must be a member of the card's board. These three are optional (NULL) and are added to older databases at startup. Labels are in card_labels. created_at and moved_at (last change of column) are UTC 'YYYY-MM-DD HH:MM:SS', used for the weekly report; NULL for cards from before they existed. done_at is when the card was ticked as done (NULL while it is not); the API shows it as done: true/false. Done cards are left out of due-date notifications, the overdue filter and the open work in the weekly report."
     },
     "labels": {
       "columns": {
@@ -180,7 +181,8 @@
           "assignee": "sara",
           "labels": [
             "label-4"
-          ]
+          ],
+          "done": false
         },
         "card-2": {
           "id": "card-2",

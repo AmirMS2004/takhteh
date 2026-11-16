@@ -112,6 +112,22 @@ test("sets card details and keeps them after reload", async ({ page }) => {
   await expect(saved.getByTitle("سررسید")).toContainText("فروردین");
 });
 
+test("ticks a card as done so its passed due date is not overdue, after reload too", async ({ page }) => {
+  const target = card(page, "حالت تاریک");
+  await target.hover();
+  await target.getByRole("button", { name: "ویرایش حالت تاریک" }).click();
+  await column(page, "backlog").getByLabel("سررسید").fill("2000-01-01");
+  await column(page, "backlog").getByRole("button", { name: "ذخیره" }).click();
+  await expect(card(page, "حالت تاریک").getByTitle("سررسید گذشته")).toBeVisible();
+
+  await card(page, "حالت تاریک").getByRole("checkbox", { name: "انجام‌شده: حالت تاریک" }).click();
+  await reloadAfterSave(page);
+  const saved = card(page, "حالت تاریک");
+  await expect(saved.getByRole("checkbox", { name: "انجام‌شده: حالت تاریک" })).toHaveAttribute("aria-checked", "true");
+  await expect(saved.getByTitle("سررسید گذشته")).toHaveCount(0);
+  await expect(saved.getByTitle("سررسید (کار انجام شده)")).toBeVisible();
+});
+
 test("adds a card with all its details and keeps them after reload", async ({ page }) => {
   const col = column(page, "review");
   await col.getByRole("button", { name: /افزودن کارت/ }).click();

@@ -29,6 +29,7 @@ class CardFields(BaseModel):
     priority: Priority | None = None
     assignee: Assignee | None = None
     labels: list[str] | None = Field(default=None, max_length=20)
+    done: bool | None = None
 
 
 router = APIRouter(prefix="/api", dependencies=[Depends(live.track_changes)])
@@ -55,7 +56,7 @@ class CardUpdate(CardFields):
 
     @model_validator(mode="after")
     def not_null(self):
-        for field in ("title", "labels"):
+        for field in ("title", "labels", "done"):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
         return self

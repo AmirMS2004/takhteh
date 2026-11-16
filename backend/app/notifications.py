@@ -37,12 +37,12 @@ def notify(
 
 def check_due(conn: sqlite3.Connection, user_id: int, today: datetime.date) -> None:
     """Notifies the user once about each of their cards that is due today or tomorrow (`due_soon`) and once
-    when it is overdue. Cards in a board's last column count as done."""
+    when it is overdue. Cards ticked as done or in a board's last column are left out."""
     tomorrow = (today + datetime.timedelta(days=1)).isoformat()
     cards = conn.execute(
         "SELECT k.id, k.title, k.due_date, c.board_id, b.title AS board FROM cards k"
         " JOIN columns c ON c.id = k.column_id JOIN boards b ON b.id = c.board_id"
-        " WHERE k.assignee_id = ? AND k.due_date IS NOT NULL AND k.due_date <= ?"
+        " WHERE k.assignee_id = ? AND k.due_date IS NOT NULL AND k.due_date <= ? AND k.done_at IS NULL"
         " AND c.position < (SELECT MAX(position) FROM columns WHERE board_id = c.board_id)",
         (user_id, tomorrow),
     ).fetchall()

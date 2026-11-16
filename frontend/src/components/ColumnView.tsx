@@ -13,7 +13,7 @@ type Props = {
   onRename: (title: string) => void;
   onAdd: (fields: CardChanges) => void;
   onDelete: (cardId: string) => void;
-  onUpdate: (cardId: string, changes: CardChanges) => void;
+  onUpdate: (cardId: string, changes: Partial<CardChanges>) => void;
   labels: BoardLabel[];
   members: Member[];
   onManageLabels: () => void;

@@ -35,7 +35,8 @@ export function matches(card: Card, f: Filter, labels: BoardLabel[], today: stri
   if (f.labels.length > 0 && !f.labels.some((id) => card.labels?.includes(id))) return false;
   if (f.priority && card.priority !== f.priority) return false;
   if (f.due === "none" && card.due_date) return false;
-  if (f.due === "overdue" && !(card.due_date && card.due_date < today)) return false;
-  if (f.due === "week" && !(card.due_date && card.due_date >= today && card.due_date <= addDays(today, 7))) return false;
+  // A card that is done is no longer due.
+  if (f.due === "overdue" && !(card.due_date && !card.done && card.due_date < today)) return false;
+  if (f.due === "week" && !(card.due_date && !card.done && card.due_date >= today && card.due_date <= addDays(today, 7))) return false;
   return true;
 }

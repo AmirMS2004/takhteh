@@ -45,6 +45,7 @@ describe("search and filters", () => {
     const { user } = await setup((api) => {
       Object.assign(api.state.board.cards.c1, { labels: ["label-4"], priority: "high", due_date: "2000-01-01" });
       Object.assign(api.state.board.cards.c5, { labels: ["label-1"], priority: "low", due_date: "2099-01-01" });
+      Object.assign(api.state.board.cards.c3, { due_date: "2000-01-01", done: true }); // done: not overdue
     });
     await user.click(screen.getByRole("button", { name: "فیلتر برچسب قرمز" }));
     expect(titles()).toEqual(["پژوهش رقبا"]);
@@ -58,7 +59,7 @@ describe("search and filters", () => {
     await user.selectOptions(screen.getByLabelText("فیلتر سررسید"), "overdue");
     expect(titles()).toEqual(["پژوهش رقبا"]);
     await user.selectOptions(screen.getByLabelText("فیلتر سررسید"), "none");
-    expect(titles()).toHaveLength(8);
+    expect(titles()).toHaveLength(7);
   });
 
   it("pauses dragging while filtering but still allows editing", async () => {

@@ -181,6 +181,28 @@ describe("Board", () => {
     expect(within(card).getByTitle("سررسید")).toHaveTextContent(/فروردین ۱۴۷۸/);
   });
 
+  it("ticks a card as done, so its passed due date is no longer overdue, and unticks it", async () => {
+    const { api, user } = await renderBoard();
+    await user.click(screen.getByRole("button", { name: "ویرایش حالت تاریک" }));
+    await user.type(within(column("backlog")).getByLabelText("سررسید"), "2000-01-01");
+    await user.click(screen.getByRole("button", { name: "ذخیره" }));
+    const card = () => screen.getByTestId("card-c2");
+    expect(within(card()).getByTitle("سررسید گذشته")).toBeInTheDocument();
+
+    const box = within(card()).getByRole("checkbox", { name: "انجام‌شده: حالت تاریک" });
+    expect(box).toHaveAttribute("aria-checked", "false");
+    await user.click(box);
+    expect(box).toHaveAttribute("aria-checked", "true");
+    expect(within(card()).queryByTitle("سررسید گذشته")).not.toBeInTheDocument();
+    expect(within(card()).getByTitle("سررسید (کار انجام شده)")).toBeInTheDocument();
+    expect(api.state.board.cards.c2.done).toBe(true);
+    expect(api.calls().at(-1)).toEqual({ route: "PATCH /api/cards/c2", body: { done: true } });
+
+    await user.click(box);
+    expect(box).toHaveAttribute("aria-checked", "false");
+    expect(api.state.board.cards.c2.done).toBe(false);
+  });
+
   it("marks an overdue card and clears details", async () => {
     const { api, user } = await renderBoard();
     await user.click(screen.getByRole("button", { name: "ویرایش حالت تاریک" }));

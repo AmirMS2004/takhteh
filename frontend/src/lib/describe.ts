@@ -22,6 +22,7 @@ function detailParts(p: Params, i18n: I18n): string[] {
     const labels = p.labels as LabelRef[];
     parts.push(labels.length ? labels.map((l) => label(l, i18n)).join(t("common.list")) : t("part.noLabels"));
   }
+  if (p.done !== undefined) parts.push(p.done ? t("part.done") : t("part.open"));
   return parts;
 }
 
@@ -68,7 +69,9 @@ export function describeChange(item: { type: string; params: Params }, i18n: I18
 }
 
 /** Notifications about the user's cards; the others are about a whole board. */
-export const CARD_NOTIFICATIONS = ["assigned", "card_updated", "card_moved", "card_deleted", "due_soon", "overdue"];
+export const CARD_NOTIFICATIONS = [
+  "assigned", "card_updated", "card_moved", "card_deleted", "complete_card", "reopen_card", "due_soon", "overdue",
+];
 
 /** A notification's text, in the user's language. */
 export function describeNotification(

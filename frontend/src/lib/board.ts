@@ -10,6 +10,7 @@ export type Card = {
   priority?: Priority | null;
   labels?: string[];
   assignee?: string | null; // username of a board member
+  done?: boolean; // ticked as done: its due date no longer matters
 };
 export type Column = { id: string; title: string; cardIds: string[] };
 export type Role = "owner" | "member";
