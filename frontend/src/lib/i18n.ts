@@ -296,6 +296,21 @@ const fa = {
   "field.priority": "اولویت",
   "field.assignee": "مسئول",
   "field.labels": "برچسب‌ها",
+  // notifications
+  "notif.title": "اعلان‌ها",
+  "notif.button": "اعلان‌ها",
+  "notif.buttonUnread": "اعلان‌ها ({n} تازه)",
+  "notif.empty": "اعلانی ندارید.",
+  "notif.inBoard": "در «{board}»",
+  "notif.assigned": "{actor} کارت «{card}» را به شما سپرد",
+  "notif.card_updated": "{actor} کارت شما «{card}» را ویرایش کرد: {fields}",
+  "notif.card_moved": "{actor} کارت شما «{card}» را از «{from}» به «{to}» برد",
+  "notif.card_deleted": "{actor} کارت شما «{card}» را حذف کرد",
+  "notif.added_to_board": "{actor} شما را به تخته «{board}» افزود",
+  "notif.removed_from_board": "{actor} شما را از تخته «{board}» حذف کرد",
+  "notif.board_deleted": "{actor} تخته «{board}» را حذف کرد",
+  "notif.due_soon": "سررسید کارت «{card}» نزدیک است ({date})",
+  "notif.overdue": "سررسید کارت «{card}» گذشته است ({date})",
 };
 
 export type Key = keyof typeof fa;
@@ -568,6 +583,20 @@ const en: Record<Key, string> = {
   "field.priority": "priority",
   "field.assignee": "assignee",
   "field.labels": "labels",
+  "notif.title": "Notifications",
+  "notif.button": "Notifications",
+  "notif.buttonUnread": "Notifications ({n} new)",
+  "notif.empty": "No notifications yet.",
+  "notif.inBoard": "in “{board}”",
+  "notif.assigned": "{actor} assigned you the card “{card}”",
+  "notif.card_updated": "{actor} edited your card “{card}”: {fields}",
+  "notif.card_moved": "{actor} moved your card “{card}” from “{from}” to “{to}”",
+  "notif.card_deleted": "{actor} deleted your card “{card}”",
+  "notif.added_to_board": "{actor} added you to the board “{board}”",
+  "notif.removed_from_board": "{actor} removed you from the board “{board}”",
+  "notif.board_deleted": "{actor} deleted the board “{board}”",
+  "notif.due_soon": "The card “{card}” is due soon ({date})",
+  "notif.overdue": "The card “{card}” is overdue ({date})",
 };
 
 const dictionaries: Record<Lang, Record<Key, string>> = { fa, en };

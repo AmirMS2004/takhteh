@@ -9,15 +9,14 @@ export const CLIENT_ID =
 export type LiveStatus = "connecting" | "live" | "offline";
 
 /**
- * Keeps a WebSocket to the board's live channel and calls `onRemoteChange` when someone else (another
- * user or another tab) changes the board. Reconnects with backoff; after a reconnect it calls
- * `onRemoteChange` once, since changes may have been missed while offline.
+ * Keeps a WebSocket to `path` and calls `onMessage` with each event. Reconnects with backoff; after a
+ * reconnect it calls `onReconnect`, since events may have been missed while offline.
  */
-export function useLive(boardId: string, onRemoteChange: () => void): LiveStatus {
+function useSocket(path: string, onMessage: (event: { type: string; origin?: string }) => void, onReconnect: () => void) {
   const [status, setStatus] = useState<LiveStatus>("connecting");
-  const handler = useRef(onRemoteChange);
+  const handlers = useRef({ onMessage, onReconnect });
   useEffect(() => {
-    handler.current = onRemoteChange;
+    handlers.current = { onMessage, onReconnect };
   });
 
   useEffect(() => {
@@ -29,16 +28,15 @@ export function useLive(boardId: string, onRemoteChange: () => void): LiveStatus
 
     const connect = () => {
       const scheme = location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${scheme}://${location.host}/api/boards/${boardId}/live`);
+      ws = new WebSocket(`${scheme}://${location.host}${path}`);
       ws.onopen = () => {
-        if (attempts > 0) handler.current();
+        if (attempts > 0) handlers.current.onReconnect();
         attempts = 0;
         setStatus("live");
       };
       ws.onmessage = (e) => {
         try {
-          const event = JSON.parse(e.data);
-          if (event.type === "board_changed" && event.origin !== CLIENT_ID) handler.current();
+          handlers.current.onMessage(JSON.parse(e.data));
         } catch {}
       };
       ws.onclose = () => {
@@ -54,7 +52,23 @@ export function useLive(boardId: string, onRemoteChange: () => void): LiveStatus
       clearTimeout(retry);
       ws?.close();
     };
-  }, [boardId]);
+  }, [path]);
 
   return status;
+}
+
+/** Calls `onRemoteChange` when someone else (another user or another tab) changes the board. */
+export function useLive(boardId: string, onRemoteChange: () => void): LiveStatus {
+  return useSocket(
+    `/api/boards/${boardId}/live`,
+    (event) => {
+      if (event.type === "board_changed" && event.origin !== CLIENT_ID) onRemoteChange();
+    },
+    onRemoteChange,
+  );
+}
+
+/** Calls `onNew` when the signed-in user may have new notifications. */
+export function useNotificationsLive(onNew: () => void) {
+  useSocket("/api/notifications/live", (event) => event.type === "notifications" && onNew(), onNew);
 }

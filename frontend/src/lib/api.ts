@@ -150,6 +150,28 @@ export async function deleteLabel(labelId: string): Promise<string> {
   return (await request<{ activity: string }>(`/api/labels/${labelId}`, { method: "DELETE" })).activity;
 }
 
+/** Something that concerns the signed-in user (see backend app/notifications.py). */
+export type AppNotification = {
+  id: string;
+  kind: string;
+  params: Record<string, unknown>;
+  actor: string | null;
+  actor_avatar: number;
+  via: string | null;
+  board: string | null;
+  read: boolean;
+  created_at: string; // UTC "YYYY-MM-DD HH:MM:SS"
+};
+
+/** The user's latest notifications (newest first) and the unread count; also makes due-date ones. */
+export function getNotifications(): Promise<{ unread: number; items: AppNotification[] }> {
+  return request("/api/notifications");
+}
+
+export async function markNotificationsRead(): Promise<void> {
+  await request("/api/notifications/read", { method: "POST" });
+}
+
 /** One change in a board's activity log. `via` is "assistant" for applied proposals. */
 export type ActivityEntry = {
   id: string;

@@ -9,6 +9,7 @@ import sqlite3
 from app import db
 from app import changes as change_context
 from app.changes import touch
+from app.notifications import notify
 
 
 class NotFound(Exception):
@@ -145,6 +146,14 @@ def log(
     ).lastrowid
 
 
+def _board_title(conn: sqlite3.Connection, board_id: int) -> str:
+    return conn.execute("SELECT title FROM boards WHERE id = ?", (board_id,)).fetchone()["title"]
+
+
+def _assignee_of(conn: sqlite3.Connection, card_id: int) -> int | None:
+    return conn.execute("SELECT assignee_id FROM cards WHERE id = ?", (card_id,)).fetchone()["assignee_id"]
+
+
 def label_ref(row: sqlite3.Row | dict) -> dict:
     """A label as named in log params and proposals: its name (may be empty) and color."""
     return {"name": row["name"], "color": row["color"]}
@@ -257,6 +266,10 @@ def create_card(conn: sqlite3.Connection, user_id: int, column: str, fields: dic
         conn, user_id, board, "create_card", f"کارت «{fields['title']}» را در «{column_title}» ساخت", card_id,
         params={"card": fields["title"], "column": column_title},
     )
+    notify(
+        conn, _assignee_of(conn, card_id), user_id, board, "assigned",
+        {"card": fields["title"], "board": _board_title(conn, board)}, card_id,
+    )
     touch(board)
     return _load_card(conn, card_id)
 
@@ -276,6 +289,12 @@ def update_card(conn: sqlite3.Connection, user_id: int, card: str, changes: dict
             what = f"کارت «{before['title']}» را ویرایش کرد: {'، '.join(changed)} (عنوان تازه «{after['title']}»)"
             params["title"] = after["title"]
         log(conn, user_id, board, "update_card", what, row["id"], params=params)
+        assignee = _assignee_of(conn, row["id"])
+        about = {"card": after["title"], "board": _board_title(conn, board)}
+        if before["assignee"] != after["assignee"]:
+            notify(conn, assignee, user_id, board, "assigned", about, row["id"])
+        else:
+            notify(conn, assignee, user_id, board, "card_updated", about | {"fields": fields}, row["id"])
     touch(board)
     return after
 
@@ -298,6 +317,10 @@ def move_card(
             conn, user_id, board, "move_card", f"کارت «{row['title']}» را از «{old}» به «{new}» برد", row["id"],
             params={"card": row["title"], "from": old, "to": new},
         )
+        notify(
+            conn, row["assignee_id"], user_id, board, "card_moved",
+            {"card": row["title"], "board": _board_title(conn, board), "from": old, "to": new}, row["id"],
+        )
     touch(board)
 
 
@@ -309,6 +332,10 @@ def delete_card(conn: sqlite3.Connection, user_id: int, card: str) -> int:
     entry = log(
         conn, user_id, board, "delete_card", f"کارت «{row['title']}» را از «{column_title}» حذف کرد", row["id"], kept,
         params={"card": row["title"], "column": column_title},
+    )
+    notify(
+        conn, row["assignee_id"], user_id, board, "card_deleted",
+        {"card": row["title"], "board": _board_title(conn, board)}, row["id"],
     )
     conn.execute("DELETE FROM cards WHERE id = ?", (row["id"],))
     touch(board)
@@ -574,6 +601,9 @@ def rename_board(conn: sqlite3.Connection, user_id: int, board: str, title: str)
 def delete_board(conn: sqlite3.Connection, user_id: int, board: str) -> None:
     """Deletes the board with its columns, cards, labels and memberships (ON DELETE CASCADE)."""
     board_id = _owner_board(conn, user_id, board)
+    title = _board_title(conn, board_id)
+    for (member,) in conn.execute("SELECT user_id FROM board_members WHERE board_id = ?", (board_id,)).fetchall():
+        notify(conn, member, user_id, board_id, "board_deleted", {"board": title})
     conn.execute("DELETE FROM boards WHERE id = ?", (board_id,))
     touch(board_id)  # its clients reload and find it gone
 
@@ -589,6 +619,7 @@ def add_member(conn: sqlite3.Connection, user_id: int, board: str, username: str
         )
         member = username.strip().lower()
         log(conn, user_id, board_id, "add_member", f"{member} را به اعضا افزود", params={"member": member})
+        notify(conn, row["id"], user_id, board_id, "added_to_board", {"board": _board_title(conn, board_id)})
         touch(board_id)
     except sqlite3.IntegrityError:
         raise Conflict(f"{username} is already a member") from None
@@ -614,6 +645,7 @@ def remove_member(conn: sqlite3.Connection, user_id: int, board: str, username: 
         log(conn, user_id, board_id, "leave_board", "از تخته بیرون رفت")
     else:
         log(conn, user_id, board_id, "remove_member", f"{name} را از اعضا حذف کرد", params={"member": name})
+        notify(conn, row["user_id"], user_id, board_id, "removed_from_board", {"board": _board_title(conn, board_id)})
     touch(board_id)
     # Their AI conversation on this board goes too.
     conn.execute("DELETE FROM chat_messages WHERE board_id = ? AND user_id = ?", (board_id, row["user_id"]))

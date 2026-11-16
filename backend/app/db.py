@@ -75,6 +75,22 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 CREATE INDEX IF NOT EXISTS idx_activity ON activity(board_id, id);
 CREATE INDEX IF NOT EXISTS idx_activity_card ON activity(card_id);
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    board_id INTEGER,
+    card_id INTEGER,
+    kind TEXT NOT NULL,
+    params TEXT NOT NULL,
+    via TEXT,
+    due_date TEXT,
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_notifications ON notifications(user_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_due ON notifications(user_id, kind, card_id, due_date)
+    WHERE due_date IS NOT NULL;
 CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY,
     board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,

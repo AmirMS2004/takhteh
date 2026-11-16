@@ -6,13 +6,23 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 _changed: ContextVar[set[int] | None] = ContextVar("changed_boards", default=None)
+_notified: ContextVar[set[int] | None] = ContextVar("notified_users", default=None)
 
 
-def collect() -> set[int]:
-    """Starts collecting for the current request; returns the set that `touch` fills."""
+def collect() -> tuple[set[int], set[int]]:
+    """Starts collecting for the current request; returns the sets that `touch` (boards) and `notify_user`
+    (users with new notifications) fill."""
     changed: set[int] = set()
+    notified: set[int] = set()
     _changed.set(changed)
-    return changed
+    _notified.set(notified)
+    return changed, notified
+
+
+def notify_user(user_id: int) -> None:
+    notified = _notified.get()
+    if notified is not None:
+        notified.add(user_id)
 
 
 def touch(board_id: int) -> None:
@@ -42,7 +52,9 @@ def by_assistant() -> Iterator[None]:
 def quiet() -> Iterator[None]:
     """Writes inside are not announced (e.g. the assistant's dry run, which is rolled back)."""
     token = _changed.set(None)
+    users = _notified.set(None)
     try:
         yield
     finally:
         _changed.reset(token)
+        _notified.reset(users)

@@ -16,7 +16,7 @@ import {
   type BoardState,
   type Card,
 } from "@/lib/board";
-import type { ActivityEntry } from "@/lib/api";
+import type { ActivityEntry, AppNotification } from "@/lib/api";
 import type { Proposal } from "@/lib/proposal";
 
 type Override = { status: number; body?: unknown };
@@ -67,6 +67,7 @@ export function fakeApi({
     // name, email and picture per username; missing means empty
     profiles: {} as Record<string, Partial<{ name: string; email: string; avatar: number; language: "fa" | "en" }>>,
     chats: {} as Record<string, StoredMessage[]>, // the signed-in user's conversation per board
+    notifications: [] as AppNotification[], // newest first
     // Activity log, oldest first. Deletions keep the board as it was, which restoring puts back.
     activity: [] as (ActivityEntry & { boardId: string; card?: string; before?: BoardState })[],
     // Per proposal (by message id): the board it leads to, and the board before it once applied.
@@ -317,6 +318,14 @@ export function fakeApi({
       return json({ ok: true, activity });
     }
 
+    // --- notifications ---
+    if (method === "GET" && path === "/api/notifications")
+      return json({ unread: state.notifications.filter((n) => !n.read).length, items: state.notifications });
+    if (method === "POST" && path === "/api/notifications/read") {
+      state.notifications = state.notifications.map((n) => ({ ...n, read: true }));
+      return json({ ok: true });
+    }
+
     // --- activity ---
     if (method === "GET" && (m = path.match(/^\/api\/boards\/([^/?]+)\/activity(?:\?(.*))?$/))) {
       const query = new URLSearchParams(m[2] ?? "");
@@ -364,10 +373,15 @@ export function fakeApi({
     FakeSocket.open
       .filter((ws) => ws.url.endsWith(`/api/boards/${boardId}/live`))
       .forEach((ws) => ws.onmessage?.({ data: JSON.stringify({ type: "board_changed", board: boardId, origin }) }));
+  /** Notifications channel: tells the user's tabs to look for new notifications. */
+  const pushNotifications = () =>
+    FakeSocket.open
+      .filter((ws) => ws.url.endsWith("/api/notifications/live"))
+      .forEach((ws) => ws.onmessage?.({ data: JSON.stringify({ type: "notifications" }) }));
   /** Live channel: the server drops every connection. */
   const disconnect = () => FakeSocket.open.splice(0).forEach((ws) => ws.onclose?.());
 
-  return { state, fetchMock, calls, announce, disconnect, sockets: () => FakeSocket.open };
+  return { state, fetchMock, calls, announce, disconnect, pushNotifications, sockets: () => FakeSocket.open };
 }
 
 /** Stands in for the browser WebSocket: connects at once; the test drives messages with `announce`. */

@@ -7,6 +7,7 @@ import { Dashboard } from "@/components/Dashboard";
 import { LogoMark } from "@/components/Logo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { LoginForm } from "@/components/LoginForm";
+import { NotificationBell } from "@/components/NotificationBell";
 import { UNAUTHORIZED_EVENT, getMe, logout, updateProfile, type Profile } from "@/lib/api";
 import { I18nContext, applyLang, browserLang, makeI18n, useI18n, type Lang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -103,6 +104,13 @@ function Workspace({
 }) {
   const { t } = useI18n();
   const dashboard = view === "dashboard";
+  // Bumped to remount the boards area, which then opens the board remembered by rememberBoard.
+  const [boardsKey, setBoardsKey] = useState(0);
+  const openBoard = (id: string) => {
+    rememberBoard(id);
+    setBoardsKey((k) => k + 1);
+    onView("board");
+  };
   return (
     <main className="flex min-h-full flex-1 flex-col">
       {/* The app bar is brand navy in both themes; on-bar draws the mark inverted. */}
@@ -156,6 +164,7 @@ function Workspace({
                 {profile.name || profile.username}
               </span>
             </button>
+            <NotificationBell onOpenBoard={openBoard} />
             <LanguageToggle onLanguage={onLanguage} />
             <ThemeToggle />
             <button
@@ -172,13 +181,15 @@ function Workspace({
         <Dashboard
           profile={profile}
           onProfile={onProfile}
-          onOpenBoard={(id) => {
-            rememberBoard(id);
-            onView("board");
-          }}
+          onOpenBoard={openBoard}
         />
       ) : (
-        <BoardsArea username={profile.username} chatOpen={chatOpen} onOpenChat={() => onChat(true)} />
+        <BoardsArea
+          key={boardsKey}
+          username={profile.username}
+          chatOpen={chatOpen}
+          onOpenChat={() => onChat(true)}
+        />
       )}
     </main>
   );

@@ -19,7 +19,10 @@ const boardLoads = (api: ReturnType<typeof fakeApi>) => api.calls().filter((c) =
 describe("live updates", () => {
   it("connects to the open board's live channel and says so", async () => {
     const api = await renderHome();
-    expect(api.sockets().map((ws) => ws.url)).toEqual(["ws://localhost:3000/api/boards/board-1/live"]);
+    expect(api.sockets().map((ws) => ws.url).sort()).toEqual([
+      "ws://localhost:3000/api/boards/board-1/live",
+      "ws://localhost:3000/api/notifications/live",
+    ]);
     await waitFor(() => expect(screen.getByTestId("live-status")).toHaveTextContent("هم‌گام"));
   });
 

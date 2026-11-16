@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import activity, ai_routes, auth, board, db, live
+from app import activity, ai_routes, auth, board, db, live, notifications
 from app.ai import AIRateLimited, AIUnavailable
 from app.board_service import Conflict, Forbidden, NotFound
 
@@ -45,6 +45,7 @@ app.include_router(board.router)
 app.include_router(ai_routes.router)
 app.include_router(live.router)
 app.include_router(activity.router)
+app.include_router(notifications.router)
 
 
 @app.middleware("http")

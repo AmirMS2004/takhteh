@@ -12,6 +12,8 @@ from app import changes, db
 class Hub:
     def __init__(self) -> None:
         self.clients: dict[int, set[WebSocket]] = {}
+        # Per user, for "you have new notifications".
+        self.users: dict[int, set[WebSocket]] = {}
 
     def join(self, board_id: int, ws: WebSocket) -> None:
         self.clients.setdefault(board_id, set()).add(ws)
@@ -28,19 +30,47 @@ class Hub:
                 except Exception:  # the client went away; its own handler cleans up
                     self.leave(board_id, ws)
 
+    async def publish_users(self, user_ids: set[int]) -> None:
+        for user_id in user_ids:
+            for ws in list(self.users.get(user_id, ())):
+                try:
+                    await ws.send_json({"type": "notifications"})
+                except Exception:
+                    self.users.get(user_id, set()).discard(ws)
+
 
 hub = Hub()
 
 
 async def track_changes(request: Request):
     """Router dependency: collects the boards a request changes and, if it succeeds, tells their clients."""
-    changed = changes.collect()
+    changed, notified = changes.collect()
     yield
     if changed:
         await hub.publish(changed, request.headers.get("x-client-id"))
+    if notified:
+        await hub.publish_users(notified)
 
 
 router = APIRouter()
+
+
+@router.websocket("/api/notifications/live")
+async def notifications_live(websocket: WebSocket) -> None:
+    """Tells the signed-in user's tabs when they have new notifications."""
+    user_id = websocket.session.get("user_id")
+    if user_id is None:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    hub.users.setdefault(user_id, set()).add(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        hub.users.get(user_id, set()).discard(websocket)
 
 
 @router.websocket("/api/boards/{board}/live")

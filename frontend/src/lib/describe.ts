@@ -67,6 +67,23 @@ export function describeChange(item: { type: string; params: Params }, i18n: I18
   }
 }
 
+/** Notifications about the user's cards; the others are about a whole board. */
+export const CARD_NOTIFICATIONS = ["assigned", "card_updated", "card_moved", "card_deleted", "due_soon", "overdue"];
+
+/** A notification's text, in the user's language. */
+export function describeNotification(
+  n: { kind: string; params: Params; actor: string | null },
+  i18n: I18n,
+): string {
+  const { t } = i18n;
+  const p = n.params;
+  const values: Record<string, string> = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)]));
+  values.actor = n.actor ?? t("history.removedUser");
+  if (p.fields) values.fields = (p.fields as string[]).map((f) => t(`field.${f}` as Key)).join(t("common.list"));
+  if (p.date) values.date = formatDue(p.date as string, i18n);
+  return t(`notif.${n.kind}` as Key, values);
+}
+
 /** A history entry's text (after the user's name), from its action and params, in the user's language. */
 export function describeActivity(entry: { action: string; params: Params | null; summary: string }, i18n: I18n): string {
   const { t } = i18n;
