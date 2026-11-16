@@ -65,7 +65,7 @@ describe("search and filters", () => {
   it("pauses dragging while filtering but still allows editing", async () => {
     const { api, user } = await setup();
     const card = () => screen.getByTestId("card-c2");
-    expect(card()).toHaveAttribute("aria-roledescription", "sortable");
+    expect(card()).toHaveAttribute("aria-roledescription", "کارت جابه‌جاشدنی");
 
     await user.type(search(), "تاریک");
     expect(card()).not.toHaveAttribute("aria-roledescription");
@@ -79,6 +79,6 @@ describe("search and filters", () => {
     expect(api.state.board.cards.c2.title).toBe("تم تیره");
 
     await user.clear(search());
-    expect(card()).toHaveAttribute("aria-roledescription", "sortable");
+    expect(card()).toHaveAttribute("aria-roledescription", "کارت جابه‌جاشدنی");
   });
 });

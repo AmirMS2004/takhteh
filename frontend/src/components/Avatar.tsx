@@ -37,13 +37,13 @@ export function Avatar({ avatar = 0, username, size = 24 }: { avatar?: number; u
   const p = PRESETS[avatar - 1];
   if (!p)
     return (
+      // The letter is drawn by CSS: decoration, not text next to the name it stands for.
       <span
         aria-hidden
+        data-letter={username[0]}
         style={{ width: size, height: size, fontSize: size * 0.45 }}
-        className="grid shrink-0 place-items-center rounded-[30%] bg-[var(--avatar-letter)] font-bold text-white uppercase"
-      >
-        {username[0]}
-      </span>
+        className="grid shrink-0 place-items-center rounded-[30%] bg-[var(--avatar-letter)] font-bold text-white uppercase before:content-[attr(data-letter)]"
+      />
     );
   return (
     <svg aria-hidden viewBox="0 0 40 40" width={size} height={size} className="shrink-0 rounded-[30%]">

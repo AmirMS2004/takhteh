@@ -48,7 +48,7 @@ export function HistoryDialog({
   };
 
   const tab = (on: boolean) =>
-    `rounded-lg px-3 py-1.5 text-sm font-medium transition ${on ? "bg-primary text-white" : "text-gray-text hover:bg-mist hover:text-ink"}`;
+    `rounded-lg px-3 py-1.5 text-sm font-medium transition ${on ? "bg-primary-strong text-white" : "text-gray-text hover:bg-mist hover:text-ink"}`;
 
   return (
     <Modal title={card ? t("history.titleCard", { title: card.title }) : t("history.title")} onClose={onClose}>
@@ -96,7 +96,7 @@ export function HistoryDialog({
                 <button
                   type="button"
                   onClick={() => restore(e)}
-                  className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary-50"
+                  className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium text-primary-700 transition hover:bg-primary-50"
                 >
                   {t("common.restore")}
                 </button>

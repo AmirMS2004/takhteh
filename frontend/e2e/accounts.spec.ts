@@ -61,9 +61,11 @@ test("edits the profile in the dashboard and keeps it after reload", async ({ pa
   await expect(page.getByRole("status").filter({ hasText: "تغییرات ذخیره شد." })).toBeVisible();
 
   await page.reload();
-  const me = page.getByRole("button", { name: `داشبورد من (${username}_x)` });
+  // The button shows the name, and so does its accessible name.
+  const me = page.getByRole("button", { name: "داشبورد من: کاربر آزمون" });
   await expect(me).toContainText("کاربر آزمون");
   await me.click();
+  await expect(page.getByLabel("نام کاربری", { exact: true })).toHaveValue(`${username}_x`);
   await expect(page.getByLabel("ایمیل")).toHaveValue("e2e@example.com");
   await expect(page.getByRole("button", { name: "عکس ۴" })).toHaveAttribute("aria-pressed", "true");
 

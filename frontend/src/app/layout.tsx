@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/vazirmatn";
-import { langScript } from "@/lib/i18n";
-import { themeScript } from "@/lib/theme";
+import { langScript, themeScript } from "@/lib/headScripts";
 import "./globals.css";
 
 export const metadata: Metadata = {

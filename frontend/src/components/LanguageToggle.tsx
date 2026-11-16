@@ -10,7 +10,7 @@ export function LanguageToggle({ onLanguage, className = "" }: { onLanguage: (la
     <button
       type="button"
       lang={other}
-      aria-label={t("app.switchLanguage")}
+      aria-label={`${t("app.otherLanguage")} (${t("app.switchLanguage")})`}
       title={t("app.switchLanguage")}
       onClick={() => onLanguage(other)}
       className={`rounded-lg px-2 py-1.5 text-xs font-bold transition ${className || "text-white/80 hover:bg-white/10 hover:text-white"}`}

@@ -22,7 +22,7 @@ describe("choosing the language", () => {
     await screen.findByTestId("column-backlog");
     expect(html).toHaveAttribute("dir", "rtl");
 
-    await user.click(screen.getByRole("button", { name: "English" }));
+    await user.click(screen.getByRole("button", { name: "EN (English)" }));
     expect(html).toHaveAttribute("dir", "ltr");
     expect(html).toHaveAttribute("lang", "en");
     expect(localStorage.getItem(LANG_KEY)).toBe("en");
@@ -32,7 +32,7 @@ describe("choosing the language", () => {
     expect(within(screen.getByTestId("column-backlog")).getByTestId("card-count")).toHaveTextContent("3");
     expect(api.state.profiles.user.language).toBe("en");
 
-    await user.click(screen.getByRole("button", { name: "فارسی" }));
+    await user.click(screen.getByRole("button", { name: "فا (فارسی)" }));
     expect(html).toHaveAttribute("dir", "rtl");
     expect(screen.getByRole("heading", { name: "تخته" })).toBeInTheDocument();
     expect(within(screen.getByTestId("column-backlog")).getByTestId("card-count")).toHaveTextContent("۳");
@@ -52,7 +52,7 @@ describe("choosing the language", () => {
     const api = fakeApi({ loggedIn: false });
     const user = userEvent.setup();
     render(<Home />);
-    await user.click(await screen.findByRole("button", { name: "English" }));
+    await user.click(await screen.findByRole("button", { name: "EN (English)" }));
     expect(screen.getByRole("heading", { name: "Sign in to Takhteh" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Sign up" }));
@@ -68,7 +68,7 @@ describe("choosing the language", () => {
     fakeApi({ loggedIn: false });
     const user = userEvent.setup();
     render(<Home />);
-    await user.click(await screen.findByRole("button", { name: "English" }));
+    await user.click(await screen.findByRole("button", { name: "EN (English)" }));
     await user.type(screen.getByLabelText("Username"), "user");
     await user.type(screen.getByLabelText("Password"), "wrong-password");
     await user.click(screen.getByRole("button", { name: "Sign in" }));

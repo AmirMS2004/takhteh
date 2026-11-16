@@ -286,7 +286,7 @@ function Workspace({
           </svg>
           {t("boards.membersAndSettings")}
           {members > 1 && (
-            <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">{num(members)}</span>
+            <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary-700">{num(members)}</span>
           )}
         </button>
         <button
@@ -304,7 +304,7 @@ function Workspace({
         <button
           type="button"
           onClick={onNew}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50"
         >
           {t("boards.newButton")}
         </button>

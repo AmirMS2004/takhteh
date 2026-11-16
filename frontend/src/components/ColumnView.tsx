@@ -121,10 +121,10 @@ export function ColumnView({
   onDeleteColumn,
   filtering = false,
 }: Props) {
+  const { t, num } = useI18n();
   // The column is sortable (columns can be reordered) and also the drop target for cards.
   const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging, isOver } =
-    useSortable({ id: column.id, data: { type: "column" } });
-  const { t, num } = useI18n();
+    useSortable({ id: column.id, data: { type: "column" }, attributes: { roleDescription: t("dnd.column") } });
   const total = column.cardIds.length;
 
   return (
@@ -214,7 +214,7 @@ export function ColumnPreview({ title, count }: { title: string; count: number }
     <div className="w-64 rotate-2 rounded-2xl border border-primary/40 bg-mist shadow-[0_18px_40px_-12px_rgba(3,33,71,0.45)]">
       <div className="flex items-center justify-between px-5 py-4">
         <span className="font-bold text-ink">{title}</span>
-        <span className="text-xs text-primary">{t("column.cards", { count })}</span>
+        <span className="text-xs text-primary-700">{t("column.cards", { count })}</span>
       </div>
     </div>
   );

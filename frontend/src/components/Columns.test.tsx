@@ -67,6 +67,6 @@ describe("columns", () => {
   it("each column has a drag handle", async () => {
     await setup();
     const handle = screen.getByRole("button", { name: "جابه‌جایی ستون ایده‌ها" });
-    expect(handle).toHaveAttribute("aria-roledescription", "sortable");
+    expect(handle).toHaveAttribute("aria-roledescription", "دستگیره جابه‌جایی ستون");
   });
 });

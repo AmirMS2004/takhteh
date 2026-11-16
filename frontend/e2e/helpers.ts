@@ -66,6 +66,6 @@ const COLUMN_INDEX = { backlog: 0, todo: 1, doing: 2, review: 3, done: 4 } as co
 export const column = (page: Page, name: keyof typeof COLUMN_INDEX) =>
   page.getByTestId(/^column-/).nth(COLUMN_INDEX[name]);
 
-// Cards are <li> elements, but dnd-kit gives them role="button", so match the tag, not the role.
+// Cards are <li> elements; match the tag.
 export const card = (page: Page, title: string) =>
   page.locator("li").filter({ has: page.getByRole("heading", { name: title, exact: true }) });

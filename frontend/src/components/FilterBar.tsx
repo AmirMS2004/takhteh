@@ -103,7 +103,7 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
           <button
             type="button"
             onClick={() => onChange(emptyFilter)}
-            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary hover:bg-primary-50"
+            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-50"
           >
             {t("filter.clear")}
           </button>

@@ -1,16 +1,14 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { LANG_KEY } from "./headScripts";
 
 /**
  * The interface languages. Persian is the default; the choice is kept in the user's profile and in this
  * browser (LANG_KEY), which the login page and langScript use before anyone is signed in.
  */
 export type Lang = "fa" | "en";
-export const LANG_KEY = "pm:lang";
-
-/** Runs in <head> before the page paints, so an English page never flashes right-to-left. */
-export const langScript = `try{if(localStorage.getItem("${LANG_KEY}")==="en"){document.documentElement.lang="en";document.documentElement.dir="ltr";document.title="Takhteh"}}catch(e){}`;
+export { LANG_KEY } from "./headScripts";
 
 const fa = {
   // common
@@ -36,7 +34,7 @@ const fa = {
   "app.closeAssistant": "بستن دستیار",
   "app.assistant": "دستیار هوش مصنوعی",
   "app.dashboard": "داشبورد من",
-  "app.dashboardOf": "داشبورد من ({username})",
+  "app.dashboardOf": "داشبورد من: {username}",
   "app.logout": "خروج",
   "app.darkTheme": "تم تاریک",
   "app.lightTheme": "تم روشن",
@@ -143,6 +141,19 @@ const fa = {
   "column.add": "افزودن ستون",
   // cards
   "card.overdue": "سررسید گذشته",
+  "dnd.card": "کارت جابه‌جاشدنی",
+  "dnd.column": "دستگیره جابه‌جایی ستون",
+  "dnd.instructions": "برای برداشتن، Space یا Enter را بزنید. با کلیدهای جهت جابه‌جا کنید، با Space یا Enter بگذارید و با Escape لغو کنید.",
+  "dnd.pickCard": "کارت «{card}» برداشته شد. ستون «{column}»، جای {pos} از {count}.",
+  "dnd.overCard": "کارت «{card}»: ستون «{column}»، جای {pos} از {count}.",
+  "dnd.dropCard": "کارت «{card}» در ستون «{column}»، جای {pos} از {count} گذاشته شد.",
+  "dnd.cancelCard": "جابه‌جایی کارت «{card}» لغو شد و سر جای قبلی ماند.",
+  "dnd.pickColumn": "ستون «{column}» برداشته شد. جای {pos} از {count}.",
+  "dnd.overColumn": "ستون «{column}»: جای {pos} از {count}.",
+  "dnd.dropColumn": "ستون «{column}» در جای {pos} از {count} گذاشته شد.",
+  "dnd.cancelColumn": "جابه‌جایی ستون «{column}» لغو شد و سر جای قبلی ماند.",
+  "dnd.outside": "«{name}» روی جای معتبری نیست.",
+  "dnd.stayed": "«{name}» گذاشته نشد و سر جای قبلی ماند.",
   "card.done": "انجام‌شده: {title}",
   "card.markDone": "علامت انجام‌شده",
   "card.markOpen": "برداشتن علامت انجام‌شده",
@@ -347,7 +358,7 @@ const en: Record<Key, string> = {
   "app.closeAssistant": "Close assistant",
   "app.assistant": "AI assistant",
   "app.dashboard": "My dashboard",
-  "app.dashboardOf": "My dashboard ({username})",
+  "app.dashboardOf": "My dashboard: {username}",
   "app.logout": "Sign out",
   "app.darkTheme": "Dark theme",
   "app.lightTheme": "Light theme",
@@ -447,6 +458,19 @@ const en: Record<Key, string> = {
   "column.newName": "New column name",
   "column.add": "Add column",
   "card.overdue": "Overdue",
+  "dnd.card": "movable card",
+  "dnd.column": "column move handle",
+  "dnd.instructions": "To pick up, press Space or Enter. Move with the arrow keys, press Space or Enter to drop, or Escape to cancel.",
+  "dnd.pickCard": "Picked up the card “{card}”. Column “{column}”, position {pos} of {count}.",
+  "dnd.overCard": "The card “{card}”: column “{column}”, position {pos} of {count}.",
+  "dnd.dropCard": "Dropped the card “{card}” in column “{column}”, position {pos} of {count}.",
+  "dnd.cancelCard": "Moving the card “{card}” was cancelled; it stayed where it was.",
+  "dnd.pickColumn": "Picked up the column “{column}”. Position {pos} of {count}.",
+  "dnd.overColumn": "The column “{column}”: position {pos} of {count}.",
+  "dnd.dropColumn": "Dropped the column “{column}” at position {pos} of {count}.",
+  "dnd.cancelColumn": "Moving the column “{column}” was cancelled; it stayed where it was.",
+  "dnd.outside": "“{name}” is not over a place it can go.",
+  "dnd.stayed": "“{name}” was not dropped; it stayed where it was.",
   "card.done": "Done: {title}",
   "card.markDone": "Mark as done",
   "card.markOpen": "Mark as not done",

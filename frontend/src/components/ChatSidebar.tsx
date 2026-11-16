@@ -151,7 +151,7 @@ export function ChatSidebar({
                 await clearHistory(boardId);
                 setMessages([]);
               }}
-              className="ms-auto rounded-md px-2 py-1 text-xs font-medium text-primary transition hover:bg-primary-50 disabled:opacity-50"
+              className="ms-auto rounded-md px-2 py-1 text-xs font-medium text-primary-700 transition hover:bg-primary-50 disabled:opacity-50"
             >
               {t("chat.new")}
             </button>
@@ -169,7 +169,7 @@ export function ChatSidebar({
                 key={s}
                 type="button"
                 onClick={() => send(s)}
-                className="block w-full rounded-xl border border-line px-3 py-2 text-start text-sm text-primary transition hover:border-primary hover:bg-primary-50"
+                className="block w-full rounded-xl border border-line px-3 py-2 text-start text-sm text-primary-700 transition hover:border-primary hover:bg-primary-50"
               >
                 {s}
               </button>
@@ -183,7 +183,7 @@ export function ChatSidebar({
               data-role={m.role}
               className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
                 m.role === "user"
-                  ? "rounded-es-md bg-primary text-white"
+                  ? "rounded-es-md bg-primary-strong text-white"
                   : m.error
                     ? "rounded-ee-md bg-danger-50 text-danger"
                     : "rounded-ee-md bg-mist text-ink"
@@ -339,7 +339,7 @@ function ProposalBox({
             <button
               type="button"
               onClick={onUndo}
-              className="rounded-md px-2 py-1 font-medium text-primary transition hover:bg-primary-50"
+              className="rounded-md px-2 py-1 font-medium text-primary-700 transition hover:bg-primary-50"
             >
               {t("chat.undo")}
             </button>

@@ -11,7 +11,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test("switches to English, keeps it after reload, and back to Persian", async ({ page }) => {
-  await page.getByRole("button", { name: "English" }).click();
+  await page.getByRole("button", { name: "EN (English)" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
   await expect(page.getByRole("heading", { name: "Takhteh", exact: true })).toBeVisible();
   await expect(column(page, "todo").getByRole("button", { name: /Add a card/ })).toBeVisible();
@@ -23,7 +23,7 @@ test("switches to English, keeps it after reload, and back to Persian", async ({
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   expect((await (await page.request.get("/api/auth/me")).json()).language).toBe("en");
 
-  await page.getByRole("button", { name: "فارسی" }).click();
+  await page.getByRole("button", { name: "فا (فارسی)" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByRole("heading", { name: "تخته", exact: true })).toBeVisible();
 });
@@ -31,7 +31,7 @@ test("switches to English, keeps it after reload, and back to Persian", async ({
 test("history entries follow the chosen language", async ({ page }) => {
   page.on("dialog", (dialog) => dialog.accept());
   await column(page, "review").getByRole("button", { name: "حذف ستون بازبینی" }).click();
-  await page.getByRole("button", { name: "English" }).click();
+  await page.getByRole("button", { name: "EN (English)" }).click();
   await page.getByRole("button", { name: "History" }).click();
   const history = page.getByRole("dialog", { name: "Board history" });
   await expect(history.getByRole("listitem").first()).toContainText("deleted the column “بازبینی” with 1 card");

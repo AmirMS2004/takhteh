@@ -128,7 +128,7 @@ export function LoginForm({ onLogin, onLanguage }: { onLogin: (created: boolean)
         </button>
         <p className="text-center text-sm text-gray-text">
           {isSignup ? t("auth.haveAccount") : t("auth.noAccount")}
-          <button type="button" onClick={switchMode} className="font-medium text-primary hover:underline">
+          <button type="button" onClick={switchMode} className="font-medium text-primary-700 hover:underline">
             {isSignup ? t("auth.toLogin") : t("auth.toSignup")}
           </button>
         </p>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeApi } from "@/test/fakeApi";
 import { useBoard } from "@/lib/useBoard";
@@ -201,6 +201,19 @@ describe("Board", () => {
     await user.click(box);
     expect(box).toHaveAttribute("aria-checked", "false");
     expect(api.state.board.cards.c2.done).toBe(false);
+  });
+
+  it("tells screen readers, in Persian, how to move a card", async () => {
+    await renderBoard();
+    const card = screen.getByTestId("card-c2");
+    expect(card).toHaveAttribute("role", "listitem");
+    expect(card).toHaveAttribute("aria-roledescription", "کارت جابه‌جاشدنی");
+    // dnd-kit renders the instructions just after mounting.
+    await waitFor(() =>
+      expect(document.getElementById(card.getAttribute("aria-describedby")!)).toHaveTextContent(
+        "برای برداشتن، Space یا Enter را بزنید.",
+      ),
+    );
   });
 
   it("marks an overdue card and clears details", async () => {

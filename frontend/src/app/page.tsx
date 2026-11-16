@@ -130,7 +130,7 @@ function Workspace({
               <button
                 type="button"
                 onClick={() => onView("board")}
-                className="rounded-lg bg-primary px-3 py-1.5 font-medium whitespace-nowrap text-white transition hover:brightness-110"
+                className="rounded-lg bg-primary-strong px-3 py-1.5 font-medium whitespace-nowrap text-white transition hover:brightness-110"
               >
                 {t("app.backToBoard")}
               </button>
@@ -140,7 +140,7 @@ function Workspace({
                 aria-pressed={chatOpen}
                 onClick={() => onChat(!chatOpen)}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
-                  chatOpen ? "bg-primary text-white hover:brightness-110" : "bg-white/10 text-white hover:bg-white/15"
+                  chatOpen ? "bg-primary-strong text-white hover:brightness-110" : "bg-white/10 text-white hover:bg-white/15"
                 }`}
               >
                 <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -152,7 +152,7 @@ function Workspace({
             <button
               type="button"
               title={t("app.dashboard")}
-              aria-label={t("app.dashboardOf", { username: profile.username })}
+              aria-label={t("app.dashboardOf", { username: profile.name || profile.username })}
               aria-pressed={dashboard}
               onClick={() => onView("dashboard")}
               className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium transition ${

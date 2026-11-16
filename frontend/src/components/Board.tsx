@@ -10,12 +10,14 @@ import {
   closestCenter,
   closestCorners,
   pointerWithin,
+  rectIntersection,
   useSensor,
   type CollisionDetection,
   useSensors,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import * as api from "@/lib/api";
@@ -37,6 +39,7 @@ import {
   type BoardState,
 } from "@/lib/board";
 import { labelTitle, today } from "@/lib/cardDetails";
+import { dndAccessibility } from "@/lib/dndAnnouncements";
 import { emptyFilter, isActive, matches, type Filter } from "@/lib/filter";
 import { AddColumn, ColumnPreview, ColumnView } from "./ColumnView";
 import { FilterBar } from "./FilterBar";
@@ -69,7 +72,7 @@ export function Board({ store }: { store: BoardStore }) {
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     // On touch screens a swipe scrolls the board; a short press-and-hold starts a drag.
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: (event, args) => keyboardCoordinates(event, args) }),
   );
 
   if (failed && !board) {
@@ -81,8 +84,9 @@ export function Board({ store }: { store: BoardStore }) {
 
   const isColumn = (id: string) => current().columns.some((c) => c.id === id);
 
-  // A dragged column only collides with columns. A dragged card targets the column under the pointer and,
-  // inside it, snaps to the nearest card (or the column itself if it is empty).
+  // A dragged column only collides with columns. A dragged card targets the column under the pointer (with
+  // the keyboard, which has no pointer, the column it overlaps most) and, inside it, snaps to the nearest card
+  // (or the column itself if it is empty).
   const collisionDetection: CollisionDetection = (args) => {
     const b = current();
     if (isColumn(String(args.active.id))) {
@@ -91,7 +95,8 @@ export function Board({ store }: { store: BoardStore }) {
         droppableContainers: args.droppableContainers.filter((c) => isColumn(String(c.id))),
       });
     }
-    const column = pointerWithin(args).find((hit) => b.columns.some((c) => c.id === hit.id));
+    const columns = { ...args, droppableContainers: args.droppableContainers.filter((c) => isColumn(String(c.id))) };
+    const column = args.pointerCoordinates ? pointerWithin(columns)[0] : rectIntersection(columns)[0];
     if (!column) return closestCorners(args);
     const cardIds = findColumn(b, String(column.id))!.cardIds;
     if (cardIds.length === 0) return [column];
@@ -99,6 +104,22 @@ export function Board({ store }: { store: BoardStore }) {
       ...args,
       droppableContainers: args.droppableContainers.filter((c) => cardIds.includes(String(c.id))),
     });
+  };
+
+  // With the keyboard, left and right move a card to the nearest column on that side (dnd-kit's own rule
+  // treats a card a pixel further left in the same column as "to the left"); up and down move it within
+  // its column, and columns move as dnd-kit moves them.
+  const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
+    const { active, collisionRect, droppableRects } = args.context;
+    const side = event.code === "ArrowLeft" ? -1 : event.code === "ArrowRight" ? 1 : 0;
+    if (!side || !active || !collisionRect || isColumn(String(active.id))) return sortableKeyboardCoordinates(event, args);
+    event.preventDefault();
+    const center = collisionRect.left + collisionRect.width / 2;
+    const target = current()
+      .columns.map((c) => droppableRects.get(c.id))
+      .filter((r) => r && (r.left + r.width / 2 - center) * side > r.width / 2)
+      .sort((a, b) => Math.abs(a!.left - center) - Math.abs(b!.left - center))[0];
+    return target ? { x: target.left + (target.width - collisionRect.width) / 2, y: collisionRect.top } : undefined;
   };
 
   const onDragStart = ({ active }: DragStartEvent) => {
@@ -175,6 +196,7 @@ export function Board({ store }: { store: BoardStore }) {
   return (
     <DndContext
       id="kanban-board"
+      accessibility={dndAccessibility(current, i18n)}
       sensors={sensors}
       collisionDetection={collisionDetection}
       onDragStart={onDragStart}

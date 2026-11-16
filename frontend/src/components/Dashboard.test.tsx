@@ -84,7 +84,7 @@ describe("dashboard", () => {
     await user.click(save());
     expect(await screen.findByRole("status")).toBeInTheDocument();
     expect(api.state.username).toBe("amir_1");
-    expect(screen.getByRole("button", { name: "داشبورد من (amir_1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "داشبورد من: amir_1" })).toBeInTheDocument();
   });
 
   it("reports a taken username", async () => {

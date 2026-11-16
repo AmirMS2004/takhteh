@@ -19,7 +19,7 @@
 
   /* Text */
   --color-ink: #032147;
-  --color-gray-text: #888888;
+  --color-gray-text: #666666;
 
   /* Surfaces and neutrals, tinted with navy */
   --color-canvas: #eaf0f7;
@@ -35,6 +35,8 @@
   --color-accent-700: #8a6400;
   --color-primary-50: #e3f2fb;
   --color-primary-700: #136f99;
+  /* Brand blue dark enough for white text, in both themes. */
+  --color-primary-strong: #136f99;
   --color-secondary-50: #f2e9f6;
   --color-secondary-700: #5b2a71;
   --color-danger: #c4413a;

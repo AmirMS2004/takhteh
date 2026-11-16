@@ -39,7 +39,7 @@ function CardMeta({ card }: { card: Card }) {
         <span
           title={card.done ? t("card.dueDone") : overdue ? t("card.overdue") : t("card.due")}
           className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${
-            card.done ? "bg-mist text-gray-text line-through" : overdue ? "bg-danger text-white" : "bg-primary-50 text-primary"
+            card.done ? "bg-mist text-gray-text line-through" : overdue ? "bg-danger text-white" : "bg-primary-50 text-primary-700"
           }`}
         >
           <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -269,7 +269,7 @@ export function CardEditForm({
       <fieldset className="space-y-1">
         <legend className="flex w-full items-center justify-between text-xs text-gray-text">
           {t("card.labels")}
-          <button type="button" onClick={onManageLabels} className="font-medium text-primary hover:underline">
+          <button type="button" onClick={onManageLabels} className="font-medium text-primary-700 hover:underline">
             {t("card.manageLabels")}
           </button>
         </legend>
@@ -305,7 +305,7 @@ export function CardEditForm({
           <button
             type="button"
             onClick={() => showHistory({ id: card.id, title: card.title })}
-            className="ms-auto rounded-lg px-3 py-2 text-sm text-primary transition hover:bg-primary-50"
+            className="ms-auto rounded-lg px-3 py-2 text-sm text-primary-700 transition hover:bg-primary-50"
           >
             {t("card.history")}
           </button>
@@ -340,9 +340,11 @@ export function CardItem({
   dragDisabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
     disabled: editing || dragDisabled,
+    attributes: { role: "listitem", roleDescription: t("dnd.card") },
   });
   return (
     <li

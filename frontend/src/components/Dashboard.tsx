@@ -146,7 +146,7 @@ function ProfileForm({ profile, onProfile }: { profile: Profile; onProfile: (p: 
           <button
             type="button"
             onClick={() => setPasswordOpen(true)}
-            className="rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-primary transition hover:border-primary hover:bg-primary-50"
+            className="rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-primary-700 transition hover:border-primary hover:bg-primary-50"
           >
             {t("dash.changePassword")}
           </button>
@@ -189,7 +189,7 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
                   <span dir="auto" className="truncate font-semibold text-ink">{b.title}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
-                      b.role === "owner" ? "bg-accent/15 text-ink" : "bg-primary/10 text-primary"
+                      b.role === "owner" ? "bg-accent/15 text-ink" : "bg-primary/10 text-primary-700"
                     }`}
                   >
                     {b.role === "owner" ? t("common.owner") : t("common.member")}
@@ -209,7 +209,7 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
                 type="button"
                 aria-label={t("dash.openBoard", { title: b.title })}
                 onClick={() => onOpenBoard(b.id)}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary-50"
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50"
               >
                 {t("dash.open")}
               </button>

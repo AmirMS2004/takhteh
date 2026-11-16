@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeApi } from "@/test/fakeApi";
 import Home from "@/app/page";
-import { THEME_KEY, themeScript } from "./theme";
+import { THEME_KEY, themeScript } from "./headScripts";
 
 const html = document.documentElement;
 
