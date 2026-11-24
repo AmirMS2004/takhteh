@@ -179,3 +179,5 @@ data/
 
 # Next.js export copied in Docker
 backend/static/
+# Local Claude Code settings (dev server launch config)
+.claude/

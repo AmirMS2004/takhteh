@@ -14,11 +14,15 @@ async function violations(page: Page) {
   );
 }
 
-test("the sign-in page has no accessibility violations", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: "ورود" })).toBeVisible();
-  expect.soft(await violations(page)).toEqual([]);
-});
+for (const theme of ["light", "dark"]) {
+  test(`the sign-in page has no accessibility violations (${theme})`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem("pm:theme", t), theme);
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "ورود" })).toBeVisible();
+    await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /^(?!.*dark)/);
+    expect.soft(await violations(page)).toEqual([]);
+  });
+}
 
 for (const theme of ["light", "dark"]) {
   test(`the board, its forms and dialogs have no accessibility violations (${theme})`, async ({ page }) => {

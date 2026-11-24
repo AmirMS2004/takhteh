@@ -59,7 +59,7 @@ export function LoginForm({ onLogin, onLanguage }: { onLogin: (created: boolean)
     // three cards about the app, the middle one the form as the card in progress (the yellow card of the
     // mark), the last one an empty card. Below lg only the name and the form are shown.
     <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
-      <div className="on-bar relative w-full max-w-5xl rounded-[2rem] bg-bar p-5 ring-1 ring-white/10 shadow-[0_30px_60px_-30px_rgba(3,33,71,0.7)] sm:p-8 lg:min-h-[34rem] dark:ring-line">
+      <div className="on-bar relative w-full max-w-md rounded-[2rem] bg-bar p-5 ring-1 ring-white/10 shadow-[0_30px_60px_-30px_rgba(3,33,71,0.7)] sm:p-8 lg:min-h-[34rem] lg:max-w-5xl dark:ring-line">
         <div className="absolute end-4 top-4 sm:end-6 sm:top-6">
           <LanguageToggle onLanguage={onLanguage} />
         </div>
@@ -96,7 +96,7 @@ export function LoginForm({ onLogin, onLanguage }: { onLogin: (created: boolean)
           <div className="space-y-3">
             <form
               onSubmit={submit}
-              className="motion-safe:animate-[settle_250ms_ease-out] overflow-hidden rounded-2xl bg-surface shadow-[0_18px_40px_-20px_rgba(0,0,0,0.5)]"
+              className="motion-safe:animate-[settle_250ms_ease-out] overflow-hidden rounded-2xl bg-surface shadow-[0_18px_40px_-20px_rgba(3,33,71,0.6)]"
             >
               {/* The yellow edge: this card is the work in progress. */}
               <div className="h-1.5 bg-accent" />
