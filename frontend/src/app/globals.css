@@ -79,6 +79,13 @@
   --avatar-letter: #032147;
 }
 .dark,
+/* The sign-in card is set down on the board once, when the page opens (off with reduced motion). */
+@keyframes settle {
+  from {
+    transform: translateY(-10px) rotate(-1deg);
+  }
+}
+
 .on-bar {
   --logo-board: #ffffff;
   --logo-card: #032147;
