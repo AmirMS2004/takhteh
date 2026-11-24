@@ -62,7 +62,7 @@ function ColumnTitle({ title, onRename }: { title: string; onRename: (t: string)
         setValue(title);
         setEditing(true);
       }}
-      className="truncate rounded-md px-2 py-1 text-start text-base font-bold text-ink transition hover:bg-surface/70"
+      className="truncate rounded-md px-2 py-1 text-start text-base font-bold text-white transition hover:bg-white/10"
     >
       {title}
     </button>
@@ -85,7 +85,7 @@ function AddCardForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/20 py-2.5 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-surface hover:text-primary"
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/25 py-2.5 text-sm font-medium text-white/80 transition hover:border-white/50 hover:bg-white/10 hover:text-white"
       >
         <span className="text-lg leading-none">+</span>
         {t("column.addCard")}
@@ -132,8 +132,8 @@ export function ColumnView({
       ref={setNodeRef}
       data-testid={`column-${column.id}`}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`group/column flex w-64 shrink-0 flex-col rounded-2xl border bg-lane transition-colors ${
-        isOver ? "border-primary/40 bg-primary-50/80" : "border-line"
+      className={`group/column flex w-64 shrink-0 flex-col rounded-2xl border transition-colors ${
+        isOver ? "border-primary bg-white/[0.12]" : "border-white/10 bg-white/[0.06]"
       } ${isDragging ? "opacity-40" : ""}`}
     >
       <header className="flex items-center justify-between gap-1 px-3 pt-3 pb-2">
@@ -143,7 +143,7 @@ export function ColumnView({
           {...attributes}
           {...listeners}
           aria-label={t("column.move", { title: column.title })}
-          className="shrink-0 cursor-grab rounded-md p-1 text-gray-text transition hover:bg-surface/70 hover:text-ink active:cursor-grabbing"
+          className="shrink-0 cursor-grab rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white active:cursor-grabbing"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden>
             <circle cx="7" cy="5" r="1.4" />
@@ -166,7 +166,7 @@ export function ColumnView({
               : t("column.confirmDelete", { title: column.title });
             if (window.confirm(question)) onDeleteColumn();
           }}
-          className="shrink-0 rounded-md p-1 text-gray-text opacity-0 transition group-hover/column:opacity-100 group-focus-within/column:opacity-100 hover:bg-danger-50 hover:text-danger focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+          className="shrink-0 rounded-md p-1 text-white/60 opacity-0 transition group-hover/column:opacity-100 group-focus-within/column:opacity-100 hover:bg-danger-strong hover:text-white focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
             <path d="M4 6h12M8 6V4h4v2M6 6l.8 10h6.4L14 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -174,7 +174,7 @@ export function ColumnView({
         </button>
         <span
           data-testid="card-count"
-          className="min-w-7 rounded-full bg-surface px-2 py-0.5 text-center text-xs font-semibold text-ink/70 ring-1 ring-line"
+          className="min-w-7 rounded-full bg-white/10 px-2 py-0.5 text-center text-xs font-semibold text-white ring-1 ring-white/15"
         >
           {num(cards.length)}
         </span>
@@ -182,7 +182,7 @@ export function ColumnView({
       <SortableContext items={column.cardIds} strategy={verticalListSortingStrategy}>
         <ul className="flex min-h-24 flex-1 flex-col gap-2.5 px-3 pb-3">
           {cards.length === 0 && (
-            <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-ink/20 px-3 py-6 text-center text-xs text-gray-text">
+            <li className="grid flex-1 place-items-center rounded-xl border border-dashed border-white/20 px-3 py-6 text-center text-xs text-white/70">
               {filtering ? t("column.emptyFiltered") : t("column.empty")}
             </li>
           )}
@@ -235,7 +235,7 @@ export function AddColumn({ onAdd }: { onAdd: (title: string) => void }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-12 w-64 shrink-0 rounded-2xl border border-dashed border-ink/20 text-sm font-medium text-gray-text transition hover:border-primary hover:bg-surface hover:text-primary"
+        className="h-12 w-64 shrink-0 rounded-2xl border border-dashed border-white/25 text-sm font-medium text-white/80 transition hover:border-white/50 hover:bg-white/10 hover:text-white"
       >
         {t("column.new")}
       </button>

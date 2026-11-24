@@ -80,10 +80,10 @@ export function Board({ store }: { store: BoardStore }) {
   );
 
   if (failed && !board) {
-    return <p className="px-6 text-sm text-danger sm:px-10">{t("board.loadFailed")}</p>;
+    return <p className="w-fit rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger">{t("board.loadFailed")}</p>;
   }
   if (!board) {
-    return <p className="px-6 text-sm text-gray-text sm:px-10">{t("common.loading")}</p>;
+    return <p className="text-sm text-white/70">{t("common.loading")}</p>;
   }
 
   const isColumn = (id: string) => current().columns.some((c) => c.id === id);
@@ -209,7 +209,7 @@ export function Board({ store }: { store: BoardStore }) {
       onDragCancel={onDragCancel}
     >
       {notice && (
-        <div role="alert" className="mx-6 mb-4 flex items-center justify-between gap-3 rounded-xl bg-danger-50 px-4 py-2.5 text-sm text-danger sm:mx-10">
+        <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-danger-50 px-4 py-2.5 text-sm text-danger">
           {t(notice)}
           <button type="button" onClick={dismissNotice} className="font-medium hover:underline">
             {t("common.close")}
@@ -217,7 +217,7 @@ export function Board({ store }: { store: BoardStore }) {
         </div>
       )}
       {/* Search and filters first; the labels button follows them, wrapping together on narrow screens. */}
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2 px-6 sm:px-10">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
         <FilterBar
           filter={filter}
           onChange={setFilter}
@@ -238,12 +238,12 @@ export function Board({ store }: { store: BoardStore }) {
         </button>
       </div>
       {filtering && (
-        <p className="-mt-2 mb-3 px-6 text-xs text-gray-text sm:px-10">
+        <p className="-mt-2 mb-3 text-xs text-white/70">
           {t("board.dragPaused")}
         </p>
       )}
       <OpenCard value={setOpenCard}>
-        <div className="flex gap-4 overflow-x-auto px-6 pb-6 sm:px-10">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
             {board.columns.map((column) => (
               <ColumnView

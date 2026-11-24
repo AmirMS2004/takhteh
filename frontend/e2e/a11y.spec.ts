@@ -77,3 +77,19 @@ test("a card can be moved with the keyboard, with each step announced in Persian
   await page.reload();
   await expect(column(page, "todo").getByText("حالت تاریک")).toBeVisible();
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`my tasks, drawn as a board, has no accessibility violations (${theme})`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem("pm:theme", t), theme);
+    await freshBoard(page);
+    const board = (await (await page.request.get("/api/boards")).json())[0];
+    const full = await (await page.request.get(`/api/boards/${board.id}`)).json();
+    const [first, second, third] = full.columns[0].cardIds;
+    await page.request.patch(`/api/cards/${first}`, { data: { assignee: "user", due_date: "2000-01-01", priority: "high" } });
+    await page.request.patch(`/api/cards/${second}`, { data: { assignee: "user", priority: "low" } });
+    await page.request.patch(`/api/cards/${third}`, { data: { assignee: "user", due_date: "2099-01-01" } });
+    await page.getByRole("button", { name: "کارهای من" }).click();
+    await expect(page.getByRole("region", { name: /سررسید گذشته/ })).toBeVisible();
+    expect.soft(await violations(page)).toEqual([]);
+  });
+}

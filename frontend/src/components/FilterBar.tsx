@@ -60,7 +60,7 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
               title={labelTitle(l, i18n)}
               onClick={() => toggleLabel(l.id)}
               className={`flex h-6 min-w-6 items-center rounded px-1.5 text-[11px] font-semibold transition ${colorOf(l.color).pill} ${
-                on ? "ring-2 ring-ink ring-offset-1 ring-offset-surface" : "opacity-35 hover:opacity-70"
+                on ? "ring-2 ring-white ring-offset-2 ring-offset-bar" : "opacity-60 hover:opacity-90"
               }`}
             >
               {l.name}
@@ -97,13 +97,13 @@ export function FilterBar({ filter, onChange, labels, shown, total }: Props) {
 
       {isActive(filter) && (
         <>
-          <span role="status" className="text-sm text-gray-text">
+          <span role="status" className="text-sm text-white/75">
             {t("filter.shown", { shown, total })}
           </span>
           <button
             type="button"
             onClick={() => onChange(emptyFilter)}
-            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-50"
+            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-white hover:bg-white/10"
           >
             {t("filter.clear")}
           </button>

@@ -181,35 +181,36 @@ function BoardList({ onOpenBoard }: { onOpenBoard: (id: string) => void }) {
       ) : boards.length === 0 ? (
         <p className="text-sm text-gray-text">{t("dash.noBoards")}</p>
       ) : (
-        <ul className="space-y-2">
+        // Each board is drawn as a small board: its name, role and counts on navy, and a bar for the
+        // share of its cards that are yours.
+        <ul className="grid gap-3 sm:grid-cols-2">
           {boards.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-mist px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span dir="auto" className="truncate font-semibold text-ink">{b.title}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      b.role === "owner" ? "bg-accent/15 text-ink" : "bg-primary/10 text-primary-700"
-                    }`}
-                  >
-                    {b.role === "owner" ? t("common.owner") : t("common.member")}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-text">
-                  {b.role === "member" && (
-                    <>
-                      {t("dash.ownerIs")}
-                      <span dir="ltr">{b.owner}</span> ·{" "}
-                    </>
-                  )}
-                  {t("dash.counts", { members: b.members, cards: b.cards, mine: b.my_cards })}
-                </p>
+            <li key={b.id} className="flex flex-col gap-3 rounded-2xl bg-bar p-4 text-white ring-1 ring-white/10 dark:ring-line">
+              <div className="flex items-start gap-2">
+                <span dir="auto" className="min-w-0 flex-1 truncate font-bold">
+                  {b.title}
+                </span>
+                <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-xs">
+                  {b.role === "owner" ? t("common.owner") : t("common.member")}
+                </span>
+              </div>
+              <p className="text-xs text-white/75">
+                {b.role === "member" && (
+                  <>
+                    {t("dash.ownerIs")}
+                    <span dir="ltr">{b.owner}</span> ·{" "}
+                  </>
+                )}
+                {t("dash.counts", { members: b.members, cards: b.cards, mine: b.my_cards })}
+              </p>
+              <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-white/15">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${b.cards ? (b.my_cards / b.cards) * 100 : 0}%` }} />
               </div>
               <button
                 type="button"
                 aria-label={t("dash.openBoard", { title: b.title })}
                 onClick={() => onOpenBoard(b.id)}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50"
+                className="self-start rounded-lg bg-surface px-3 py-1.5 text-sm font-semibold text-ink transition hover:bg-mist"
               >
                 {t("dash.open")}
               </button>
@@ -233,7 +234,7 @@ export function Dashboard({
 }) {
   const { t } = useI18n();
   return (
-    <div className="space-y-6 px-6 pb-10 sm:px-10">
+    <div className="space-y-6 px-4 pb-10 sm:px-8">
       <div>
         <div className="flex items-center gap-2">
           <span className="h-6 w-1 rounded-full bg-accent" />

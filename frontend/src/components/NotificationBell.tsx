@@ -68,7 +68,7 @@ export function NotificationBell({ onOpenBoard }: { onOpenBoard: (boardId: strin
         aria-label={unread ? t("notif.buttonUnread", { n: unread }) : t("notif.button")}
         title={t("notif.title")}
         onClick={toggle}
-        className="relative rounded-lg p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+        className="relative rounded-lg p-2 text-ink/75 transition hover:bg-mist hover:text-ink"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M10 3a4.5 4.5 0 00-4.5 4.5c0 4-1.5 5.5-1.5 5.5h12s-1.5-1.5-1.5-5.5A4.5 4.5 0 0010 3zM8.5 16a1.5 1.5 0 003 0" strokeLinejoin="round" />

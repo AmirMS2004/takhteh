@@ -40,7 +40,7 @@ export function MyTasks({ onOpenBoard }: { onOpenBoard: (boardId: string) => voi
 
   const day = today();
   return (
-    <div className="space-y-6 px-6 pb-10 sm:px-10">
+    <div className="space-y-6 px-4 pb-10 sm:px-8">
       <div className="flex items-center gap-2">
         <span className="h-6 w-1 rounded-full bg-accent" />
         <h1 className="text-2xl font-black text-ink">{t("tasks.title")}</h1>
@@ -58,70 +58,78 @@ export function MyTasks({ onOpenBoard }: { onOpenBoard: (boardId: string) => voi
           {t("tasks.empty")}
         </p>
       )}
-      {cards &&
-        groups(cards, day).map((group) => (
-          <section key={group.key} aria-labelledby={group.key} className="space-y-2">
-            <h2
-              id={group.key}
-              className={`text-sm font-bold ${group.key === "tasks.overdue" ? "text-danger" : "text-ink"}`}
-            >
-              {t(group.key)} <span className="font-normal text-gray-text">({num(group.cards.length)})</span>
-            </h2>
-            <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-              {group.cards.map((card) => {
-                const priority = PRIORITIES.find((p) => p.value === card.priority);
-                return (
-                  <li key={card.id} className="flex items-center gap-3 px-4 py-3">
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={false}
-                      aria-label={t("card.done", { title: card.title })}
-                      title={t("card.markDone")}
-                      onClick={() => complete(card)}
-                      className="grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 border-line text-transparent transition hover:border-label-green hover:text-label-green"
-                    >
-                      <svg
-                        viewBox="0 0 20 20"
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.6"
-                        aria-hidden
-                      >
-                        <path d="M4.5 10.5l3.5 3.5 7.5-8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                    <button type="button" onClick={() => onOpenBoard(card.board)} className="min-w-0 flex-1 text-start">
-                      <span dir="auto" className="block truncate text-sm font-semibold text-ink hover:text-primary-700">
-                        {card.title}
-                      </span>
-                      <span className="block truncate text-xs text-gray-text">
-                        <span dir="auto">{card.board_title}</span> · <span dir="auto">{card.column}</span>
-                      </span>
-                    </button>
-                    {priority && (
-                      <span
-                        className={`hidden rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline ${priority.chip}`}
-                      >
-                        {priorityName(priority.value, i18n)}
-                      </span>
-                    )}
-                    {card.due_date && (
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          card.due_date < day ? "bg-danger text-white" : "bg-primary-50 text-primary-700"
-                        }`}
-                      >
-                        {formatDue(card.due_date, i18n)}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+      {cards && cards.length > 0 && (
+        // The tasks are a board too: one column per group, one card per task.
+        <div className="board-frame rounded-[2rem] bg-bar p-4 ring-1 ring-white/10 sm:p-6 dark:ring-line">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:overflow-x-auto lg:pb-2">
+            {groups(cards, day).map((group) => (
+              <section
+                key={group.key}
+                aria-labelledby={group.key}
+                className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 lg:w-72 lg:shrink-0"
+              >
+                <h2 id={group.key} className="mb-3 flex items-center gap-2 px-1 font-bold text-white">
+                  {group.key === "tasks.overdue" && <span aria-hidden className="h-2 w-2 rounded-full bg-danger" />}
+                  {t(group.key)}
+                  <span className="ms-auto min-w-7 rounded-full bg-white/10 px-2 py-0.5 text-center text-xs font-semibold ring-1 ring-white/15">
+                    {num(group.cards.length)}
+                  </span>
+                </h2>
+                <ul className="space-y-2.5">
+                  {group.cards.map((card) => {
+                    const priority = PRIORITIES.find((p) => p.value === card.priority);
+                    return (
+                      <li key={card.id} className="flex items-start gap-2.5 rounded-xl bg-surface p-3.5">
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={false}
+                          aria-label={t("card.done", { title: card.title })}
+                          title={t("card.markDone")}
+                          onClick={() => complete(card)}
+                          className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 border-line text-transparent transition hover:border-label-green hover:text-label-green"
+                        >
+                          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden>
+                            <path d="M4.5 10.5l3.5 3.5 7.5-8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <button type="button" onClick={() => onOpenBoard(card.board)} className="block w-full text-start">
+                            <span dir="auto" className="block text-[15px] leading-6 font-semibold text-ink hover:text-primary-700">
+                              {card.title}
+                            </span>
+                            <span className="block truncate text-xs text-gray-text">
+                              <span dir="auto">{card.board_title}</span> · <span dir="auto">{card.column}</span>
+                            </span>
+                          </button>
+                          {(priority || card.due_date) && (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+                              {priority && (
+                                <span className={`rounded-full px-2 py-0.5 ${priority.chip}`}>
+                                  {priorityName(priority.value, i18n)}
+                                </span>
+                              )}
+                              {card.due_date && (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 ${
+                                    card.due_date < day ? "bg-danger-strong text-white" : "bg-primary-50 text-primary-700"
+                                  }`}
+                                >
+                                  {formatDue(card.due_date, i18n)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

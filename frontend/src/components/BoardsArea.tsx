@@ -297,77 +297,79 @@ function Workspace({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-2 px-6 sm:px-10">
-        <select
-          aria-label={t("boards.select")}
-          value={boardId}
-          onChange={(e) => onSelect(e.target.value)}
-          className="max-w-64 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
-        >
-          {boards.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.role === "owner" ? b.title : t("boards.fromOwner", { title: b.title, owner: b.owner })}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          disabled={!store.board}
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <circle cx="7.5" cy="7" r="2.5" />
-            <path d="M2.5 16c.5-2.8 2.5-4.5 5-4.5s4.5 1.7 5 4.5M13 4.8a2.5 2.5 0 010 4.4M15 11.8c1.4.6 2.3 2 2.5 4.2" strokeLinecap="round" />
-          </svg>
-          {t("boards.membersAndSettings")}
-          {members > 1 && (
-            <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary-700">{num(members)}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setHistory({})}
-          disabled={!store.board}
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M3.5 10a6.5 6.5 0 106.5-6.5A6.5 6.5 0 004.8 6M3.5 3.5V6.5h3" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M10 6.5V10l2.5 1.5" strokeLinecap="round" />
-          </svg>
-          {t("boards.history")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setArchiveOpen(true)}
-          disabled={!store.board}
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <rect x="2.5" y="3.5" width="15" height="4" rx="1" />
-            <path d="M4 7.5V16h12V7.5M8 11h4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {t("archive.button")}
-        </button>
-        <button
-          type="button"
-          onClick={onNew}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50"
-        >
-          {t("boards.newButton")}
-        </button>
-        <div className="ms-auto flex items-center gap-3">
-          <p className="hidden text-xs text-gray-text xl:block">{t("boards.hint")}</p>
-          <LiveBadge status={live} />
-        </div>
-        {/* Tells screen readers when the board changed because of someone else. */}
-        <p aria-live="polite" className="sr-only">
-          {updates > 0 ? t("boards.updated", { n: updates }) : ""}
-        </p>
-      </div>
+      <div className="flex flex-1 flex-col gap-6 px-4 pb-8 sm:px-8 lg:flex-row lg:items-start">
+        {/* The board is drawn like the mark: a navy board, its columns and white cards. No transform or
+            filter here: the drag preview is position: fixed. */}
+        <div className="board-frame min-w-0 flex-1 rounded-[2rem] bg-bar p-4 ring-1 ring-white/10 sm:p-6 dark:ring-line">
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <select
+              aria-label={t("boards.select")}
+              value={boardId}
+              onChange={(e) => onSelect(e.target.value)}
+              className="max-w-64 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+            >
+              {boards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.role === "owner" ? b.title : t("boards.fromOwner", { title: b.title, owner: b.owner })}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              disabled={!store.board}
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <circle cx="7.5" cy="7" r="2.5" />
+                <path d="M2.5 16c.5-2.8 2.5-4.5 5-4.5s4.5 1.7 5 4.5M13 4.8a2.5 2.5 0 010 4.4M15 11.8c1.4.6 2.3 2 2.5 4.2" strokeLinecap="round" />
+              </svg>
+              {t("boards.membersAndSettings")}
+              {members > 1 && (
+                <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary-700">{num(members)}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistory({})}
+              disabled={!store.board}
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <path d="M3.5 10a6.5 6.5 0 106.5-6.5A6.5 6.5 0 004.8 6M3.5 3.5V6.5h3" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 6.5V10l2.5 1.5" strokeLinecap="round" />
+              </svg>
+              {t("boards.history")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setArchiveOpen(true)}
+              disabled={!store.board}
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition hover:border-primary hover:text-primary"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <rect x="2.5" y="3.5" width="15" height="4" rx="1" />
+                <path d="M4 7.5V16h12V7.5M8 11h4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {t("archive.button")}
+            </button>
+            <button
+              type="button"
+              onClick={onNew}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-white/85 transition hover:bg-white/10 hover:text-white"
+            >
+              {t("boards.newButton")}
+            </button>
+            <div className="ms-auto flex items-center gap-3">
+              <p className="hidden text-xs text-white/70 xl:block">{t("boards.hint")}</p>
+              <LiveBadge status={live} />
+            </div>
+            {/* Tells screen readers when the board changed because of someone else. */}
+            <p aria-live="polite" className="sr-only">
+              {updates > 0 ? t("boards.updated", { n: updates }) : ""}
+            </p>
+          </div>
 
-      <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1">
           <AskAssistant value={ask}>
             <ShowHistory value={(card) => setHistory({ card })}>
               <Board store={store} />
@@ -375,7 +377,7 @@ function Workspace({
           </AskAssistant>
         </div>
         {/* Hidden rather than unmounted, so the conversation survives closing the panel. */}
-        <div hidden={!chatOpen} className="px-6 sm:px-10 lg:ps-0 lg:pe-6">
+        <div hidden={!chatOpen}>
           <ChatSidebar ref={chat} boardId={boardId} board={store.board} onBoard={store.apply} />
         </div>
       </div>

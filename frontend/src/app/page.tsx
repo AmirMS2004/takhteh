@@ -116,8 +116,8 @@ function Workspace({
   };
   return (
     <main className="flex min-h-full flex-1 flex-col">
-      {/* The app bar is brand navy in both themes; on-bar draws the mark inverted. */}
-      <header className="on-bar sticky top-0 z-30 mb-6 border-b border-white/10 bg-bar text-white shadow-[0_8px_24px_-16px_rgba(3,33,71,0.6)]">
+      {/* The app bar is light paper; the navy is kept for the boards themselves. */}
+      <header className="sticky top-0 z-30 mb-6 border-b border-line bg-surface/90 text-ink backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-3 sm:px-10">
           <div className="flex items-center gap-2.5">
             <LogoMark size={36} />
@@ -143,7 +143,7 @@ function Workspace({
                 aria-pressed={chatOpen}
                 onClick={() => onChat(!chatOpen)}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
-                  chatOpen ? "bg-primary-strong text-white hover:brightness-110" : "bg-white/10 text-white hover:bg-white/15"
+                  chatOpen ? "bg-primary-strong text-white hover:brightness-110" : "bg-mist text-ink hover:bg-line"
                 }`}
               >
                 <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -157,7 +157,7 @@ function Workspace({
               aria-pressed={tasks}
               onClick={() => onView("tasks")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium whitespace-nowrap transition ${
-                tasks ? "bg-white/15 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
+                tasks ? "bg-mist text-ink" : "text-ink/75 hover:bg-mist hover:text-ink"
               }`}
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -172,7 +172,7 @@ function Workspace({
               aria-pressed={dashboard}
               onClick={() => onView("dashboard")}
               className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium transition ${
-                dashboard ? "bg-white/15 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
+                dashboard ? "bg-mist text-ink" : "text-ink/75 hover:bg-mist hover:text-ink"
               }`}
             >
               <Avatar avatar={profile.avatar} username={profile.username} />
@@ -186,7 +186,7 @@ function Workspace({
             <button
               type="button"
               onClick={onSignOut}
-              className="rounded-lg border border-white/25 px-3 py-1.5 font-medium text-white transition hover:bg-white/10"
+              className="rounded-lg border border-line px-3 py-1.5 font-medium text-ink transition hover:bg-mist"
             >
               {t("app.logout")}
             </button>
@@ -223,7 +223,7 @@ function ThemeToggle() {
       aria-pressed={dark}
       title={dark ? t("app.lightTheme") : t("app.darkTheme")}
       onClick={toggle}
-      className="rounded-lg p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+      className="rounded-lg p-2 text-ink/75 transition hover:bg-mist hover:text-ink"
     >
       {dark ? (
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>

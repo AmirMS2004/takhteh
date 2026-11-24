@@ -63,7 +63,7 @@ function CardMeta({ card }: { card: Card }) {
         <span
           title={card.done ? t("card.dueDone") : overdue ? t("card.overdue") : t("card.due")}
           className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${
-            card.done ? "bg-mist text-gray-text line-through" : overdue ? "bg-danger text-white" : "bg-primary-50 text-primary-700"
+            card.done ? "bg-mist text-gray-text line-through" : overdue ? "bg-danger-strong text-white" : "bg-primary-50 text-primary-700"
           }`}
         >
           <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -148,7 +148,9 @@ export function CardView({ card, labels, onDelete, onEdit, onToggleDone, overlay
             {card.title}
           </h3>
         </div>
-        <div className="-mt-1 -me-1 flex shrink-0">
+        {/* The actions float over the card's corner on hover or focus, so the title keeps the full width;
+            touch screens have no hover, so there they stay in place and always show. */}
+        <div className="absolute end-2 top-2 flex shrink-0 rounded-lg bg-surface opacity-0 shadow-[0_4px_12px_-4px_rgba(3,33,71,0.3)] transition group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:static [@media(hover:none)]:-mt-1 [@media(hover:none)]:-me-1 [@media(hover:none)]:opacity-100 [@media(hover:none)]:shadow-none">
           {ask && !overlay && (
             <button
               type="button"

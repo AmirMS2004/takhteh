@@ -61,7 +61,7 @@ export function LoginForm({ onLogin, onLanguage }: { onLogin: (created: boolean)
     <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
       <div className="on-bar relative w-full max-w-md rounded-[2rem] bg-bar p-5 ring-1 ring-white/10 shadow-[0_30px_60px_-30px_rgba(3,33,71,0.7)] sm:p-8 lg:min-h-[34rem] lg:max-w-5xl dark:ring-line">
         <div className="absolute end-4 top-4 sm:end-6 sm:top-6">
-          <LanguageToggle onLanguage={onLanguage} />
+          <LanguageToggle onLanguage={onLanguage} className="text-white/80 hover:bg-white/10 hover:text-white" />
         </div>
         <div className="grid gap-5 lg:grid-cols-3 lg:gap-6">
           <div className="space-y-6">
