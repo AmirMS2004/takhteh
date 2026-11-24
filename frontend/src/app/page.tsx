@@ -128,7 +128,7 @@ function Workspace({
               <h1 className="text-2xl font-black tracking-tight">{t("brand.name")}</h1>
             )}
           </div>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center justify-end gap-1.5 text-sm sm:gap-2">
             {dashboard || tasks ? (
               <button
                 type="button"
@@ -149,7 +149,8 @@ function Workspace({
                 <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                   <path d="M4 5h12v8H8l-4 3V5z" strokeLinejoin="round" />
                 </svg>
-                {chatOpen ? t("app.closeAssistant") : t("app.assistant")}
+                {/* Icon only on phones; the text stays for screen readers. */}
+                <span className="sr-only sm:not-sr-only">{chatOpen ? t("app.closeAssistant") : t("app.assistant")}</span>
               </button>
             )}
             <button
@@ -163,7 +164,7 @@ function Workspace({
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <path d="M8 5.5h9M8 10h9M8 14.5h9M3 5.5l1 1 2-2M3 10l1 1 2-2M3 14.5l1 1 2-2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              {t("tasks.button")}
+              <span className="sr-only sm:not-sr-only">{t("tasks.button")}</span>
             </button>
             <button
               type="button"

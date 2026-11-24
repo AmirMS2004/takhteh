@@ -243,7 +243,7 @@ export function Board({ store }: { store: BoardStore }) {
         </p>
       )}
       <OpenCard value={setOpenCard}>
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="on-board-scroll flex gap-4 overflow-x-auto pb-2">
           <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
             {board.columns.map((column) => (
               <ColumnView

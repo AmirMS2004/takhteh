@@ -60,8 +60,8 @@ export function MyTasks({ onOpenBoard }: { onOpenBoard: (boardId: string) => voi
       )}
       {cards && cards.length > 0 && (
         // The tasks are a board too: one column per group, one card per task.
-        <div className="board-frame rounded-[2rem] bg-bar p-4 ring-1 ring-white/10 sm:p-6 dark:ring-line">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:overflow-x-auto lg:pb-2">
+        <div className="rounded-[2rem] bg-bar p-4 ring-1 ring-white/10 sm:p-6 dark:ring-line">
+          <div className="on-board-scroll flex flex-col gap-4 lg:flex-row lg:items-start lg:overflow-x-auto lg:pb-2">
             {groups(cards, day).map((group) => (
               <section
                 key={group.key}

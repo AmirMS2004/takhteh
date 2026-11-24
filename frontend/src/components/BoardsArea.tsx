@@ -300,7 +300,7 @@ function Workspace({
       <div className="flex flex-1 flex-col gap-6 px-4 pb-8 sm:px-8 lg:flex-row lg:items-start">
         {/* The board is drawn like the mark: a navy board, its columns and white cards. No transform or
             filter here: the drag preview is position: fixed. */}
-        <div className="board-frame min-w-0 flex-1 rounded-[2rem] bg-bar p-4 ring-1 ring-white/10 sm:p-6 dark:ring-line">
+        <div className="min-w-0 flex-1 rounded-[2rem] bg-bar p-4 ring-1 ring-white/10 sm:p-6 dark:ring-line">
           <div className="mb-5 flex flex-wrap items-center gap-2">
             <select
               aria-label={t("boards.select")}

@@ -81,13 +81,6 @@
   --avatar-letter: #032147;
 }
 .dark,
-/* The sign-in card is set down on the board once, when the page opens (off with reduced motion). */
-@keyframes settle {
-  from {
-    transform: translateY(-10px) rotate(-1deg);
-  }
-}
-
 .on-bar {
   --logo-board: #ffffff;
   --logo-card: #032147;
@@ -135,12 +128,6 @@ body {
 .dark {
   --scroll-thumb: rgb(232 238 247 / 0.24);
 }
-/* On a navy board the light theme's navy thumb would vanish. */
-.board-frame {
-  --scroll-thumb: rgb(255 255 255 / 0.3);
-  --scroll-thumb-hover: rgb(255 255 255 / 0.55);
-}
-
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -165,6 +152,17 @@ body {
     scrollbar-width: thin;
     scrollbar-color: var(--scroll-thumb) transparent;
   }
+  .on-board-scroll {
+    scrollbar-color: rgb(255 255 255 / 0.3) transparent;
+  }
+}
+/* A scroller drawn on a navy board: a light thumb, set on the scroller itself so the paper inside it (cards,
+   fields, dialogs) keeps the normal one. */
+.on-board-scroll::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.3);
+}
+.on-board-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.55);
 }
 
 ::selection {
@@ -174,4 +172,11 @@ body {
 
 :focus-visible {
   outline-color: var(--color-primary);
+}
+
+/* The sign-in card is set down on the board once, when the page opens (off with reduced motion). */
+@keyframes settle {
+  from {
+    transform: translateY(-10px) rotate(-1deg);
+  }
 }
